@@ -136,12 +136,12 @@ END
         my $s5 = $obj->stringify;
         $self->assert_equals($s4, $s5);
 
-        $self->assert_equals(3, $obj->{defaults}->{VERBOSITY});
-        $self->assert_equals(1, $obj->{defaults}->{VERBOSITY} = 1);
-        $self->assert_equals(1, $obj->{defaults}->{VERBOSITY});
+        $self->assert_equals(3, $obj->{defaults}->{verbosity});
+        $self->assert_equals(1, $obj->{defaults}->{verbosity} = 1);
+        $self->assert_equals(1, $obj->{defaults}->{verbosity});
         $self->assert_equals("Stringify\n", $obj->stringify);
-        $self->assert_not_null(Exception->DEFAULTS->{VERBOSITY});
-        $self->assert_equals(3, $obj->{defaults}->{VERBOSITY} = Exception->DEFAULTS->{VERBOSITY});
+        $self->assert_not_null(Exception->FIELDS->{verbosity}->{default});
+        $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception->FIELDS->{verbosity}->{default});
         $self->assert_equals(1, $obj->{verbosity} = 1);
         $self->assert_equals("Stringify\n", $obj->stringify);
 
@@ -471,15 +471,19 @@ sub test_Exception_import {
         eval 'try eval { throw Exception; }; catch my $e, ["Exception"];';
         $self->assert_not_null($@);
 
-        eval 'import Exception qw[try catch];';
+        eval 'Exception->import(qw[try catch]);';
         eval 'try eval { throw Exception; }; catch my $e, ["Exception"];';
         $self->assert_equals('', "$@");
 
-        eval 'unimport Exception qw[try];';
+        eval 'Exception->unimport(qw[notsuchfunction]);';
+        eval 'try eval { throw Exception; }; catch my $e, ["Exception"];';
+        $self->assert_equals('', "$@");
+
+        eval 'Exception->unimport(qw[try]);';
         eval 'try eval { throw Exception; };';
         $self->assert(qr/^syntax error/, "$@");
 
-        eval 'unimport Exception;';
+        eval 'Exception->unimport();';
         eval 'catch my $e, ["Exception"];';
         $self->assert(qr/^syntax error/, "$@");
 
@@ -553,7 +557,7 @@ sub test_Exception__caller_info {
     $self->assert_equals('Package1::func1()', ${$obj->_caller_info(1)}{sub_name});
     $self->assert_equals('Package2::func2(1)', ${$obj->_caller_info(2)}{sub_name});
     $self->assert_equals('Package3::func3(1, 2, 3, 4, 5, 6, 7, 8)', ${$obj->_caller_info(3)}{sub_name});
-    $obj->{defaults}->{MAX_ARG_NUMS} = 5;
+    $obj->{defaults}->{max_arg_nums} = 5;
     $self->assert_equals('Package3::func3(1, 2, 3, 4, ...)', ${$obj->_caller_info(3)}{sub_name});
     $obj->{max_arg_nums} = 10;
     $self->assert_equals('Package3::func3(1, 2, 3, 4, 5, 6, 7, 8)', ${$obj->_caller_info(3)}{sub_name});
@@ -563,8 +567,8 @@ sub test_Exception__caller_info {
     $self->assert_equals('Package3::func3(...)', ${$obj->_caller_info(3)}{sub_name});
     $obj->{max_arg_nums} = 2;
     $self->assert_equals('Package3::func3(1, ...)', ${$obj->_caller_info(3)}{sub_name});
-    $self->assert_not_null($obj->DEFAULTS->{MAX_ARG_NUMS});
-    $self->assert_equals($obj->DEFAULTS->{MAX_ARG_NUMS}, $obj->{defaults}->{MAX_ARG_NUMS} = $obj->DEFAULTS->{MAX_ARG_NUMS});
+    $self->assert_not_null($obj->FIELDS->{max_arg_nums}->{default});
+    $self->assert_equals($obj->FIELDS->{max_arg_nums}->{default}, $obj->{defaults}->{max_arg_nums} = $obj->FIELDS->{max_arg_nums}->{default});
 }
 
 sub test_Exception__get_subname {
@@ -575,14 +579,14 @@ sub test_Exception__get_subname {
     $self->assert_equals("eval 'evaltext'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
     $self->assert_equals("require evaltext", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext', is_require=>1}));
     $self->assert_equals("eval 'eval\\\\\\\'text'", $obj->_get_subname({sub=>'sub', evaltext=>'eval\\\'text'}));
-    $obj->{defaults}->{MAX_EVAL_LEN} = 5;
+    $obj->{defaults}->{max_eval_len} = 5;
     $self->assert_equals("eval 'ev...'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
     $obj->{max_eval_len} = 10;
     $self->assert_equals("eval 'evaltext'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
     $obj->{max_eval_len} = 0;
     $self->assert_equals("eval 'evaltext'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
-    $self->assert_not_null($obj->DEFAULTS->{MAX_EVAL_LEN});
-    $self->assert_equals($obj->DEFAULTS->{MAX_EVAL_LEN}, $obj->{defaults}->{MAX_EVAL_LEN} = $obj->DEFAULTS->{MAX_EVAL_LEN});
+    $self->assert_not_null($obj->FIELDS->{max_eval_len}->{default});
+    $self->assert_equals($obj->FIELDS->{max_eval_len}->{default}, $obj->{defaults}->{max_eval_len} = $obj->FIELDS->{max_eval_len}->{default});
 }
 
 sub test_Exception__format_arg {
@@ -605,14 +609,14 @@ sub test_Exception__format_arg {
     $self->assert(qw/^HASH/, $obj->_format_arg({}));
     $self->assert(qw/^ExceptionTest=/, $obj->_format_arg($self));
     $self->assert(qw/^Exception=/, $obj->_format_arg($obj));
-    $obj->{defaults}->{MAX_ARG_LEN} = 5;
+    $obj->{defaults}->{max_arg_len} = 5;
     $self->assert_equals('12...', $obj->_format_arg('123456789'));
     $obj->{max_arg_len} = 10;
     $self->assert_equals('123456789', $obj->_format_arg('123456789'));
     $obj->{max_arg_len} = 0;
     $self->assert_equals('123456789', $obj->_format_arg('123456789'));
-    $self->assert_not_null($obj->DEFAULTS->{MAX_ARG_LEN});
-    $self->assert_equals($obj->DEFAULTS->{MAX_ARG_LEN}, $obj->{defaults}->{MAX_ARG_LEN} = $obj->DEFAULTS->{MAX_ARG_LEN});
+    $self->assert_not_null($obj->FIELDS->{max_arg_len}->{default});
+    $self->assert_equals($obj->FIELDS->{max_arg_len}->{default}, $obj->{defaults}->{max_arg_len} = $obj->FIELDS->{max_arg_len}->{default});
 }
 
 sub test_Exception__str_len_trim {

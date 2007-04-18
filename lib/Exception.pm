@@ -17,10 +17,11 @@ Exception - Lightweight exceptions
 
   # try / catch
   try Exception eval {
-    do_something() or throw Exception::FileNotFound 'Something wrong';
+    do_something() or throw Exception::FileNotFound
+                                message=>'Something wrong', tag=>'something';
   };
   if (catch Exception my $e) {
-    # $e is an exception object for sure
+    # $e is an exception object for sure, no need to check if is blessed
     if ($e->isa('Exception::IO') { warn "IO problem"; }
     elsif ($e->isa('Exception::Die') { warn "eval died"; }
     elsif ($e->isa('Exception::Warn') { warn "some warn was caught"; }
@@ -37,8 +38,10 @@ Exception - Lightweight exceptions
   @v = try Exception [eval { do_something_returning_array(); }];
 
   # use syntactic sugar
-  use Exception qw(try catch);
-  try eval { throw Exception; };
+  use Exception qw[try catch];
+  try eval {
+    throw Exception;
+  };    # don't forget about semicolon
   catch my $e, ['Exception::IO'];
 
 =head1 DESCRIPTION
@@ -47,7 +50,8 @@ This class implements a fully OO exception mechanism similar to
 Exception::Class or Class::Throwable.  It does not depend on other modules
 like Exception::Class and it is more powerful than Class::Throwable.  Also it
 does not use closures as Error and does not polute namespace as
-Exception::Class::TryCatch.
+Exception::Class::TryCatch.  It is also much faster than Class::Throwable and
+Exception::Class.
 
 The features of Exception:
 
@@ -100,7 +104,7 @@ creating automatically the derived exception classes ("use" interface)
 
 =item *
 
-easly expendable, see Exception::System class
+easly expendable, see Exception::System class for example
 
 =back
 
@@ -121,39 +125,23 @@ our @EXPORT_OK = qw(try catch);
 use overload q|""| => "_stringify", fallback => 1;
 
 
-# List of class fields (name => ro|rw)
-sub FIELDS () {
-    {
-        message      => 'rw',
-        caller_stack => 'ro',
-        egid         => 'ro',
-        euid         => 'ro',
-        gid          => 'ro',
-        pid          => 'ro',
-        tid          => 'ro',
-        properties   => 'ro',
-        time         => 'ro',
-        uid          => 'ro',
-        verbosity    => 'rw',
-        max_arg_len  => 'rw',
-        max_arg_nums => 'rw',
-        max_eval_len => 'rw',
-    };
-}
-my %FIELDS = %{ FIELDS() };
-
-
-# List of package defaults (NAME => value)
-sub DEFAULTS () {
-    {
-        VERBOSITY    => 3,
-        MESSAGE      => 'Unknown exception',
-        MAX_ARG_LEN  => 64,
-        MAX_ARG_NUMS => 8,
-        MAX_EVAL_LEN => 0,
-    };
-}
-my %DEFAULTS = %{ DEFAULTS() };
+# List of class fields (name => {is=>ro|rw, default=>value})
+use constant FIELDS => {
+    message      => { is => 'rw', default => 'Unknown exception' },
+    caller_stack => { is => 'ro' },
+    egid         => { is => 'ro' },
+    euid         => { is => 'ro' },
+    gid          => { is => 'ro' },
+    pid          => { is => 'ro' },
+    tid          => { is => 'ro' },
+    properties   => { is => 'ro' },
+    time         => { is => 'ro' },
+    uid          => { is => 'ro' },
+    verbosity    => { is => 'rw', default => 3 },
+    max_arg_len  => { is => 'rw', default => 64 },
+    max_arg_nums => { is => 'rw', default => 8 },
+    max_eval_len => { is => 'rw', default => 0 },
+};
 
 
 # Exception stack for try/catch blocks
@@ -231,13 +219,14 @@ sub new {
     my $class = shift;
     $class = ref $class if ref $class;
 
+    my %fields = %{ $class->FIELDS };
     my $self = {};
 
     # If the attribute is rw, initialize its value. Otherwise: properties.
     my %args = @_;
     $self->{properties} = {};
     foreach my $key (keys %args) {
-        if (defined $FIELDS{$key} and $FIELDS{$key} eq 'rw') {
+        if (defined $fields{$key} and $fields{$key}{is} eq 'rw') {
             $self->{$key} = $args{$key};
         }
         else {
@@ -245,7 +234,7 @@ sub new {
         }
     }
 
-    $self->{defaults} = { %DEFAULTS };
+    $self->{defaults} = { map { $_ => $fields{$_}{default} } grep { defined $fields{$_}{default} } (keys %fields) };
 
     return bless $self => $class;
 }
@@ -275,9 +264,9 @@ sub stringify {
     my $verbosity = shift;
     my $message = shift;
 
-    $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{VERBOSITY}
+    $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity}
         if not defined $verbosity;
-    $message = defined $self->{message} ? $self->{message} : $self->{defaults}->{MESSAGE}
+    $message = defined $self->{message} ? $self->{message} : $self->{defaults}->{message}
         if not defined $message;
 
     my $string;
@@ -442,7 +431,7 @@ sub _collect_system_data {
     $self->{gid}   = $(;
     $self->{egid}  = $);
 
-    my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{VERBOSITY};
+    my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
     # Collect stack info only if verbosity is meaning
     if ($verbosity > 1) {
         my @caller_stack;
@@ -503,7 +492,7 @@ sub _caller_info {
     my $sub_name = $self->_get_subname(\%call_info);
     if ($call_info{has_args}) {
         my @args = map {$self->_format_arg($_)} @call_info[8..$#call_info];
-        my $max_arg_nums = defined $self->{max_arg_nums} ? $self->{max_arg_nums} : $self->{defaults}->{MAX_ARG_NUMS};
+        my $max_arg_nums = defined $self->{max_arg_nums} ? $self->{max_arg_nums} : $self->{defaults}->{max_arg_nums};
         if ($max_arg_nums > 0 and $#args+1 > $max_arg_nums) {
             $#args = $max_arg_nums - 2;
             push @args, '...';
@@ -532,7 +521,7 @@ sub _get_subname {
             $eval =~ s/([\\\'])/\\$1/g;
             return
                 "eval '" .
-                $self->_str_len_trim($eval, defined $self->{max_eval_len} ? $self->{max_eval_len} : $self->{defaults}->{MAX_EVAL_LEN}) .
+                $self->_str_len_trim($eval, defined $self->{max_eval_len} ? $self->{max_eval_len} : $self->{defaults}->{max_eval_len}) .
                 "'";
         }
     }
@@ -553,7 +542,7 @@ sub _format_arg {
     $arg =~ s/\\/\\\\/g;
     $arg =~ s/"/\\"/g;
     $arg =~ s/`/\\`/g;
-    $arg = $self->_str_len_trim($arg, defined $self->{max_arg_len} ? $self->{max_arg_len} : $self->{defaults}->{MAX_ARG_LEN});
+    $arg = $self->_str_len_trim($arg, defined $self->{max_arg_len} ? $self->{max_arg_len} : $self->{defaults}->{max_arg_len});
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
@@ -586,12 +575,6 @@ sub _str_len_trim {
 }
 
 
-# Universal method for __blessed(). Stolen from Scalar::Util
-sub UNIVERSAL::Exception__a_sub_not_likely_to_be_here {
-    return ref($_[0]);
-}
-
-
 # Check if scalar is blessed. This is function, not a method!
 eval "use Scalar::Util 'blessed';";
 if (defined &Scalar::Util::blessed) {
@@ -601,6 +584,12 @@ if (defined &Scalar::Util::blessed) {
 else {
     eval << 'END';
 
+    # Universal method for __blessed(). Stolen from Scalar::Util
+    sub UNIVERSAL::Exception__a_sub_not_likely_to_be_here {
+        return ref($_[0]);
+    }
+
+    # Pure Perl implementation of blessed function. Stolen from Scalar::Util
     sub __blessed ($) {
         local($@, $SIG{__DIE__}, $SIG{__WARN__});
         return length(ref($_[0]))
@@ -615,26 +604,28 @@ END
 
 =head1 IMPORTS
 
-=head2 qw(catch try)
+=over
 
-Exports the catch and try functions to the caller namespace.
+=item use Exception qw[catch try];
 
-  use Exception qw(catch try);
+Exports the B<catch> and B<try> functions to the caller namespace.
+
+  use Exception qw[catch try];
   try eval { throw Exception; };
   if (catch my $e) { warn "$e"; }
 
-=head2 I<Exception>
+=item use Exception qw[I<Exception>];
 
 Creates the exception class automatically at compile time.  The newly created
 class will be based on Exception class.
 
-  use Exception qw(Exception::Custom);
+  use Exception qw[Exception::Custom];
   throw Exception::Custom;
 
-=head2 I<Exception> => { isa => I<BaseException>, version => I<version> }
+=item use Exception 'I<Exception>' => { isa => I<BaseException>, version => I<version> };
 
 Creates the exception class automatically at compile time.  The newly created
-class will be based on given class and has the given $VERSION attribute.
+class will be based on given class and has the given $VERSION variable.
 
   use Exception
     'try', 'catch',
@@ -647,88 +638,66 @@ class will be based on given class and has the given $VERSION attribute.
     if ($e->isa('Exception::My')) { print $e->VERSION; }
   }
 
+=item no Exception qw[catch try];
+
+=item no Exception;
+
+Unexports the B<catch> and B<try> functions from the caller namespace.
+
+  use Exception qw[try catch];
+  try eval { throw Exception::FileNotFound; };  # ok
+  no Exception;
+  try eval { throw Exception::FileNotFound; };  # syntax error
+
+=back
+
 =head1 CONSTANTS
 
-=head2 _FIELDS, FIELDS
+=over
 
-Declaration of class attibutes as reference to hash.  B<_FIELDS> is the list
-of this package fields.  The B<FIELDS> is the list of fields for this package
-and derived classes.  These constants have to be implemented by derived
-classes.
+=item FIELDS
+
+Declaration of class fields as reference to hash.  This constant function have
+to be implemented by derived classes.
+
+The fields are listed as I<name> => {I<properties>}, where I<properties> is a
+list of field properties:
+
+=over
+
+=item is
+
+Can be 'rw' for read-write fields or 'ro' for read-only fields.
+
+=item default
+
+Optional property with the default value if the field value is not defined.
+
+=back
+
+The read-write fields can be set with B<new> constructor.  Read-only fields
+are modified by Exception class itself and arguments for B<new> constructor
+will be stored in B<properties> field.
 
   package Exception::My;
   our $VERSION = 0.1;
   use base 'Exception';
 
   # Define class fields
-  use constant _FIELDS => {
-    readonly  => 'ro',
-    readwrite => 'rw',
-  };
   use constant FIELDS => {
-    %{Exception->_FIELDS},   # Base's fields have to be first
-    %{+_FIELDS},
+    %{Exception->FIELDS},       # base's fields have to be first
+    readonly  => { is=>'ro', default=>'value' },  # new ro field
+    readwrite => { is=>'rw' },                    # new rw field
   };
-  use fields keys %{+_FIELDS};
+  my %FIELDS = %{ FIELDS() };   # package's hash for faster access
 
-  # Implement accessors
-  {
-    no strict 'refs';
-    foreach my $func (keys %{+_FIELDS}) {
-      if (${+_FIELDS}{$func} eq 'ro') {
-        *{__PACKAGE__.'::'.$func} = do { use strict 'refs';
-            sub () { shift->{$func}; }; };
-      }
-      elsif (${+_FIELDS}{$func} eq 'rw') {
-        *{__PACKAGE__.'::'.$func} = do { use strict 'refs';
-            sub () :lvalue { my $self = shift;
-                @_ ? ($self->{$func} = $_[0]) : $self->{$func}; }; };
-      }
-    }
+  package main;
+  try Exception eval { throw Exception::My readonly=>1, readwrite=>2; };
+  if (catch Exception my $e) {
+    print $e->{readwrite};                # = 2
+    print $e->{properties}->{readonly};   # = 1
+    print $e->{defaults}->{readwrite};    # = "value"
   }
-
-=head1 PACKAGE DEFAULTS
-
-Package defaults are implemented as %Exception::defaults hash.  The
-values can be read and written with accessors.
-
-=head2 VERBOSITY (rw)
-
-The default verbosity of the exception objects.
-
-  Exception->VERBOSITY = 3;
-  throw Exception message=>"Message";
-
-=head2 MESSAGE (rw)
-
-The default message of the exception objects.
-
-  Exception->MESSAGE = 'Unknown exception';
-  throw Exception;
-
-=head2 MAX_ARG_LEN (rw)
-
-The default maximal length of argument for functions in backtrace output.
-Zero means no limit for length.
-
-  Exception->MAX_ARG_LEN = 64;
-  throw Exception;
-
-=head2 MAX_ARG_NUMS (rw)
-
-The default maximal number of argument for functions in backtrace output.
-Zero means no limit for arguments.
-
-  Exception->MAX_ARG_NUMS = 8;
-  throw Exception;
-
-=head2 MAX_EVAL_LEN (rw)
-
-The default maximal length of eval strings in backtrace output.  Zero means no
-limit for length.
-
-  Exception->MAX_EVAL_LEN = 0;
-  throw Exception;
 
 =head1 ATTRIBUTES
 
