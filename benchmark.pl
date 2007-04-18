@@ -19,8 +19,12 @@ sub test {
 package My::DieObject;
 our $n = 0;
 sub test {
-    eval { die bless {}, 'My::DieObject'; };
-    if ($@->isa('My::DieObject')) { $n++; }
+    eval { throw My::DieObject };
+    if ($@ and $@->isa('My::DieObject')) { $n++; }
+}
+sub throw {
+    my %args = @_;
+    die bless {%args}, shift;
 }
 
 
@@ -88,7 +92,6 @@ sub test {
 package main;
 
 use Benchmark qw(:all);
-use Data::Dumper;
 
 timethese(-1, {
     '1_DieScalar'       => sub { My::DieScalar::test; },

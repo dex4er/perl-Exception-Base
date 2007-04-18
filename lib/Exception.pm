@@ -55,6 +55,10 @@ The features of Exception:
 
 =item *
 
+fastest implementation of exception object
+
+=item *
+
 fully OO without closures and source code filtering
 
 =item *
@@ -71,7 +75,7 @@ implements error stack, the try/catch blocks can be nested
 
 =item *
 
-shows full backtrace stack on die
+shows full backtrace stack on die by default
 
 =item *
 
@@ -92,7 +96,7 @@ matching with string, regex or closure function
 
 =item *
 
-creating automatically the derived exception classes
+creating automatically the derived exception classes ("use" interface)
 
 =item *
 
@@ -104,6 +108,7 @@ easly expendable, see Exception::System class
 
 
 use strict;
+
 use Carp ();
 use Exporter ();
 
@@ -116,7 +121,7 @@ our @EXPORT_OK = qw(try catch);
 use overload q|""| => "_stringify", fallback => 1;
 
 
-# List of class fields
+# List of class fields (name => ro|rw)
 sub FIELDS () {
     {
         message      => 'rw',
@@ -135,10 +140,10 @@ sub FIELDS () {
         max_eval_len => 'rw',
     };
 }
-our %FIELDS = %{ FIELDS() };
+my %FIELDS = %{ FIELDS() };
 
 
-# List of package defaults
+# List of package defaults (NAME => value)
 sub DEFAULTS () {
     {
         VERBOSITY    => 3,
@@ -148,7 +153,7 @@ sub DEFAULTS () {
         MAX_EVAL_LEN => 0,
     };
 }
-our %DEFAULTS = %{ DEFAULTS() };
+my %DEFAULTS = %{ DEFAULTS() };
 
 
 # Exception stack for try/catch blocks
@@ -206,7 +211,7 @@ sub unimport {
     my $pkg = shift;
     my $callpkg = caller;
 
-    my @export = @_ || qw[catch try];
+    my @export = scalar @_ ? @_ : qw[catch try];
 
     no strict 'refs';
     while (my $name = shift @export) {
@@ -251,7 +256,7 @@ sub throw {
     my $self = shift;
 
     # rethrow the exception; update the system data
-    if (_blessed($self) and $self->isa(__PACKAGE__)) {
+    if (__blessed($self) and $self->isa(__PACKAGE__)) {
         $self->_collect_system_data;
         die $self;
     }
@@ -314,6 +319,7 @@ sub with {
     my $self = shift;
     return unless @_;
 
+    # Odd number of arguments - first is message
     if (scalar @_ % 2 == 1) {
         my $message = shift;
         if (not defined $message) {
@@ -335,8 +341,8 @@ sub with {
         }
     }
 
-    my %a = @_;
-    while (my($key,$val) = each %a) {
+    my %args = @_;
+    while (my($key,$val) = each %args) {
         return 0 if not defined $val and
             defined $self->{properties}->{$key} || exists $self->{$key} && defined $self->{$key};
 
@@ -380,7 +386,7 @@ sub with {
 sub try ($) {
     # Can be used also as function
     my $self = shift if defined $_[0] and $_[0] eq __PACKAGE__ or
-                        _blessed($_[0]) and $_[0]->isa(__PACKAGE__);
+                        __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
 
     my $v = shift;
     push @exception_stack, $@;
@@ -393,13 +399,13 @@ sub try ($) {
 sub catch {
     # Can be used also as function
     my $self = shift if defined $_[0] and $_[0] eq __PACKAGE__ or
-                        _blessed($_[0]) and $_[0]->isa(__PACKAGE__);
+                        __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
+
+    my $want_object = 1;
 
     my $e;
     my $exception = @exception_stack ? pop @exception_stack : $@;
-    if (
-    #_blessed($exception) and
-     $exception->isa(__PACKAGE__)) {
+    if (__blessed($exception) and $exception->isa(__PACKAGE__)) {
         $e = $exception;
     }
     elsif ($exception eq '') {
@@ -410,16 +416,17 @@ sub catch {
         $e = $class->new(message=>"$exception");
         $e->_collect_system_data;
     }
-    if (ref($_[0]) ne 'ARRAY') {
+    if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
         $_[0] = $e;
         shift;
+        $want_object = 0;
     }
     if (defined $e) {
         if (defined $_[0] and ref $_[0] eq 'ARRAY') {
             $e->throw() unless grep { $e->isa($_) } @{$_[0]};
         }
     }
-    return defined $e;
+    return $want_object ? $e : defined $e;
 }
 
 
@@ -436,12 +443,14 @@ sub _collect_system_data {
     $self->{egid}  = $);
 
     my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{VERBOSITY};
+    # Collect stack info only if verbosity is meaning
     if ($verbosity > 1) {
         my @caller_stack;
         my $pkg = __PACKAGE__;
         for (my $i = 1; my @c = do { package DB; caller($i) }; $i++) {
             next if $c[0] eq $pkg;
             push @caller_stack, [ @c[0 .. 7], @DB::args ];
+            # Collect only one entry if verbosity is meaning
             last if $verbosity < 3;
         }
         $self->{caller_stack} = \@caller_stack;
@@ -548,7 +557,7 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    use utf8;  #! should be here?
+    use utf8;  #! TODO: should be here?
     if (defined $utf8::VERSION and utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
             ? sprintf("\\x{%04x}", $_)
@@ -577,7 +586,7 @@ sub _str_len_trim {
 }
 
 
-# Universal method for _blessed(). Stolen from Scalar::Util
+# Universal method for __blessed(). Stolen from Scalar::Util
 sub UNIVERSAL::Exception__a_sub_not_likely_to_be_here {
     return ref($_[0]);
 }
@@ -586,12 +595,13 @@ sub UNIVERSAL::Exception__a_sub_not_likely_to_be_here {
 # Check if scalar is blessed. This is function, not a method!
 eval "use Scalar::Util 'blessed';";
 if (defined &Scalar::Util::blessed) {
-    *_blessed = \&Scalar::Util::blessed;
+    # Use faster XS version of blessed if available
+    *__blessed = \&Scalar::Util::blessed;
 }
 else {
     eval << 'END';
 
-    sub _blessed ($) {
+    sub __blessed ($) {
         local($@, $SIG{__DIE__}, $SIG{__WARN__});
         return length(ref($_[0]))
             ? eval { $_[0]->Exception__a_sub_not_likely_to_be_here }
