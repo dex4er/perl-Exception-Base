@@ -50,8 +50,7 @@ This class implements a fully OO exception mechanism similar to
 Exception::Class or Class::Throwable.  It does not depend on other modules
 like Exception::Class and it is more powerful than Class::Throwable.  Also it
 does not use closures as Error and does not polute namespace as
-Exception::Class::TryCatch.  It is also much faster than Class::Throwable and
-Exception::Class.
+Exception::Class::TryCatch.  It is also much faster than Exception::Class.
 
 The features of Exception:
 
@@ -59,7 +58,7 @@ The features of Exception:
 
 =item *
 
-fastest implementation of exception object
+fast implementation of an exception object
 
 =item *
 
@@ -144,6 +143,14 @@ use constant FIELDS => {
 };
 
 
+# Cache for class' FIELDS
+my %class_fields;
+
+
+# Cache for class' defaults
+my %class_defaults;
+
+
 # Exception stack for try/catch blocks
 my @exception_stack;
 
@@ -219,14 +226,30 @@ sub new {
     my $class = shift;
     $class = ref $class if ref $class;
 
-    my %fields = %{ $class->FIELDS };
+    my $fields;
+    my $defaults;
+
+    # Use cached value if available
+    if (not defined $class_fields{$class}) {
+        $fields = $class_fields{$class} = $class->FIELDS;
+        $defaults = $class_defaults{$class} = {
+            map { $_ => $fields->{$_}->{default} }
+                grep { defined $fields->{$_}->{default} }
+                    (keys %$fields)
+        };
+    }
+    else {
+        $fields = $class_fields{$class};
+        $defaults = $class_defaults{$class};
+    }
+
     my $self = {};
 
     # If the attribute is rw, initialize its value. Otherwise: properties.
     my %args = @_;
     $self->{properties} = {};
     foreach my $key (keys %args) {
-        if (defined $fields{$key} and $fields{$key}{is} eq 'rw') {
+        if (defined $fields->{$key} and $fields->{$key}->{is} eq 'rw') {
             $self->{$key} = $args{$key};
         }
         else {
@@ -234,7 +257,8 @@ sub new {
         }
     }
 
-    $self->{defaults} = { map { $_ => $fields{$_}{default} } grep { defined $fields{$_}{default} } (keys %fields) };
+    # Defaults for this object
+    $self->{defaults} = { %$defaults };
 
     return bless $self => $class;
 }
@@ -657,8 +681,7 @@ Unexports the B<catch> and B<try> functions from the caller namespace.
 
 =item FIELDS
 
-Declaration of class fields as reference to hash.  This constant function have
-to be implemented by derived classes.
+Declaration of class fields as reference to hash.
 
 The fields are listed as I<name> => {I<properties>}, where I<properties> is a
 list of field properties:
@@ -679,17 +702,19 @@ The read-write fields can be set with B<new> constructor.  Read-only fields
 are modified by Exception class itself and arguments for B<new> constructor
 will be stored in B<properties> field.
 
+The constant have to be defined in derivered class if it brings additional
+fields.
+
   package Exception::My;
   our $VERSION = 0.1;
   use base 'Exception';
 
-  # Define class fields
+  # Define new class fields
   use constant FIELDS => {
     %{Exception->FIELDS},       # base's fields have to be first
     readonly  => { is=>'ro', default=>'value' },  # new ro field
     readwrite => { is=>'rw' },                    # new rw field
   };
-  my %FIELDS = %{ FIELDS() };   # package's hash for faster access
 
   package main;
   try Exception eval { throw Exception::My readonly=>1, readwrite=>2; };
@@ -699,25 +724,31 @@ will be stored in B<properties> field.
     print $e->{defaults}->{readwrite};    # = "value"
   }
 
-=head1 ATTRIBUTES
+=back
 
-=head2 message (rw)
+=head1 FIELDS
+
+Class fields are implemented as values of blessed hash.
+
+=over
+
+=item message (rw, default: 'Unknown exception')
 
 Contains the message of the exception.  It is the part of the string
 representing the exception object.
 
   eval { throw Exception message=>"Message", tag=>"TAG"; };
-  print $@->message if $@;
+  print $@->{message} if $@;
 
-=head2 properties (ro)
+=item properties (ro)
 
 Contains the additional properies of the exception.  They can be later used
 with "with" method.
 
   eval { throw Exception message=>"Message", tag=>"TAG"; };
-  print $@->properties->{tag} if $@;
+  print $@->{properties}->{tag} if $@;
 
-=head2 verbosity (rw)
+=item verbosity (rw, default: 3)
 
 Contains the verbosity level of the exception object.  It allows to change
 the string representing the exception object.  There are following levels of
@@ -746,46 +777,56 @@ Class: Message
 
 The output contains full trace of error stack.  This is the default option.
 
-If the verbosity is undef, then the default verbosity for exception objects
-is used (see VERBOSITY variable).
-
 =back
 
-=head2 time (ro)
+If the verbosity is undef, then the default verbosity for exception objects
+is used.
+
+If the verbosity set with constructor (B<new> or B<throw>) is lower that 3,
+the full stack trace won't be collected.
+
+=item time (ro)
 
 Contains the timestamp of the thrown exception.
 
   eval { throw Exception message=>"Message"; };
-  print scalar localtime $@->time;
+  print scalar localtime $@->{time};
 
-=head2 pid (ro)
+=item pid (ro)
 
 Contains the PID of the Perl process at time of thrown exception.
 
   eval { throw Exception message=>"Message"; };
-  kill 10, $@->pid;
+  kill 10, $@->{pid};
 
-=head2 tid (ro)
+=item tid (ro)
 
 Constains the tid of the thread or undef if threads are not used.
 
-=head2 uid, euid, gid, egid (ro)
+=item uid (ro)
+
+=item euid (ro)
+
+=item gid (ro)
+
+=item egid (ro)
 
 Contains the real and effective uid and gid of the Perl process at time of
 thrown exception.
 
-=head2 caller_stack (ro)
+=item caller_stack (ro)
 
-Contains the error stack as array of array with informations about caller
-functions.  The first 8 elements of the array's row are the same as first 8
-elements of the output of caller() function.  Further elements are optional
-and are the arguments of called function.
+If the verbosity on throwing exception was greater that 1, it contains the
+error stack as array of array with informations about caller functions.  The
+first 8 elements of the array's row are the same as first 8 elements of the
+output of caller() function.  Further elements are optional and are the
+arguments of called function.
 
   eval { throw Exception message=>"Message"; };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray, $evaltext,
-  $is_require, @args) = $@->caller_stack->[0];
+  $is_require, @args) = $@->{caller_stack}->[0];
 
-=head2 max_arg_len (rw)
+=item max_arg_len (rw, default: 64)
 
 Contains the maximal length of argument for functions in backtrace output.
 Zero means no limit for length.
@@ -793,7 +834,7 @@ Zero means no limit for length.
   sub a { throw Exception max_arg_len=>5 }
   a("123456789");
 
-=head2 max_arg_nums (rw)
+=item max_arg_nums (rw, default: 8)
 
 Contains the maximal number of arguments for functions in backtrace output.
 Zero means no limit for arguments.
@@ -801,7 +842,7 @@ Zero means no limit for arguments.
   sub a { throw Exception max_arg_nums=>1 }
   a(1,2,3);
 
-=head2 max_eval_len (rw)
+=item max_eval_len (rw, default: 0)
 
 Contains the maximal length of eval strings in backtrace output.  Zero means
 no limit for length.
@@ -809,49 +850,61 @@ no limit for length.
   eval "throw Exception max_eval_len=>10";
   print "$@";
 
+=back
+
 =head1 CONSTRUCTORS
 
-=head2 new([%I<args>])
+=over
+
+=item new([%I<args>])
 
 Creates the exception object, which can be thrown later.  The system data
-attributes B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not filled.
+fields like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not filled.
 
-If the key of the argument is read-write attribute, this attribute will be
-filled.  Otherwise, the properties attribute will be used.
+If the key of the argument is read-write field, this field will be filled. 
+Otherwise, the properties field will be used.
 
   $e = new Exception message=>"Houston, we have a problem", tag => "BIG";
-  print $e->message;
-  print $e->properties->{tag};
+  print $e->{message};
+  print $e->{properties}->{tag};
 
-=head2 throw([%I<args>]])
+The constructor reads the list of class fields from FIELDS constant function
+and stores it in the internal cache for performance reason.  The defaults
+values for the class are also stored in internal cache.
+
+=item throw([%I<args>]])
 
 Creates the exception object and immediately throws it with die() function.
 
   open FILE, $file or throw Exception message=>"Can not open file: $file";
 
+=back
+
 =head1 METHODS
 
-=head2 throw([$I<exception>])
+=over
+
+=item throw([$I<exception>])
 
 Immediately throws exception object with die() function.  It can be used as
 for throwing new exception as for rethrowing existing exception object.
 
   eval { throw Exception message=>"Problem", tag => "TAG"; };
   # rethrow, $@ is an exception object
-  $@->throw if $@->properties->{tag} eq "TAG";
+  $@->throw if $@->{properties}->{tag} eq "TAG";
 
-=head2 stringify([$I<verbosity>[, $I<message>]])
+=item stringify([$I<verbosity>[, $I<message>]])
 
 Returns the string representation of exception object.  It is called
 automatically if the exception object is used in scalar context.  The method
 can be used explicity and then the verbosity level can be used.
 
   eval { throw Exception; };
-  $@->verbosity = 1;
+  $@->{verbosity} = 1;
   print "$@";
   print $@->stringify(3) if $VERY_VERBOSE;
 
-=head2 with(I<condition>)
+=item with(I<condition>)
 
 Checks if the exception object matches the given condition.  If the first
 argument is single value, the B<message> attribute will be matched.  If the
@@ -864,7 +917,7 @@ defined.
   $e->with("message", tag=>"and the property");
   $e->with(tag1=>"property", tag2=>"another property");
   $e->with(uid=>0);
-  $e->with(message=>'$e->properties->{message} or $e->message');
+  $e->with(message=>'$e->{properties}->{message} or $e->{message}');
 
 The argument (for message or properties) can be simple string or code
 reference or regexp.
@@ -873,7 +926,7 @@ reference or regexp.
   $e->with(sub {/message/});
   $e->with(qr/message/);
 
-=head2 try(I<eval>)
+=item try(I<eval>)
 
 The "try" method or function can be used with eval block as argument.  Then
 the eval's error is pushed into error stack and can be used with "catch"
@@ -897,7 +950,7 @@ The "try" can be used as method or function.
   Exception->import('try');
   try eval { throw Exception "exported function"; };
 
-=head2 catch($I<exception>)
+=item catch($I<exception>)
 
 The exception is popped from error stack (or B<$@> variable is used if stack
 is empty) and the exception is written into the method argument.
@@ -913,33 +966,143 @@ exception object is created with message from B<$@> variable.
   catch Exception my $e;
   print $e->stringify;
 
-=head2 catch([$I<exception>,] \@I<ExceptionClasses>)
+The method returns B<1>, if the exception object is caught, and returns B<0>
+otherwise.
+
+  eval { throw Exception; };
+  if (catch Exception my $e) {
+    warn "Exception caught: " . ref $e;
+  }
+
+If the method argument is missing, the method returns the exception object.
+
+  eval { throw Exception; };
+  my $e = catch Exception;
+
+=item catch([$I<exception>,] \@I<ExceptionClasses>)
 
 The exception is popped from error stack (or $@ variable is used if stack is
 empty).  If the exception is not based on one of the class from argument, the
-exception is throwed immediately.
+exception is thrown immediately.
 
   eval { throw Exception::IO; }
   catch Exception my $e, ['Exception::IO'];
   print "Only IO exception was caught: " . $e->stringify(1);
 
-=head1 INHERITANCE METHODS
+=back
 
-=head2 _collect_system_data
+=head1 PRIVATE METHODS
+
+=over
+
+=item _collect_system_data
 
 Collect system data and fill the attributes of exception object.  This method
-is called automatically if exception if throwed.  It can be used by derived
+is called automatically if exception if thrown.  It can be used by derived
 class.
 
   package Exception::Special;
   use base 'Exception';
-  use fields qw(special);
+  use constant FIELDS => {
+    %{Exception->FIELDS},
+    'special' => { is => 'ro' },
+  };
   sub _collect_system_data {
     my $self = shift;
     $self->SUPER::_collect_system_data(@_);
     $self->{special} = get_special_value();
     return $self;
   }
+
+Method returns the reference to the self object.
+
+=back
+
+=head1 SEE ALSO
+
+There are more implementation of exception objects available on CPAN:
+
+=over
+
+=item L<Error>
+
+Complete implementation of try/catch/finally/otherwise mechanism.  Uses
+nested closures with a lot of syntactic sugar.  It is slightly faster than
+Exception module.  It doesn't provide a simple way to create user defined
+exceptions.  It doesn't collect system data and stack trace on error.
+
+=item L<Exception::Class>
+
+More perl-ish way to do OO exceptions.  It is too heavy and too slow.  It
+requires non-core perl modules to work.  It missing try/catch mechanism.
+
+=item L<Exception::Class::TryCatch>
+
+Additional try/catch mechanism for L<Exception::Class>.  It is also slow as
+L<Exception::Class>.
+
+=item L<Class::Throwable>
+
+Elegant OO exceptions without try/catch mechanism.  It might be missing some
+features found in Exception and L<Exception::Class>.
+
+=item L<Exceptions>
+
+Not recommended.  Abadoned.  Modifies %SIG handlers.
+
+=back
+
+=head1 PERFORMANCE
+
+The Exception module was benchmarked with other implementation.  The results
+are following:
+
+=over
+
+=item pure eval/die with string
+
+504122/s
+
+=item pure eval/die with object
+
+165414/s
+
+=item Exception module with default options
+
+6338/s
+
+=item Exception module with verbosity = 1
+
+16746/s
+
+=item L<Error> module
+
+17934/s
+
+=item L<Exception::Class> module
+
+1569/s
+
+=item L<Exception::Class::TryCatch> module
+
+1520/s
+
+=item L<Class::Throwable> module
+
+7587/s
+
+=back
+
+The Exception module is 80 times slower than pure eval/die.  This module was
+written to be as fast as it is possible.  It does not use i.e. accessor
+functions which are slow about 6 times than standard variable.  It is slower
+than pure die/eval because it is object oriented by its design.  It can be a
+litte faster if some features, as stack trace, are disabled.
+
+=head1 BUGS
+
+The module was tested with L<Devel::Cover> and L<Devel::Dprof>.  If you find the
+bug, please report it.
 
 =head1 AUTHORS
 

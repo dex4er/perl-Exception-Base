@@ -89,17 +89,30 @@ sub test {
 }
 
 
+package My::ExceptionClassTryCatch;
+use Exception::Class 'MyException';
+use Exception::Class::TryCatch;
+our $n = 0;
+sub test {
+    try eval { MyException->throw( error=>'Message' ) };
+    if (catch my $e) {
+        if ($e->isa('MyException') and $e->error eq 'Message') { $n++; }
+    }
+}
+
+
 package main;
 
 use Benchmark qw(:all);
 
 timethese(-1, {
-    '1_DieScalar'       => sub { My::DieScalar::test; },
-    '2_DieObject'       => sub { My::DieObject::test; },
-    '3_Exception'       => sub { My::Exception::test; },
-    '4_Exception1'      => sub { My::Exception1::test; },
-    '5_Error'           => sub { My::Error::test; },
-    '6_ExceptionClass'  => sub { My::ExceptionClass::test; },
-    '7_ClassThrowable'  => sub { My::ClassThrowable::test; },
+    '1_DieScalar'               => sub { My::DieScalar::test; },
+    '2_DieObject'               => sub { My::DieObject::test; },
+    '3_Exception'               => sub { My::Exception::test; },
+    '4_Exception1'              => sub { My::Exception1::test; },
+    '5_Error'                   => sub { My::Error::test; },
+    '6_ExceptionClass'          => sub { My::ExceptionClass::test; },
+    '7_ExceptionClassTryCatch'  => sub { My::ExceptionClassTryCatch::test; },
+    '8_ClassThrowable'          => sub { My::ClassThrowable::test; },
 });
 

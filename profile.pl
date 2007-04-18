@@ -13,4 +13,4 @@ foreach (1..10000) {
     }
 }
 
-exec("dprofpp");
+print "tmon.out data collected. Call dprofpp\n";
