@@ -7,3 +7,5 @@ Makefile
 *.tar.gz
 *.tgz
 *.zip
+*.old
+*.bak
