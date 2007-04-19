@@ -29,7 +29,7 @@ sub throw {
 
 
 package My::Exception;
-use lib 'lib';	
+use lib '../lib';	
 use Exception;
 our $n = 0;
 sub test {

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -d:DProf
 
-use lib 'lib';	
+use lib '../lib';	
 use Exception;
 
 
