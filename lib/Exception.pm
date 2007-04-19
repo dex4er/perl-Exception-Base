@@ -144,15 +144,15 @@ use constant FIELDS => {
 
 
 # Cache for class' FIELDS
-my %class_fields;
+my %Class_Fields;
 
 
 # Cache for class' defaults
-my %class_defaults;
+my %Class_Defaults;
 
 
 # Exception stack for try/catch blocks
-my @exception_stack;
+my @Exception_Stack;
 
 
 # Export try/catch and create additional exception packages
@@ -230,17 +230,17 @@ sub new {
     my $defaults;
 
     # Use cached value if available
-    if (not defined $class_fields{$class}) {
-        $fields = $class_fields{$class} = $class->FIELDS;
-        $defaults = $class_defaults{$class} = {
+    if (not defined $Class_Fields{$class}) {
+        $fields = $Class_Fields{$class} = $class->FIELDS;
+        $defaults = $Class_Defaults{$class} = {
             map { $_ => $fields->{$_}->{default} }
                 grep { defined $fields->{$_}->{default} }
                     (keys %$fields)
         };
     }
     else {
-        $fields = $class_fields{$class};
-        $defaults = $class_defaults{$class};
+        $fields = $Class_Fields{$class};
+        $defaults = $Class_Defaults{$class};
     }
 
     my $self = {};
@@ -402,7 +402,7 @@ sub try ($) {
                         __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
 
     my $v = shift;
-    push @exception_stack, $@;
+    push @Exception_Stack, $@;
     return ref($v) eq 'ARRAY' ? @$v : $v if wantarray;
     return $v;
 }
@@ -417,7 +417,7 @@ sub catch {
     my $want_object = 1;
 
     my $e;
-    my $exception = @exception_stack ? pop @exception_stack : $@;
+    my $exception = @Exception_Stack ? pop @Exception_Stack : $@;
     if (__blessed($exception) and $exception->isa(__PACKAGE__)) {
         $e = $exception;
     }
