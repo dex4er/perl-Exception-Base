@@ -3,3 +3,7 @@ cover_db
 pm_to_blib
 blib
 Makefile
+*.ppd
+*.tar.gz
+*.tgz
+*.zip

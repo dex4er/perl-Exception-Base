@@ -850,6 +850,13 @@ no limit for length.
   eval "throw Exception max_eval_len=>10";
   print "$@";
 
+=item defaults (rw)
+
+Meta-field contains the list of default values.
+
+  my $e = new Exception;
+  print defined $e->{verbosity} ? $e->{verbosity} : $e->{defaults}->{verbosity};
+
 =back
 
 =head1 CONSTRUCTORS
