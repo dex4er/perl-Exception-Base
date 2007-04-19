@@ -103,7 +103,7 @@ sub test {
 
 package main;
 
-use Benchmark qw(:all);
+use Benchmark;
 
 timethese(-1, {
     '1_DieScalar'               => sub { My::DieScalar::test; },
