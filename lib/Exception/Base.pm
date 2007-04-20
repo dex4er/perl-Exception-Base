@@ -11,6 +11,7 @@ Exception::Base - Lightweight exceptions
 
   # Use module and create needed exceptions
   use Exception::Base (
+    'Exception',
     'Exception::IO',
     'Exception::FileNotFound' => { isa => 'Exception::IO' },
   );
@@ -39,9 +40,9 @@ Exception::Base - Lightweight exceptions
   @v = try Exception [eval { do_something_returning_array(); }];
 
   # use syntactic sugar
-  use Exception::Base qw[try catch];
+  use Exception::Base qw[try catch], 'Exception::IO';
   try eval {
-    throw Exception;
+    throw Exception::IO;
   };    # don't forget about semicolon
   catch my $e, ['Exception::IO'];
 
@@ -171,8 +172,8 @@ sub import {
             if ($pkg ne __PACKAGE__) {
                 Carp::croak("Exceptions can only be created with " . __PACKAGE__ . " class");
             }
-            if ($name eq __PACKAGE__ or $name eq 'Exception') {
-                Carp::croak(__PACKAGE__ . " class can not be created automatically");
+            if ($name eq __PACKAGE__) {
+                Carp::croak($name . " class can not be created automatically");
             }
             my $isa = __PACKAGE__;
             my $version = 0.1;
@@ -626,18 +627,7 @@ END
 1;
 
 
-package Exception;
-
-our $VERSION = $Exception::Base::VERSION;
-our @ISA = ('Exception::Base');
-
-1;
-
-
 =head1 IMPORTS
-
-I<Note>: The Exception::Base module also provides Exception package. The
-Exception::Base package is a base package for Exception package.
 
 =over
 
@@ -646,7 +636,7 @@ Exception::Base package is a base package for Exception package.
 Exports the B<catch> and B<try> functions to the caller namespace.
 
   use Exception::Base qw[catch try];
-  try eval { throw Exception; };
+  try eval { throw Exception::Base; };
   if (catch my $e) { warn "$e"; }
 
 =item use Exception::Base 'I<Exception>', ...;
@@ -679,7 +669,7 @@ class will be based on given class and has the given $VERSION variable.
 
 Unexports the B<catch> and B<try> functions from the caller namespace.
 
-  use Exception::Base qw[try catch];
+  use Exception::Base qw[try catch], 'Exception::FileNotFound';
   try eval { throw Exception::FileNotFound; };  # ok
   no Exception::Base;
   try eval { throw Exception::FileNotFound; };  # syntax error
@@ -728,10 +718,10 @@ fields.
   };
 
   package main;
-  try Exception eval {
+  try Exception::Base eval {
     throw Exception::My readonly=>1, readwrite=>2;
   };
-  if (catch Exception my $e) {
+  if (catch Exception::Base my $e) {
     print $e->{readwrite};                # = 2
     print $e->{properties}->{readonly};   # = 1
     print $e->{defaults}->{readwrite};    # = "value"
@@ -957,23 +947,23 @@ The "try" method or function can be used with eval block as argument.  Then
 the eval's error is pushed into error stack and can be used with "catch"
 later.
 
-  try Exception eval { throw Exception; };
+  try Exception::Base eval { throw Exception; };
   eval { die "another error messing with \$@ variable"; };
-  catch Exception my $e;
+  catch Exception::Base my $e;
 
 The "try" returns the value of the argument in scalar context.  If the
 argument is array reference, the "try" returns the value of the argument in
 array context.
 
-  $v = try Exception eval { 2 + 2; }; # $v == 4
-  @v = try Exception [ eval { (1,2,3); }; ]; # @v = (1,2,3)
+  $v = try Exception::Base eval { 2 + 2; }; # $v == 4
+  @v = try Exception::Base [ eval { (1,2,3); }; ]; # @v = (1,2,3)
 
 The "try" can be used as method or function.
 
-  try Exception eval { throw Exception "method"; };
-  Exception::try eval { throw Exception "function"; };
-  Exception->import('try');
-  try eval { throw Exception "exported function"; };
+  try Exception::Base eval { throw Exception::Base "method"; };
+  Exception::Base::try eval { throw Exception::Base "function"; };
+  Exception::Base->import('try');
+  try eval { throw Exception::Base "exported function"; };
 
 =item catch($I<exception>)
 
@@ -981,28 +971,28 @@ The exception is popped from error stack (or B<$@> variable is used if stack
 is empty) and the exception is written into the method argument.
 
   eval { throw Exception; };
-  catch Exception my $e;
+  catch Exception::Base my $e;
   print $e->stringify(1);
 
 If the B<$@> variable does not contain the exception object but string, new
 exception object is created with message from B<$@> variable.
 
   eval { die "Died\n"; };
-  catch Exception my $e;
+  catch Exception::Base my $e;
   print $e->stringify;
 
 The method returns B<1>, if the exception object is caught, and returns B<0>
 otherwise.
 
   eval { throw Exception; };
-  if (catch Exception my $e) {
+  if (catch Exception::Base my $e) {
     warn "Exception caught: " . ref $e;
   }
 
 If the method argument is missing, the method returns the exception object.
 
   eval { throw Exception; };
-  my $e = catch Exception;
+  my $e = catch Exception::Base;
 
 =item catch([$I<exception>,] \@I<ExceptionClasses>)
 
@@ -1011,7 +1001,7 @@ empty).  If the exception is not based on one of the class from argument, the
 exception is thrown immediately.
 
   eval { throw Exception::IO; }
-  catch Exception my $e, ['Exception::IO'];
+  catch Exception::Base my $e, ['Exception::IO'];
   print "Only IO exception was caught: " . $e->stringify(1);
 
 =back

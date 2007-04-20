@@ -1,7 +1,7 @@
 #!/usr/bin/perl -d:DProf
 
 use lib 'lib', '../lib';	
-use Exception::Base;
+use Exception::Base 'Exception';
 
 
 my $n = 0;

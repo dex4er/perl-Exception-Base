@@ -11,7 +11,7 @@ sub new {
 
 sub test_Exception_Base_isa {
     my $self = shift;
-    my $obj1 = Exception->new;
+    my $obj1 = Exception::Base->new;
     $self->assert_not_null($obj1);
     $self->assert($obj1->isa('Exception::Base'));
     my $obj2 = $obj1->new;
@@ -21,7 +21,7 @@ sub test_Exception_Base_isa {
 
 sub test_Exception_Base_field_message {
     my $self = shift;
-    my $obj = Exception->new(message=>'Message');
+    my $obj = Exception::Base->new(message=>'Message');
     $self->assert_equals('Message', $obj->{message});
     $self->assert_equals('New Message', $obj->{message} = 'New Message');
     $self->assert_equals('New Message', $obj->{message});
@@ -29,7 +29,7 @@ sub test_Exception_Base_field_message {
 
 sub test_Exception_Base_field_properties {
     my $self = shift;
-    my $obj = Exception->new(message=>'Message', tag=>'Tag');
+    my $obj = Exception::Base->new(message=>'Message', tag=>'Tag');
     $self->assert_equals('Tag', $obj->{properties}->{tag});
 }
 
@@ -40,7 +40,7 @@ sub test_Exception_Base_throw {
     eval {
         # Simple throw
         eval {
-            Exception->throw(message=>'Throw');
+            Exception::Base->throw(message=>'Throw');
         };
         my $obj1 = $@;
         $self->assert_not_null($obj1);
@@ -67,7 +67,7 @@ sub test_Exception_Base_stringify {
     my $self = shift;
 
     eval {
-        my $obj = Exception->new;
+        my $obj = Exception::Base->new;
 
         $self->assert_not_null($obj);
         $self->assert($obj->isa('Exception::Base'));
@@ -80,7 +80,7 @@ sub test_Exception_Base_stringify {
         $obj->{message} = 'Stringify';
         $self->assert_equals("Stringify\n", $obj->stringify(1));
         $self->assert_equals("Stringify at unknown line 0.\n", $obj->stringify(2));
-        $self->assert_equals("Exception: Stringify at unknown line 0\n", $obj->stringify(3));
+        $self->assert_equals("Exception::Base: Stringify at unknown line 0\n", $obj->stringify(3));
 
         $obj->{caller_stack} = [
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
@@ -96,9 +96,9 @@ sub test_Exception_Base_stringify {
         $self->assert_equals("Stringify at Package1.pm line 1.\n", $obj->stringify(2));
 
         my $s1 = << 'END';
-Exception: Stringify at Package1.pm line 1
+Exception::Base: Stringify at Package1.pm line 1
 \t$_ = Package1::func1 called at Package1.pm line 1
-\t@_ = Package2::func2(1, "ARRAY(0x1234567)", "HASH(0x1234567)", "CODE(0x1234567)", "Exception::BaseTest=HASH(0x1234567)", "Exception=HASH(0x1234567)") called at Package2.pm line 2
+\t@_ = Package2::func2(1, "ARRAY(0x1234567)", "HASH(0x1234567)", "CODE(0x1234567)", "Exception::BaseTest=HASH(0x1234567)", "Exception::Base=HASH(0x1234567)") called at Package2.pm line 2
 \t$_ = eval '1' called at Package3.pm line 3
 \t$_ = require Require called at Package4.pm line 4
 \t$_ = Package5::func5("\x{00}", "'\"\\\`\x{0d}\x{c3}", "\x{09}\x{263a}", undef, 123, -123.56, 1, ...) called at Package5.pm line 5
@@ -126,7 +126,7 @@ END
         $obj->{max_eval_len} = 5;
 
         my $s4 = << 'END';
-Exception: Stringify at Package1.pm line 1
+Exception::Base: Stringify at Package1.pm line 1
 \t@_ = Package1::func1(1, ...) called at Package1.pm line 1
 \t@_ = Package2::func2(12..., 12...) called at Package2.pm line 2
 \t$_ = eval '12...' called at Package3.pm line 3
@@ -140,8 +140,8 @@ END
         $self->assert_equals(1, $obj->{defaults}->{verbosity} = 1);
         $self->assert_equals(1, $obj->{defaults}->{verbosity});
         $self->assert_equals("Stringify\n", $obj->stringify);
-        $self->assert_not_null(Exception->FIELDS->{verbosity}->{default});
-        $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception->FIELDS->{verbosity}->{default});
+        $self->assert_not_null(Exception::Base->FIELDS->{verbosity}->{default});
+        $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception::Base->FIELDS->{verbosity}->{default});
         $self->assert_equals(1, $obj->{verbosity} = 1);
         $self->assert_equals("Stringify\n", $obj->stringify);
 
@@ -154,7 +154,7 @@ sub test_Exception_Base_with {
     my $self = shift;
 
     eval {
-        my $obj1 = Exception->new;
+        my $obj1 = Exception::Base->new;
         $self->assert_null($obj1->with);
         $self->assert_equals(1, $obj1->with(undef));
         $self->assert_equals(0, $obj1->with('Unknown'));
@@ -172,7 +172,7 @@ sub test_Exception_Base_with {
         $self->assert_equals(0, $obj1->with(message=>sub{/false/}));
         $self->assert_equals(0, $obj1->with(message=>qr/false/));
 
-        my $obj2 = Exception->new(message=>'With', tag=>'tag');
+        my $obj2 = Exception::Base->new(message=>'With', tag=>'tag');
         $self->assert_equals(0, $obj2->with(undef));
         $self->assert_equals(1, $obj2->with('With'));
         $self->assert_equals(0, $obj2->with('False'));
@@ -200,7 +200,7 @@ sub test_Exception_Base_with {
         $self->assert_equals(0, $obj2->with(message=>sub{/false/}));
         $self->assert_equals(0, $obj2->with(message=>qr/false/));
 
-        my $obj3 = Exception->new(message=>'Message');
+        my $obj3 = Exception::Base->new(message=>'Message');
         $obj3->{properties}->{message} = 'Tag';
         $self->assert_equals(0, $obj3->with(undef));
         $self->assert_equals(0, $obj3->with(message=>undef));
@@ -211,7 +211,7 @@ sub test_Exception_Base_with {
         $self->assert_equals(1, $obj3->with(message=>qr/Tag/));
         $self->assert_equals(0, $obj3->with(message=>qr/false/));
 
-        my $obj4 = Exception->new(message=>'Message');
+        my $obj4 = Exception::Base->new(message=>'Message');
         $self->assert_equals(0, $obj4->with(undef));
         $self->assert_equals(0, $obj4->with(message=>undef));
         $self->assert_equals(1, $obj4->with('Message'));
@@ -221,7 +221,7 @@ sub test_Exception_Base_with {
         $self->assert_equals(1, $obj4->with(message=>qr/Message/));
         $self->assert_equals(0, $obj4->with(message=>qr/false/));
 
-        my $obj5 = Exception->new(message=>'Message');
+        my $obj5 = Exception::Base->new(message=>'Message');
         $obj5->{properties}->{message} = undef;
         $self->assert_equals(0, $obj5->with(undef));
         $self->assert_equals(0, $obj5->with(message=>undef));
@@ -232,7 +232,7 @@ sub test_Exception_Base_with {
         $self->assert_equals(1, $obj5->with(message=>qr/Message/));
         $self->assert_equals(0, $obj5->with(message=>qr/false/));
 
-        my $obj6 = Exception->new(message=>undef);
+        my $obj6 = Exception::Base->new(message=>undef);
         $self->assert_equals(1, $obj6->with(undef));
         $self->assert_equals(1, $obj6->with(message=>undef));
         $self->assert_equals(0, $obj6->with('false'));
@@ -240,7 +240,7 @@ sub test_Exception_Base_with {
         $self->assert_equals(0, $obj6->with(message=>sub {/false/}));
         $self->assert_equals(0, $obj6->with(message=>qr/false/));
 
-        my $obj7 = Exception->new;
+        my $obj7 = Exception::Base->new;
         $obj7->{properties}->{message} = 'Tag';
         $self->assert_equals(1, $obj7->with(undef));
         $self->assert_equals(0, $obj7->with('Tag'));
@@ -261,12 +261,12 @@ sub test_Exception_Base_catch {
 
     eval {
         eval { 1; };
-        my $e1 = Exception->catch(my $obj1);
+        my $e1 = Exception::Base->catch(my $obj1);
         $self->assert_equals(0, $e1);
         $self->assert_null($obj1);
 
         eval { die "Die 2\n"; };
-        my $e2 = Exception->catch(my $obj2);
+        my $e2 = Exception::Base->catch(my $obj2);
         $self->assert_equals(1, $e2);
         $self->assert_not_null($obj2);
         $self->assert($obj2->isa('Exception::Base'));
@@ -276,34 +276,34 @@ sub test_Exception_Base_catch {
         $self->assert_equals($self, $obj2->{caller_stack}->[2]->[8]);
 
         eval { die "Die 3\n"; };
-        my $obj3 = Exception->catch;
+        my $obj3 = Exception::Base->catch;
         $self->assert_not_null($obj3);
         $self->assert($obj3->isa('Exception::Base'));
         $self->assert_equals("Die 3\n", $obj3->{message});
 
         eval { die "Die 4\n"; };
-        my $obj4 = Exception->catch(['Exception::Base']);
+        my $obj4 = Exception::Base->catch(['Exception::Base']);
         $self->assert_not_null($obj4);
         $self->assert($obj4->isa('Exception::Base'));
         $self->assert_equals("Die 4\n", $obj4->{message});
 
-        eval { Exception->throw; };
-        my $e5 = Exception->catch(my $obj5);
+        eval { Exception::Base->throw; };
+        my $e5 = Exception::Base->catch(my $obj5);
         $self->assert_equals(1, $e5);
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
         $self->assert_null($obj5->{message});
 
-        eval { Exception->throw; };
-        my $e6 = Exception->catch(my $obj6, ['Exception::Base']);
+        eval { Exception::Base->throw; };
+        my $e6 = Exception::Base->catch(my $obj6, ['Exception::Base']);
         $self->assert_equals(1, $e6);
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
         $self->assert_null($obj6->{message});
 
         eval {
-            eval { Exception->throw; };
-            Exception->catch(['false']);
+            eval { Exception::Base->throw; };
+            Exception::Base->catch(['false']);
         };
         my $obj7 = $@;
         $self->assert_not_null($obj7);
@@ -312,8 +312,8 @@ sub test_Exception_Base_catch {
 
         my $obj8;
         eval {
-            eval { Exception->throw; };
-            Exception->catch($obj8, ['false']);
+            eval { Exception::Base->throw; };
+            Exception::Base->catch($obj8, ['false']);
         };
         my $obj9 = $@;
         $self->assert_not_null($obj8);
@@ -324,7 +324,7 @@ sub test_Exception_Base_catch {
         $self->assert_null($obj9->{message});
 
         eval { 1; };
-        my $e10 = Exception->catch(my $obj10);
+        my $e10 = Exception::Base->catch(my $obj10);
         $self->assert_equals(0, $e10);
         $self->assert_null($obj10);
 
@@ -342,16 +342,16 @@ sub test_Exception_Base_catch {
         $self->assert_equals("Die 12\n", $obj12->{message});
 
         eval { die $self; };
-        my $e13 = Exception->catch(my $obj13);
+        my $e13 = Exception::Base->catch(my $obj13);
         $self->assert_equals(1, $e13);
         $self->assert($obj13->isa('Exception::Base'));
 
-        eval { Exception->throw; };
+        eval { Exception::Base->throw; };
         my $obj14 = Exception::Base::catch;
         $self->assert($obj14->isa('Exception::Base'));
 
-        eval { Exception->throw; };
-        my $obj15 = Exception::Base::catch ['Exception'];
+        eval { Exception::Base->throw; };
+        my $obj15 = Exception::Base::catch ['Exception::Base'];
         $self->assert($obj15->isa('Exception::Base'));
     };
     die "$@" if $@;
@@ -362,65 +362,65 @@ sub test_Exception_Base_try {
 
     eval {
         eval { 1; };
-        my $v1 = Exception->try(eval { 1; });
+        my $v1 = Exception::Base->try(eval { 1; });
         $self->assert_equals(1, $v1);
-        my $e1 = Exception->catch(my $obj1);
+        my $e1 = Exception::Base->catch(my $obj1);
         $self->assert_equals(0, $e1);
         $self->assert_null($obj1);
 
         eval { 1; };
-        my @v2 = Exception->try([eval { (1,2,3); }]);
+        my @v2 = Exception::Base->try([eval { (1,2,3); }]);
         $self->assert_deep_equals([1,2,3],\@v2);
-        my $e2 = Exception->catch(my $obj2);
+        my $e2 = Exception::Base->catch(my $obj2);
         $self->assert_equals(0, $e2);
         $self->assert_null($obj2);
 
         eval { 1; };
-        my $v3 = Exception->try([eval { (1,2,3); }]);
+        my $v3 = Exception::Base->try([eval { (1,2,3); }]);
         $self->assert(qr/^ARRAY/, $v3);
-        my $e3 = Exception->catch(my $obj3);
+        my $e3 = Exception::Base->catch(my $obj3);
         $self->assert_equals(0, $e3);
         $self->assert_null($obj3);
 
         eval { 1; };
-        my $v4 = Exception->try(eval { die "Die 4\n"; });
+        my $v4 = Exception::Base->try(eval { die "Die 4\n"; });
         $self->assert_null($v4);
-        my $e4 = Exception->catch(my $obj4);
+        my $e4 = Exception::Base->catch(my $obj4);
         $self->assert_equals(1, $e4);
         $self->assert_not_null($obj4);
         $self->assert($obj4->isa('Exception::Base'));
         $self->assert_equals("Die 4\n", $obj4->{message});
 
         eval { 1; };
-        my $v5 = Exception->try(eval { die "Die 5\n"; });
+        my $v5 = Exception::Base->try(eval { die "Die 5\n"; });
         $self->assert_null($v5);
         eval { 1; };
-        my $e5 = Exception->catch(my $obj5);
+        my $e5 = Exception::Base->catch(my $obj5);
         $self->assert_equals(1, $e5);
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
         $self->assert_equals("Die 5\n", $obj5->{message});
 
         eval { 1; };
-        my $v6 = Exception->try(eval { die "Die 6\n"; });
+        my $v6 = Exception::Base->try(eval { die "Die 6\n"; });
         $self->assert_null($v6);
-        my $v7 = Exception->try(eval { die "Die 7\n"; });
+        my $v7 = Exception::Base->try(eval { die "Die 7\n"; });
         $self->assert_null($v7);
         eval { 1; };
-        my $e7 = Exception->catch(my $obj7);
+        my $e7 = Exception::Base->catch(my $obj7);
         $self->assert_equals(1, $e7);
         $self->assert_not_null($obj7);
         $self->assert($obj7->isa('Exception::Base'));
         $self->assert_equals("Die 7\n", $obj7->{message});
         eval { 1; };
-        my $e6 = Exception->catch(my $obj6);
+        my $e6 = Exception::Base->catch(my $obj6);
         $self->assert_equals(1, $e6);
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
         $self->assert_equals("Die 6\n", $obj6->{message});
 
         eval { 1; };
-        my $e8 = Exception->catch(my $obj8);
+        my $e8 = Exception::Base->catch(my $obj8);
         $self->assert_equals(0, $e8);
         $self->assert_str_not_equals("Die 6\n", $obj8) if defined $obj8;
 
@@ -433,7 +433,7 @@ sub test_Exception_Base_try {
         $self->assert($obj9->isa('Exception::Base'));
         $self->assert_equals("Die 9\n", $obj9->{message});
 
-        my $obj10 = Exception->new;
+        my $obj10 = Exception::Base->new;
         eval { 1; };
         my $v11 = $obj10->try(eval { die "Die 11\n"; });
         $self->assert_null($v11);
@@ -446,16 +446,16 @@ sub test_Exception_Base_try {
         eval { 1; };
         my $v12 = Exception::Base::try([eval { die "Die 12\n"; }]);
         $self->assert(qr/^ARRAY/, $v12);
-        my $e12 = Exception->catch(my $obj12);
+        my $e12 = Exception::Base->catch(my $obj12);
         $self->assert_equals(1, $e12);
         $self->assert_not_null($obj12);
         $self->assert($obj12->isa('Exception::Base'));
         $self->assert_equals("Die 12\n", $obj12->{message});
 
         eval { 1; };
-        my @v13 = Exception->try({eval { (1,2,3,4); }});
+        my @v13 = Exception::Base->try({eval { (1,2,3,4); }});
         $self->assert_deep_equals([{1,2,3,4}],\@v13);
-        my $e13 = Exception->catch(my $obj13);
+        my $e13 = Exception::Base->catch(my $obj13);
         $self->assert_equals(0, $e13);
         $self->assert_null($obj13);
     };
@@ -468,19 +468,19 @@ sub test_Exception_Base_import {
     eval {
         no warnings 'reserved';
 
-        eval 'try eval { throw Exception; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
         $self->assert_not_equals('', "$@");
 
         eval 'Exception::Base->import(qw[try catch]);';
-        eval 'try eval { throw Exception; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport(qw[notsuchfunction]);';
-        eval 'try eval { throw Exception; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport(qw[try]);';
-        eval 'try eval { throw Exception; };';
+        eval 'try eval { throw Exception::Base; };';
         $self->assert(qr/^syntax error/, "$@");
 
         eval 'Exception::Base->unimport();';
@@ -490,12 +490,12 @@ sub test_Exception_Base_import {
         eval 'throw Exception::Base::Test1;';
         $self->assert(qr/^Can.t locate object method/, "$@");
 
-        eval 'throw Exception;';
+        eval 'throw Exception::Base;';
         my $obj1 = $@;
         $self->assert_not_null($obj1);
         $self->assert($obj1->isa('Exception::Base'));
 
-        eval 'Exception::Base->import(qw(Exception));';
+        eval 'Exception::Base->import(qw(Exception::Base));';
         $self->assert(qr/can not be created/, "$@");
 
         eval 'Exception::Base->import(qw(Exception::Base::Test2));';
@@ -545,7 +545,7 @@ sub test_Exception_Base_import {
 sub test_Exception_Base__caller_info {
     my $self = shift;
 
-    my $obj = Exception->new;
+    my $obj = Exception::Base->new;
 
     $obj->{caller_stack} = [
         ['Package0', 'Package0.pm', 1, 'Package0::func0', 0, undef, undef, undef ],
@@ -573,7 +573,7 @@ sub test_Exception_Base__caller_info {
 
 sub test_Exception_Base__get_subname {
     my $self = shift;
-    my $obj = Exception->new;
+    my $obj = Exception::Base->new;
     $self->assert_equals('sub', $obj->_get_subname({sub=>'sub'}));
     $self->assert_equals('eval {...}', $obj->_get_subname({sub=>'(eval)'}));
     $self->assert_equals("eval 'evaltext'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
@@ -591,7 +591,7 @@ sub test_Exception_Base__get_subname {
 
 sub test_Exception_Base__format_arg {
     my $self = shift;
-    my $obj = Exception->new;
+    my $obj = Exception::Base->new;
     $self->assert_equals('undef', $obj->_format_arg());
     $self->assert_equals('""', $obj->_format_arg(''));
     $self->assert_equals('0', $obj->_format_arg('0'));
@@ -607,8 +607,8 @@ sub test_Exception_Base__format_arg {
     $self->assert_equals('"\x{c3}\x{263a}"', $obj->_format_arg("\x{c3}\x{263a}"));
     $self->assert(qw/^ARRAY/, $obj->_format_arg([]));
     $self->assert(qw/^HASH/, $obj->_format_arg({}));
-    $self->assert(qw/^ExceptionTest=/, $obj->_format_arg($self));
-    $self->assert(qw/^Exception=/, $obj->_format_arg($obj));
+    $self->assert(qw/^Exception::BaseTest=/, $obj->_format_arg($self));
+    $self->assert(qw/^Exception::Base=/, $obj->_format_arg($obj));
     $obj->{defaults}->{max_arg_len} = 5;
     $self->assert_equals('12...', $obj->_format_arg('123456789'));
     $obj->{max_arg_len} = 10;
@@ -621,7 +621,7 @@ sub test_Exception_Base__format_arg {
 
 sub test_Exception_Base__str_len_trim {
     my $self = shift;
-    my $obj = Exception->new;
+    my $obj = Exception::Base->new;
     $self->assert_equals('', $obj->_str_len_trim(''));
     $self->assert_equals('1', $obj->_str_len_trim('1'));
     $self->assert_equals('12', $obj->_str_len_trim('12'));
@@ -668,7 +668,7 @@ sub test_Exception_Base__str_len_trim {
 
 sub test_Exception_Base___blessed {
     my $self = shift;
-    my $obj = Exception->new(message=>'Blessed');
+    my $obj = Exception::Base->new(message=>'Blessed');
     $self->assert($obj->isa('Exception::Base'));
     $self->assert(Exception::Base::__blessed($obj));
     my $scalar = 'Scalar';
