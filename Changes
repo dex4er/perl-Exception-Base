@@ -1,4 +1,9 @@
 ------------------------------------------------------------------------
+0.02 | Piotr Roszatycki <dexter@debian.org> | 2007-04-21
+
+* Module renamed to Exception::Base. It provides also the Exception package.
+
+------------------------------------------------------------------------
 0.01 | Piotr Roszatycki <dexter@debian.org> | 2007-04-20
 
 * Development release

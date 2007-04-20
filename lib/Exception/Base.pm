@@ -1,16 +1,16 @@
 #!/usr/bin/perl -c
 
-package Exception;
+package Exception::Base;
 our $VERSION = 0.01;
 
 =head1 NAME
 
-Exception - Lightweight exceptions
+Exception::Base - Lightweight exceptions
 
 =head1 SYNOPSIS
 
   # Use module and create needed exceptions
-  use Exception (
+  use Exception::Base (
     'Exception::IO',
     'Exception::FileNotFound' => { isa => 'Exception::IO' },
   );
@@ -39,7 +39,7 @@ Exception - Lightweight exceptions
   @v = try Exception [eval { do_something_returning_array(); }];
 
   # use syntactic sugar
-  use Exception qw[try catch];
+  use Exception::Base qw[try catch];
   try eval {
     throw Exception;
   };    # don't forget about semicolon
@@ -53,7 +53,7 @@ like Exception::Class and it is more powerful than Class::Throwable.  Also it
 does not use closures as Error and does not polute namespace as
 Exception::Class::TryCatch.  It is also much faster than Exception::Class.
 
-The features of Exception:
+The features of Exception::Base:
 
 =over 2
 
@@ -171,7 +171,7 @@ sub import {
             if ($pkg ne __PACKAGE__) {
                 Carp::croak("Exceptions can only be created with " . __PACKAGE__ . " class");
             }
-            if ($name eq __PACKAGE__) {
+            if ($name eq __PACKAGE__ or $name eq 'Exception') {
                 Carp::croak(__PACKAGE__ . " class can not be created automatically");
             }
             my $isa = __PACKAGE__;
@@ -399,8 +399,8 @@ sub with {
 # Push the exception on error stack. Stolen from Exception::Class::TryCatch
 sub try ($) {
     # Can be used also as function
-    my $self = shift if defined $_[0] and $_[0] eq __PACKAGE__ or
-                        __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
+    my $self = shift if defined $_[0] and ($_[0] eq __PACKAGE__ or $_[0] eq 'Exception')
+                        or __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
 
     my $v = shift;
     push @Exception_Stack, $@;
@@ -412,8 +412,8 @@ sub try ($) {
 # Pop the exception on error stack. Stolen from Exception::Class::TryCatch
 sub catch {
     # Can be used also as function
-    my $self = shift if defined $_[0] and $_[0] eq __PACKAGE__ or
-                        __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
+    my $self = shift if defined $_[0] and ($_[0] eq __PACKAGE__ or $_[0] eq 'Exception')
+                        or __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
 
     my $want_object = 1;
 
@@ -460,9 +460,8 @@ sub _collect_system_data {
     # Collect stack info only if verbosity is meaning
     if ($verbosity > 1) {
         my @caller_stack;
-        my $pkg = __PACKAGE__;
         for (my $i = 1; my @c = do { package DB; caller($i) }; $i++) {
-            next if $c[0] eq $pkg;
+            next if $c[0] eq __PACKAGE__;
             push @caller_stack, [ @c[0 .. 7], @DB::args ];
             # Collect only one entry if verbosity is meaning
             last if $verbosity < 3;
@@ -610,7 +609,7 @@ else {
     eval << 'END';
 
     # Universal method for __blessed(). Stolen from Scalar::Util
-    sub UNIVERSAL::Exception__a_sub_not_likely_to_be_here {
+    sub UNIVERSAL::Exception_Base__a_sub_not_likely_to_be_here {
         return ref($_[0]);
     }
 
@@ -618,7 +617,7 @@ else {
     sub __blessed ($) {
         local($@, $SIG{__DIE__}, $SIG{__WARN__});
         return length(ref($_[0]))
-            ? eval { $_[0]->Exception__a_sub_not_likely_to_be_here }
+            ? eval { $_[0]->Exception_Base__a_sub_not_likely_to_be_here }
             : undef;
     }
 END
@@ -627,32 +626,43 @@ END
 1;
 
 
+package Exception;
+
+our $VERSION = $Exception::Base::VERSION;
+our @ISA = ('Exception::Base');
+
+1;
+
+
 =head1 IMPORTS
 
 =over
 
-=item use Exception qw[catch try];
+I<Note>: The Exception::Base module also provides Exception package. The
+Exception::Base package is a base package for Exception package.
+
+=item use Exception::Base qw[catch try];
 
 Exports the B<catch> and B<try> functions to the caller namespace.
 
-  use Exception qw[catch try];
+  use Exception::Base qw[catch try];
   try eval { throw Exception; };
   if (catch my $e) { warn "$e"; }
 
-=item use Exception 'I<Exception>', ...;
+=item use Exception::Base 'I<Exception>', ...;
 
 Creates the exception class automatically at compile time.  The newly created
-class will be based on Exception class.
+class will be based on Exception::Base class.
 
-  use Exception qw[Exception::Custom Exception::SomethingWrong];
+  use Exception::Base qw[Exception::Custom Exception::SomethingWrong];
   throw Exception::Custom;
 
-=item use Exception 'I<Exception>' => { isa => I<BaseException>, version => I<version> };
+=item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version> };
 
 Creates the exception class automatically at compile time.  The newly created
 class will be based on given class and has the given $VERSION variable.
 
-  use Exception
+  use Exception::Base
     'try', 'catch',
     'Exception::IO',
     'Exception::FileNotFound' => { isa => 'Exception::IO' },
@@ -663,15 +673,15 @@ class will be based on given class and has the given $VERSION variable.
     if ($e->isa('Exception::My')) { print $e->VERSION; }
   }
 
-=item no Exception qw[catch try];
+=item no Exception::Base qw[catch try];
 
-=item no Exception;
+=item no Exception::Base;
 
 Unexports the B<catch> and B<try> functions from the caller namespace.
 
-  use Exception qw[try catch];
+  use Exception::Base qw[try catch];
   try eval { throw Exception::FileNotFound; };  # ok
-  no Exception;
+  no Exception::Base;
   try eval { throw Exception::FileNotFound; };  # syntax error
 
 =back
@@ -700,19 +710,19 @@ Optional property with the default value if the field value is not defined.
 =back
 
 The read-write fields can be set with B<new> constructor.  Read-only fields
-are modified by Exception class itself and arguments for B<new> constructor
-will be stored in B<properties> field.
+are modified by Exception::Base class itself and arguments for B<new>
+constructor will be stored in B<properties> field.
 
 The constant have to be defined in derivered class if it brings additional
 fields.
 
   package Exception::My;
   our $VERSION = 0.1;
-  use base 'Exception';
+  use base 'Exception::Base';
 
   # Define new class fields
   use constant FIELDS => {
-    %{Exception->FIELDS},       # base's fields have to be first
+    %{Exception::Base->FIELDS},       # base's fields have to be first
     readonly  => { is=>'ro', default=>'value' },  # new ro field
     readwrite => { is=>'rw' },                    # new rw field
   };
@@ -1017,9 +1027,9 @@ is called automatically if exception if thrown.  It can be used by derived
 class.
 
   package Exception::Special;
-  use base 'Exception';
+  use base 'Exception::Base';
   use constant FIELDS => {
-    %{Exception->FIELDS},
+    %{Exception::Base->FIELDS},
     'special' => { is => 'ro' },
   };
   sub _collect_system_data {
@@ -1043,8 +1053,8 @@ There are more implementation of exception objects available on CPAN:
 
 Complete implementation of try/catch/finally/otherwise mechanism.  Uses
 nested closures with a lot of syntactic sugar.  It is slightly faster than
-Exception module.  It doesn't provide a simple way to create user defined
-exceptions.  It doesn't collect system data and stack trace on error.
+Exception::Base module.  It doesn't provide a simple way to create user
+defined exceptions.  It doesn't collect system data and stack trace on error.
 
 =item L<Exception::Class>
 
@@ -1059,7 +1069,7 @@ L<Exception::Class>.
 =item L<Class::Throwable>
 
 Elegant OO exceptions without try/catch mechanism.  It might be missing some
-features found in Exception and L<Exception::Class>.
+features found in Exception::Base and L<Exception::Class>.
 
 =item L<Exceptions>
 
@@ -1068,12 +1078,12 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 =back
 
 See also L<Exception::System> class as an example for implementation of
-echanced exception class based on this Exception class.
+echanced exception class based on this Exception::Base class.
 
 =head1 PERFORMANCE
 
-The Exception module was benchmarked with other implementation.  The results
-are following:
+The Exception::Base module was benchmarked with other implementation.  The
+results are following:
 
 =over
 
@@ -1085,11 +1095,11 @@ are following:
 
 165414/s
 
-=item Exception module with default options
+=item Exception::Base module with default options
 
 6338/s
 
-=item Exception module with verbosity = 1
+=item Exception::Base module with verbosity = 1
 
 16746/s
 
@@ -1111,11 +1121,11 @@ are following:
 
 =back
 
-The Exception module is 80 times slower than pure eval/die.  This module was
-written to be as fast as it is possible.  It does not use i.e. accessor
-functions which are slow about 6 times than standard variable.  It is slower
-than pure die/eval because it is object oriented by its design.  It can be a
-litte faster if some features, as stack trace, are disabled.
+The Exception::Base module is 80 times slower than pure eval/die.  This
+module was written to be as fast as it is possible.  It does not use i.e.
+accessor functions which are slow about 6 times than standard variable.  It
+is slower than pure die/eval because it is object oriented by its design.  It
+can be a litte faster if some features, as stack trace, are disabled.
 
 =head1 BUGS
 

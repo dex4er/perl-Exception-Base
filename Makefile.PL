@@ -3,8 +3,8 @@ use ExtUtils::MakeMaker;
 use strict;
 
 WriteMakefile (
-    NAME            => 'Exception',
-    VERSION_FROM    => 'lib/Exception.pm', # finds $VERSION
+    NAME            => 'Exception::Base',
+    VERSION_FROM    => 'lib/Exception/Base.pm', # finds $VERSION
     dist            => { COMPRESS => 'gzip -9f', SUFFIX => 'gz' },
     PMLIBDIRS       => [ 'lib' ],
     PREREQ_PM       => {

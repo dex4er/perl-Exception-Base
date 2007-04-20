@@ -1,9 +1,9 @@
 NAME
-    Exception - Lightweight exceptions
+    Exception::Base - Lightweight exceptions
 
 SYNOPSIS
       # Use module and create needed exceptions
-      use Exception (
+      use Exception::Base (
         'Exception::IO',
         'Exception::FileNotFound' => { isa => 'Exception::IO' },
       );
@@ -31,7 +31,7 @@ SYNOPSIS
       @v = try Exception [eval { do_something_returning_array(); }];
 
       # use syntactic sugar
-      use Exception qw[try catch];
+      use Exception::Base qw[try catch];
       try eval {
         throw Exception;
       };    # don't forget about semicolon
@@ -45,7 +45,7 @@ DESCRIPTION
     polute namespace as Exception::Class::TryCatch. It is also much faster
     than Exception::Class.
 
-    The features of Exception:
+    The features of Exception::Base:
 
     * fast implementation of an exception object
 
