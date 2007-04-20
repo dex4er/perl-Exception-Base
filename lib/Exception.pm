@@ -1059,6 +1059,9 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 
 =back
 
+See also L<Exception::System> class as an example for implementation of
+echanced exception class based on this Exception class.
+
 =head1 PERFORMANCE
 
 The Exception module was benchmarked with other implementation.  The results
