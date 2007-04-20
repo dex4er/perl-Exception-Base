@@ -18,7 +18,8 @@ Exception - Lightweight exceptions
   # try / catch
   try Exception eval {
     do_something() or throw Exception::FileNotFound
-                                message=>'Something wrong', tag=>'something';
+                                message=>'Something wrong',
+                                tag=>'something';
   };
   if (catch Exception my $e) {
     # $e is an exception object for sure, no need to check if is blessed
@@ -638,12 +639,12 @@ Exports the B<catch> and B<try> functions to the caller namespace.
   try eval { throw Exception; };
   if (catch my $e) { warn "$e"; }
 
-=item use Exception qw[I<Exception>];
+=item use Exception 'I<Exception>', ...;
 
 Creates the exception class automatically at compile time.  The newly created
 class will be based on Exception class.
 
-  use Exception qw[Exception::Custom];
+  use Exception qw[Exception::Custom Exception::SomethingWrong];
   throw Exception::Custom;
 
 =item use Exception 'I<Exception>' => { isa => I<BaseException>, version => I<version> };
@@ -717,7 +718,9 @@ fields.
   };
 
   package main;
-  try Exception eval { throw Exception::My readonly=>1, readwrite=>2; };
+  try Exception eval {
+    throw Exception::My readonly=>1, readwrite=>2;
+  };
   if (catch Exception my $e) {
     print $e->{readwrite};                # = 2
     print $e->{properties}->{readonly};   # = 1
@@ -758,22 +761,23 @@ verbosity:
 
 =item 0
 
-Empty string
+ Empty string
 
 =item 1
 
-Message
+ Message
 
 =item 2
 
-Message at %s line %d.
+ Message at %s line %d.
 
 The same as the standard output of die() function.
 
 =item 3
 
-Class: Message
-  at ...
+ Class: Message at %s line %d
+         %c_ = %s::%s() called at %s line %d
+ ...
 
 The output contains full trace of error stack.  This is the default option.
 
@@ -823,8 +827,8 @@ output of caller() function.  Further elements are optional and are the
 arguments of called function.
 
   eval { throw Exception message=>"Message"; };
-  ($package, $filename, $line, $subroutine, $hasargs, $wantarray, $evaltext,
-  $is_require, @args) = $@->{caller_stack}->[0];
+  ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
+  $evaltext, $is_require, @args) = $@->{caller_stack}->[0];
 
 =item max_arg_len (rw, default: 64)
 
@@ -855,7 +859,9 @@ no limit for length.
 Meta-field contains the list of default values.
 
   my $e = new Exception;
-  print defined $e->{verbosity} ? $e->{verbosity} : $e->{defaults}->{verbosity};
+  print defined $e->{verbosity}
+    ? $e->{verbosity}
+    : $e->{defaults}->{verbosity};
 
 =back
 
@@ -871,7 +877,8 @@ fields like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not filled.
 If the key of the argument is read-write field, this field will be filled. 
 Otherwise, the properties field will be used.
 
-  $e = new Exception message=>"Houston, we have a problem", tag => "BIG";
+  $e = new Exception message=>"Houston, we have a problem",
+                     tag => "BIG";
   print $e->{message};
   print $e->{properties}->{tag};
 
@@ -883,7 +890,8 @@ values for the class are also stored in internal cache.
 
 Creates the exception object and immediately throws it with die() function.
 
-  open FILE, $file or throw Exception message=>"Can not open file: $file";
+  open FILE, $file
+    or throw Exception message=>"Can not open file: $file";
 
 =back
 
