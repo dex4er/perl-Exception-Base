@@ -1111,8 +1111,9 @@ litte faster if some features, as stack trace, are disabled.
 
 =head1 BUGS
 
-The module was tested with L<Devel::Cover> and L<Devel::Dprof>.  If you find the
-bug, please report it.
+The module was tested with L<Devel::Cover> and L<Devel::Dprof>.
+
+If you find the bug, please report it.
 
 =head1 AUTHORS
 
