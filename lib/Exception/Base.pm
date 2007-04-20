@@ -636,10 +636,10 @@ our @ISA = ('Exception::Base');
 
 =head1 IMPORTS
 
-=over
-
 I<Note>: The Exception::Base module also provides Exception package. The
 Exception::Base package is a base package for Exception package.
+
+=over
 
 =item use Exception::Base qw[catch try];
 
