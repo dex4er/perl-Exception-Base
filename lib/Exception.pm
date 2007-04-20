@@ -22,9 +22,9 @@ Exception - Lightweight exceptions
   };
   if (catch Exception my $e) {
     # $e is an exception object for sure, no need to check if is blessed
-    if ($e->isa('Exception::IO') { warn "IO problem"; }
-    elsif ($e->isa('Exception::Die') { warn "eval died"; }
-    elsif ($e->isa('Exception::Warn') { warn "some warn was caught"; }
+    if ($e->isa('Exception::IO')) { warn "IO problem"; }
+    elsif ($e->isa('Exception::Die')) { warn "eval died"; }
+    elsif ($e->isa('Exception::Warn')) { warn "some warn was caught"; }
     elsif ($e->with(tag=>'something')) { warn "something happened"; }
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
