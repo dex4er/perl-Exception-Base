@@ -400,7 +400,7 @@ sub with {
 # Push the exception on error stack. Stolen from Exception::Class::TryCatch
 sub try ($) {
     # Can be used also as function
-    my $self = shift if defined $_[0] and ($_[0] eq __PACKAGE__ or $_[0] eq 'Exception')
+    my $self = shift if defined $_[0] and ref $_[0] eq '' and $_[0] ne ''
                         or __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
 
     my $v = shift;
@@ -413,7 +413,7 @@ sub try ($) {
 # Pop the exception on error stack. Stolen from Exception::Class::TryCatch
 sub catch {
     # Can be used also as function
-    my $self = shift if defined $_[0] and ($_[0] eq __PACKAGE__ or $_[0] eq 'Exception')
+    my $self = shift if defined $_[0] and ref $_[0] eq '' and $_[0] ne ''
                         or __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
 
     my $want_object = 1;
