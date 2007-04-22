@@ -22,7 +22,8 @@ Exception::Base - Lightweight exceptions
                                 message=>'Something wrong',
                                 tag=>'something';
   };
-  if (catch Exception my $e) {
+  # Catch the Exception::Base, other exceptions throw immediately
+  if (catch Exception::Base my $e) {
     # $e is an exception object for sure, no need to check if is blessed
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Die')) { warn "eval died"; }
@@ -44,7 +45,7 @@ Exception::Base - Lightweight exceptions
   try eval {
     throw Exception::IO;
   };    # don't forget about semicolon
-  catch my $e, ['Exception::IO'];
+  catch my $e, ['Exception::IO'];  # Exception::Base is by default
 
 =head1 DESCRIPTION
 
@@ -169,27 +170,32 @@ sub import {
             push @export, $name;
         }
         else {
-            if ($pkg ne __PACKAGE__) {
-                Carp::croak("Exceptions can only be created with " . __PACKAGE__ . " class");
-            }
-            if ($name eq __PACKAGE__) {
-                Carp::croak($name . " class can not be created automatically");
-            }
-            my $isa = __PACKAGE__;
-            my $version = 0.1;
-            if (defined $_[0] and ref $_[0] eq 'HASH') {
-                my $param = shift;
-                $isa = $param->{isa} if defined $param->{isa};
-                $version = $param->{version} if defined $param->{version};
-            }
-            my $code = << "END";
+            # Try to use external module
+            my $param = shift if defined $_[0] and ref $_[0] eq 'HASH';
+            my $version = defined $param->{version} ? $param->{version} : 0;
+            my $mod_version = $name->VERSION || 0;
+            if (not $mod_version or $version > $mod_version) {
+                # Package is needed
+                eval "use $name $version;";
+                if ($@ ne '') {
+                    # Package not found so it have to be created
+                    if ($pkg ne __PACKAGE__) {
+                        Carp::croak("Exceptions can only be created with " . __PACKAGE__ . " class");
+                    }
+                    if ($name eq __PACKAGE__) {
+                        Carp::croak($name . " class can not be created automatically");
+                    }
+                    my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
+                    $version = 0.1 if not $version;
+                    eval << "END";
 package ${name};
 use base qw(${isa});
 our \$VERSION = ${version};
 END
-            eval $code;
-            if ($@) {
-                Carp::croak("An error occured while constructing " . __PACKAGE__ . " exception class ($name) : $@");
+                    if ($@) {
+                        Carp::croak("An error occured while constructing " . __PACKAGE__ . " exception class ($name) : $@");
+                    }
+                }
             }
         }
     }
@@ -416,31 +422,45 @@ sub catch {
     my $self = shift if defined $_[0] and ref $_[0] eq '' and $_[0] ne ''
                         or __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
 
+    # Class based on self object, Exception::Class by default
+    my $class = defined $self ? (ref $self || $self) : __PACKAGE__;
+
+    # Return exception object if no argument
     my $want_object = 1;
 
     my $e;
     my $exception = @Exception_Stack ? pop @Exception_Stack : $@;
     if (__blessed($exception) and $exception->isa(__PACKAGE__)) {
+        # Caught exception
         $e = $exception;
     }
     elsif ($exception eq '') {
+        # No error in $@
         $e = undef;
     }
     else {
-        my $class = ref $self || __PACKAGE__;
+        # New exception based on error from $@
         $e = $class->new(message=>"$exception");
         $e->_collect_system_data;
     }
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
+        # Save object in argument, return only status
         $_[0] = $e;
         shift;
         $want_object = 0;
     }
     if (defined $e) {
+        # For real exceptions...
+        if (defined $self and not $e->isa($class)) {
+            # ... throw if the exception is not our class
+            $e->throw();
+        }
         if (defined $_[0] and ref $_[0] eq 'ARRAY') {
+            # ... throw if the exception class is not listed
             $e->throw() unless grep { $e->isa($_) } @{$_[0]};
         }
     }
+    # Return status or object
     return $want_object ? $e : defined $e;
 }
 
@@ -641,7 +661,8 @@ Exports the B<catch> and B<try> functions to the caller namespace.
 
 =item use Exception::Base 'I<Exception>', ...;
 
-Creates the exception class automatically at compile time.  The newly created
+Loads additional exception class module.  If the module is not available,
+creates the exception class automatically at compile time.  The newly created
 class will be based on Exception::Base class.
 
   use Exception::Base qw[Exception::Custom Exception::SomethingWrong];
@@ -649,8 +670,10 @@ class will be based on Exception::Base class.
 
 =item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version> };
 
-Creates the exception class automatically at compile time.  The newly created
-class will be based on given class and has the given $VERSION variable.
+Loads additional exception class module.  If the module's version is lower
+than given parameter or the module can't be loaded, creates the exception
+class automatically at compile time.  The newly created class will be based
+on given class and has the given $VERSION variable.
 
   use Exception::Base
     'try', 'catch',
@@ -874,7 +897,7 @@ Meta-field contains the list of default values.
 Creates the exception object, which can be thrown later.  The system data
 fields like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not filled.
 
-If the key of the argument is read-write field, this field will be filled. 
+If the key of the argument is read-write field, this field will be filled.
 Otherwise, the properties field will be used.
 
   $e = new Exception message=>"Houston, we have a problem",
