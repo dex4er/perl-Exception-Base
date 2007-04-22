@@ -11,7 +11,6 @@ Exception::Base - Lightweight exceptions
 
   # Use module and create needed exceptions
   use Exception::Base (
-    'Exception',
     'Exception::IO',
     'Exception::FileNotFound' => { isa => 'Exception::IO' },
   );
@@ -34,11 +33,11 @@ Exception::Base - Lightweight exceptions
   }
 
   # the exception can be thrown later
-  $e = new Exception;
+  $e = new Exception::Base;
   $e->throw;
 
   # try with array context
-  @v = try Exception [eval { do_something_returning_array(); }];
+  @v = try Exception::Base [eval { do_something_returning_array(); }];
 
   # use syntactic sugar
   use Exception::Base qw[try catch], 'Exception::IO';

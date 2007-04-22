@@ -9,11 +9,11 @@ SYNOPSIS
       );
 
       # try / catch
-      try Exception eval {
+      try Exception::Base eval {
         do_something() or throw Exception::FileNotFound
                                     message=>'Something wrong', tag=>'something';
       };
-      if (catch Exception my $e) {
+      if (catch Exception::Base my $e) {
         # $e is an exception object for sure, no need to check if is blessed
         if ($e->isa('Exception::IO') { warn "IO problem"; }
         elsif ($e->isa('Exception::Die') { warn "eval died"; }
@@ -24,16 +24,16 @@ SYNOPSIS
       }
 
       # the exception can be thrown later
-      $e = new Exception;
+      $e = new Exception::Base;
       $e->throw;
 
       # try with array context
-      @v = try Exception [eval { do_something_returning_array(); }];
+      @v = try Exception::Base [eval { do_something_returning_array(); }];
 
       # use syntactic sugar
       use Exception::Base qw[try catch];
       try eval {
-        throw Exception;
+        throw Exception::Base;
       };    # don't forget about semicolon
       catch my $e, ['Exception::IO'];
 
