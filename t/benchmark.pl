@@ -59,7 +59,7 @@ sub test {
     try {
         throw Error::Simple('Message');
     }
-    catch Error::Simple with {
+    catch Error with {
         my $e = shift;
         if ($e->text eq 'Message') { $n++; }
     };
