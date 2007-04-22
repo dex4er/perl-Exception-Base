@@ -1,0 +1,82 @@
+NAME
+    Exception::Base - Lightweight exceptions
+
+SYNOPSIS
+      # Use module and create needed exceptions
+      use Exception::Base (
+        'Exception::IO',
+        'Exception::FileNotFound' => { isa => 'Exception::IO' },
+      );
+
+      # try / catch
+      try Exception::Base eval {
+        do_something() or throw Exception::FileNotFound
+                                    message=>'Something wrong', tag=>'something';
+      };
+      if (catch Exception::Base my $e) {
+        # $e is an exception object for sure, no need to check if is blessed
+        if ($e->isa('Exception::IO') { warn "IO problem"; }
+        elsif ($e->isa('Exception::Die') { warn "eval died"; }
+        elsif ($e->isa('Exception::Warn') { warn "some warn was caught"; }
+        elsif ($e->with(tag=>'something')) { warn "something happened"; }
+        elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
+        else { $e->throw; } # rethrow the exception
+      }
+
+      # the exception can be thrown later
+      $e = new Exception::Base;
+      $e->throw;
+
+      # try with array context
+      @v = try Exception::Base [eval { do_something_returning_array(); }];
+
+      # use syntactic sugar
+      use Exception::Base qw[try catch];
+      try eval {
+        throw Exception::Base;
+      };    # don't forget about semicolon
+      catch my $e, ['Exception::IO'];
+
+DESCRIPTION
+    This class implements a fully OO exception mechanism similar to
+    Exception::Class or Class::Throwable. It does not depend on other
+    modules like Exception::Class and it is more powerful than
+    Class::Throwable. Also it does not use closures as Error and does not
+    polute namespace as Exception::Class::TryCatch. It is also much faster
+    than Exception::Class.
+
+    The features of Exception::Base:
+
+    * fast implementation of an exception object
+
+    * fully OO without closures and source code filtering
+
+    * does not mess with $SIG{__DIE__} and $SIG{__WARN__}
+
+    * no external modules dependencies, requires core Perl modules only
+
+    * implements error stack, the try/catch blocks can be nested
+
+    * shows full backtrace stack on die by default
+
+    * the default behaviour of exception class can be changed globally or
+      just for the thrown exception
+
+    * the exception can be created with defined custom properties
+
+    * matching the exception by class, message or custom properties
+
+    * matching with string, regex or closure function
+
+    * creating automatically the derived exception classes ("use" interface)
+
+    * easly expendable, see Exception::System class for example
+
+COPYRIGHT
+    Copyright 2007 by Piotr Roszatycki <dexter@debian.org>.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+    See <http://www.perl.com/perl/misc/Artistic.html>
+
