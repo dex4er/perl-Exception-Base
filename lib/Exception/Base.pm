@@ -128,21 +128,22 @@ use overload q|""| => "_stringify", fallback => 1;
 
 # List of class fields (name => {is=>ro|rw, default=>value})
 use constant FIELDS => {
-    message      => { is => 'rw', default => 'Unknown exception' },
-    caller_stack => { is => 'ro' },
-    egid         => { is => 'ro' },
-    euid         => { is => 'ro' },
-    gid          => { is => 'ro' },
-    pid          => { is => 'ro' },
-    tid          => { is => 'ro' },
-    properties   => { is => 'ro' },
-    time         => { is => 'ro' },
-    uid          => { is => 'ro' },
-    verbosity    => { is => 'rw', default => 3 },
-    ignore       => { is => 'rw' },
-    max_arg_len  => { is => 'rw', default => 64 },
-    max_arg_nums => { is => 'rw', default => 8 },
-    max_eval_len => { is => 'rw', default => 0 },
+    message        => { is => 'rw', default => 'Unknown exception' },
+    caller_stack   => { is => 'ro' },
+    egid           => { is => 'ro' },
+    euid           => { is => 'ro' },
+    gid            => { is => 'ro' },
+    pid            => { is => 'ro' },
+    tid            => { is => 'ro' },
+    properties     => { is => 'ro' },
+    time           => { is => 'ro' },
+    uid            => { is => 'ro' },
+    verbosity      => { is => 'rw', default => 3 },
+    ignore_package => { is => 'rw' },
+    ignore_level   => { is => 'rw' },
+    max_arg_len    => { is => 'rw', default => 64 },
+    max_arg_nums   => { is => 'rw', default => 8 },
+    max_eval_len   => { is => 'rw', default => 0 },
 };
 
 
@@ -481,14 +482,15 @@ sub _collect_system_data {
     # Collect stack info only if verbosity is meaning
     if ($verbosity > 1) {
         my @caller_stack;
-        for (my $i = 1; my @c = do { package DB; caller($i) }; $i++) {
+        my $start = 1 + (defined $self->{ignore_level} ? $self->{ignore_level} : 0);
+        for (my $i = $start; my @c = do { package DB; caller($i) }; $i++) {
             # Skip own package
             next if $c[0] eq __PACKAGE__;
             # Skip packages to ignore
-            next if defined $self->{ignore}
-                and ref $self->{ignore} eq 'ARRAY'
-                    ? grep { $_ eq $c[0] } @{ $self->{ignore} }
-                    : $c[0] eq $self->{ignore};
+            next if defined $self->{ignore_package}
+                and ref $self->{ignore_package} eq 'ARRAY'
+                    ? grep { $_ eq $c[0] } @{ $self->{ignore_package} }
+                    : $c[0] eq $self->{ignore_package};
             push @caller_stack, [ @c[0 .. 7], @DB::args ];
             # Collect only one entry if verbosity is meaning
             last if $verbosity < 3;
@@ -818,7 +820,7 @@ is used.
 If the verbosity set with constructor (B<new> or B<throw>) is lower that 3,
 the full stack trace won't be collected.
 
-=item ignore (rw)
+=item ignore_package (rw)
 
 Contains the name (scalar) or names (as references array) of packages which
 are ignored in error stack trace.  It is useful if some package throws an
@@ -827,7 +829,19 @@ exception but this module shouldn't be listed in stack trace.
   package My::Package;
   use Exception::Base;
   sub my_function {
-    do_something() or throw Exception::Base ignore=>__PACKAGE__;
+    do_something() or throw Exception::Base ignore_package=>__PACKAGE__;
+  }
+
+=item ignore_level (rw)
+
+Contains the number of level on stack trace to ignore.  It is useful if some
+package throws an exception but this module shouldn't be listed in stack
+trace.  It can be used with or without ignore_package field.
+
+  package My::Package;
+  use Exception::Base;
+  sub my_function {
+    do_something() or throw Exception::Base ignore_level=>2;
   }
 
 =item time (ro)
