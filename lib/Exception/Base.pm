@@ -1,7 +1,7 @@
 #!/usr/bin/perl -c
 
 package Exception::Base;
-our $VERSION = 0.02;
+our $VERSION = 0.03;
 
 =head1 NAME
 
@@ -128,20 +128,22 @@ use overload q|""| => "_stringify", fallback => 1;
 
 # List of class fields (name => {is=>ro|rw, default=>value})
 use constant FIELDS => {
-    message      => { is => 'rw', default => 'Unknown exception' },
-    caller_stack => { is => 'ro' },
-    egid         => { is => 'ro' },
-    euid         => { is => 'ro' },
-    gid          => { is => 'ro' },
-    pid          => { is => 'ro' },
-    tid          => { is => 'ro' },
-    properties   => { is => 'ro' },
-    time         => { is => 'ro' },
-    uid          => { is => 'ro' },
-    verbosity    => { is => 'rw', default => 3 },
-    max_arg_len  => { is => 'rw', default => 64 },
-    max_arg_nums => { is => 'rw', default => 8 },
-    max_eval_len => { is => 'rw', default => 0 },
+    message        => { is => 'rw', default => 'Unknown exception' },
+    caller_stack   => { is => 'ro' },
+    egid           => { is => 'ro' },
+    euid           => { is => 'ro' },
+    gid            => { is => 'ro' },
+    pid            => { is => 'ro' },
+    tid            => { is => 'ro' },
+    properties     => { is => 'ro' },
+    time           => { is => 'ro' },
+    uid            => { is => 'ro' },
+    verbosity      => { is => 'rw', default => 3 },
+    ignore_package => { is => 'rw' },
+    ignore_level   => { is => 'rw' },
+    max_arg_len    => { is => 'rw', default => 64 },
+    max_arg_nums   => { is => 'rw', default => 8 },
+    max_eval_len   => { is => 'rw', default => 0 },
 };
 
 
@@ -185,7 +187,7 @@ sub import {
                         Carp::croak($name . " class can not be created automatically");
                     }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
-                    $version = 0.1 if not $version;
+                    $version = 0.01 if not $version;
                     eval << "END";
 package ${name};
 use base qw(${isa});
@@ -480,8 +482,15 @@ sub _collect_system_data {
     # Collect stack info only if verbosity is meaning
     if ($verbosity > 1) {
         my @caller_stack;
-        for (my $i = 1; my @c = do { package DB; caller($i) }; $i++) {
+        my $start = 1 + (defined $self->{ignore_level} ? $self->{ignore_level} : 0);
+        for (my $i = $start; my @c = do { package DB; caller($i) }; $i++) {
+            # Skip own package
             next if $c[0] eq __PACKAGE__;
+            # Skip packages to ignore
+            next if defined $self->{ignore_package}
+                and ref $self->{ignore_package} eq 'ARRAY'
+                    ? grep { $_ eq $c[0] } @{ $self->{ignore_package} }
+                    : $c[0] eq $self->{ignore_package};
             push @caller_stack, [ @c[0 .. 7], @DB::args ];
             # Collect only one entry if verbosity is meaning
             last if $verbosity < 3;
@@ -729,7 +738,7 @@ The constant have to be defined in derivered class if it brings additional
 fields.
 
   package Exception::My;
-  our $VERSION = 0.1;
+  our $VERSION = 0.01;
   use base 'Exception::Base';
 
   # Define new class fields
@@ -783,7 +792,7 @@ verbosity:
 
 =item 0
 
- Empty string
+Empty string
 
 =item 1
 
@@ -810,6 +819,30 @@ is used.
 
 If the verbosity set with constructor (B<new> or B<throw>) is lower that 3,
 the full stack trace won't be collected.
+
+=item ignore_package (rw)
+
+Contains the name (scalar) or names (as references array) of packages which
+are ignored in error stack trace.  It is useful if some package throws an
+exception but this module shouldn't be listed in stack trace.
+
+  package My::Package;
+  use Exception::Base;
+  sub my_function {
+    do_something() or throw Exception::Base ignore_package=>__PACKAGE__;
+  }
+
+=item ignore_level (rw)
+
+Contains the number of level on stack trace to ignore.  It is useful if some
+package throws an exception but this module shouldn't be listed in stack
+trace.  It can be used with or without ignore_package field.
+
+  package My::Package;
+  use Exception::Base;
+  sub my_function {
+    do_something() or throw Exception::Base ignore_level=>2;
+  }
 
 =item time (ro)
 
@@ -987,10 +1020,11 @@ The "try" can be used as method or function.
   Exception::Base->import('try');
   try eval { throw Exception::Base "exported function"; };
 
-=item catch($I<exception>)
+=item I<CLASS>->catch([$I<variable>])
 
 The exception is popped from error stack (or B<$@> variable is used if stack
-is empty) and the exception is written into the method argument.
+is empty) and the exception is written into the method argument.  If the
+exception is not based on the I<CLASS>, the exception is thrown immediately.
 
   eval { throw Exception; };
   catch Exception::Base my $e;
@@ -1016,11 +1050,19 @@ If the method argument is missing, the method returns the exception object.
   eval { throw Exception; };
   my $e = catch Exception::Base;
 
-=item catch([$I<exception>,] \@I<ExceptionClasses>)
+The "catch" can be used as method or function.  If it is used as function,
+then the I<CLASS> is Exception::Base by default.
+
+  eval { throw Exception::Base "method"; };
+  Exception::Base->import('catch');
+  catch my $e;  # the same as catch Exception::Base my $e;
+  print $e->stringify;
+
+=item I<CLASS>->catch([$I<variable>,] \@I<ExceptionClasses>)
 
 The exception is popped from error stack (or $@ variable is used if stack is
-empty).  If the exception is not based on one of the class from argument, the
-exception is thrown immediately.
+empty).  If the exception is not based on the I<CLASS> and is not based on
+one of the class from argument, the exception is thrown immediately.
 
   eval { throw Exception::IO; }
   catch Exception::Base my $e, ['Exception::IO'];
@@ -1135,7 +1177,7 @@ results are following:
 
 The Exception::Base module is 80 times slower than pure eval/die.  This
 module was written to be as fast as it is possible.  It does not use i.e.
-accessor functions which are slow about 6 times than standard variable.  It
+accessor functions which are slower about 6 times than standard variable.  It
 is slower than pure die/eval because it is object oriented by its design.  It
 can be a litte faster if some features, as stack trace, are disabled.
 
@@ -1149,7 +1191,7 @@ If you find the bug, please report it.
 
 Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
-=head1 COPYRIGHT
+=head1 LICENSE
 
 Copyright 2007 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 

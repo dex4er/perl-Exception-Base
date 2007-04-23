@@ -533,7 +533,7 @@ sub test_Exception_Base_import {
         my $obj2 = $@;
         $self->assert($obj2->isa('Exception::Base::import::Test2'));
         $self->assert($obj2->isa('Exception::Base'));
-        $self->assert_equals('0.1', $obj2->VERSION);
+        $self->assert_equals('0.01', $obj2->VERSION);
 
         eval 'Exception::Base->import(Exception::Base::import::Test3 => {isa=>qw(Exception::Base::import::Test2),
             version=>1.3});';
@@ -565,7 +565,7 @@ sub test_Exception_Base_import {
         my $obj8 = $@;
         $self->assert($obj8->isa('Exception::Base::import::Test8'));
         $self->assert($obj8->isa('Exception::Base'));
-        $self->assert_equals('0.1', $obj8->VERSION);
+        $self->assert_equals('0.01', $obj8->VERSION);
 
         eval 'package Exception::Base::import::Test9; our $VERSION = 1.9; our @ISA = ("Exception::Base"); 1;';
         eval 'Exception::Base->import(qw(Exception::Base::import::Test9));';
@@ -598,6 +598,39 @@ sub test_Exception_Base_import {
         $self->assert(qr/class can not be created automatically/, "$@");
     };
     die "$@" if $@;
+}
+
+sub test_Exception_Base__collect_system_data {
+    my $self = shift;
+
+    my $obj1 = Exception::Base->new;
+    $obj1->_collect_system_data;
+    $self->assert_equals('Test::Unit::TestCase', $obj1->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::test_Exception_Base__collect_system_data', $obj1->{caller_stack}->[0]->[3]);
+
+    my $obj2 = Exception::Base->new;
+    $obj2->{ignore_level} = 1;
+    $obj2->_collect_system_data;
+    $self->assert_equals('Test::Unit::TestCase', $obj2->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Test::Unit::TestCase::run_test', $obj2->{caller_stack}->[0]->[3]);
+
+    my $obj3 = Exception::Base->new;
+    $obj3->{ignore_package} = 'Test::Unit::TestCase';
+    $obj3->_collect_system_data;
+    $self->assert_equals('Error::subs', $obj3->{caller_stack}->[0]->[0]);
+    $self->assert(qr/^Test::Unit::TestCase::__ANON__/, $obj3->{caller_stack}->[0]->[3]);
+
+    my $obj4 = Exception::Base->new;
+    $obj4->{ignore_package} = ['Test::Unit::TestCase'];
+    $obj4->_collect_system_data;
+    $self->assert_equals('Error::subs', $obj4->{caller_stack}->[0]->[0]);
+    $self->assert(qr/^Test::Unit::TestCase::__ANON__/, $obj4->{caller_stack}->[0]->[3]);
+
+    my $obj5 = Exception::Base->new;
+    $obj5->{ignore_package} = ['Non::Existant'];
+    $obj5->_collect_system_data;
+    $self->assert_equals('Test::Unit::TestCase', $obj1->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::test_Exception_Base__collect_system_data', $obj1->{caller_stack}->[0]->[3]);
 }
 
 sub test_Exception_Base__caller_info {
