@@ -11,5 +11,6 @@ WriteMakefile (
         'Test::Unit'    => 0, 
     },
     AUTHOR          => 'Piotr Roszatycki <dexter@debian.org>',
-    ABSTRACT        => 'Error handling with exception class'
+    ABSTRACT        => 'Error handling with exception class',
+    NO_META         => 1,
 );
