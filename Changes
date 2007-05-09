@@ -2,8 +2,10 @@
 0.04 | Piotr Roszatycki <dexter@debian.org> | 2007-05-08
 
 * use 5.006
-* Test with bundled Unit::Test::Lite, so there is no dependency on
-  Unit::Test.
+* Test with bundled Test::Unit::Lite, so there is no dependency on
+  non-core modules.
+* Fixed unit tests so they work with Test::Unit and with Test::Unit::Lite.
+* META.yml is generated with Makefile.PL.
 
 ------------------------------------------------------------------------
 0.03 | Piotr Roszatycki <dexter@debian.org> | 2007-04-23

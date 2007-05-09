@@ -603,34 +603,70 @@ sub test_Exception_Base_import {
 sub test_Exception_Base__collect_system_data {
     my $self = shift;
 
+    {
+	package Exception::BaseTest::_collect_system_data::Test1;
+	sub sub1 {
+	    my $obj = shift;
+	    $obj->_collect_system_data;
+	    return $obj;
+	}
+	sub sub2 {
+	    return sub1 shift();
+	}
+	sub sub3 {
+	    return sub2 shift();
+	}
+	
+	package Exception::BaseTest::_collect_system_data::Test2;
+	sub sub1 {
+	    return Exception::BaseTest::_collect_system_data::Test1::sub1 shift();
+	}
+	sub sub2 {
+	    return sub1 shift();
+	}
+	sub sub3 {
+	    return sub2 shift();
+	}
+
+	package Exception::BaseTest::_collect_system_data::Test3;
+	sub sub1 {
+	    return Exception::BaseTest::_collect_system_data::Test2::sub1 shift();
+	}
+	sub sub2 {
+	    return sub1 shift();
+	}
+	sub sub3 {
+	    return sub2 shift();
+	}
+    }
+
     my $obj1 = Exception::Base->new;
-    $obj1->_collect_system_data;
-    $self->assert_equals('Test::Unit::TestSuite', $obj1->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::test_Exception_Base__collect_system_data', $obj1->{caller_stack}->[0]->[3]);
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj1);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj1->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj1->{caller_stack}->[0]->[3]);
 
     my $obj2 = Exception::Base->new;
-    $obj2->{ignore_level} = 1;
-    $obj2->_collect_system_data;
-    $self->assert_equals('Test::Unit::TestSuite', $obj2->{caller_stack}->[0]->[0]);
-    $self->assert_equals('(eval)', $obj2->{caller_stack}->[0]->[3]);
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj2);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj2->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj2->{caller_stack}->[0]->[3]);
 
     my $obj3 = Exception::Base->new;
-    $obj3->{ignore_package} = 'Test::Unit::TestSuite';
-    $obj3->_collect_system_data;
-    $self->assert_not_equals('Test::Unit::TestSuite', $obj3->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Test::Unit::TestSuite::run', $obj3->{caller_stack}->[0]->[3]);
+    $obj3->{ignore_package} = 'Exception::BaseTest::_collect_system_data::Test2';
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj3);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test3', $obj3->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2::sub1', $obj3->{caller_stack}->[0]->[3]);
 
     my $obj4 = Exception::Base->new;
-    $obj4->{ignore_package} = ['Test::Unit::TestSuite'];
-    $obj4->_collect_system_data;
-    $self->assert_not_equals('Test::Unit::TestSuite', $obj4->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Test::Unit::TestSuite::run', $obj4->{caller_stack}->[0]->[3]);
+    $obj4->{ignore_package} = ['Exception::BaseTest::_collect_system_data::Test2'];
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj4);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test3', $obj4->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2::sub1', $obj4->{caller_stack}->[0]->[3]);
 
     my $obj5 = Exception::Base->new;
     $obj5->{ignore_package} = ['Non::Existant'];
-    $obj5->_collect_system_data;
-    $self->assert_equals('Test::Unit::TestSuite', $obj5->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::test_Exception_Base__collect_system_data', $obj5->{caller_stack}->[0]->[3]);
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj5);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj1->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj1->{caller_stack}->[0]->[3]);
 }
 
 sub test_Exception_Base__caller_info {
