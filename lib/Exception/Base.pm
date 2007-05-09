@@ -13,7 +13,8 @@ Exception::Base - Lightweight exceptions
   # Use module and create needed exceptions
   use Exception::Base (
     'Exception::IO',
-    'Exception::FileNotFound' => { isa => 'Exception::IO' },
+    'Exception::FileNotFound' => { isa => 'Exception::IO',
+                                   message => 'File not found' },
   );
 
   # try / catch

@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
-0.04 | Piotr Roszatycki <dexter@debian.org> | 2007-05-08
+0.04 | Piotr Roszatycki <dexter@debian.org> | ????-??-??
 
 * use 5.006
 * Test with bundled Test::Unit::Lite, so there is no dependency on
