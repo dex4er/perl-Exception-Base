@@ -1,11 +1,20 @@
 ------------------------------------------------------------------------
+0.04 | Piotr Roszatycki <dexter@debian.org> | 2007-05-11
+
+* use 5.006
+* Test with bundled Test::Unit::Lite, so there is no dependency on
+  non-core modules.
+* Fixed unit tests so they work with Test::Unit and with Test::Unit::Lite.
+* META.yml is generated with Makefile.PL.
+
+------------------------------------------------------------------------
 0.03 | Piotr Roszatycki <dexter@debian.org> | 2007-04-23
 
 * Added ignore_package (rw) field, contains package names which are ignored
   from backtrace stack.
 * Added ignore_level (rw) field, contains how many levels skip on backtrace
   stack.
-* OQThe default version for created exception classes is now 0.01
+* The default version for created exception classes is now 0.01
 * META.yml created by hand.
 
 ------------------------------------------------------------------------

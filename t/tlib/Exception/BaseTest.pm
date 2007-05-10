@@ -406,7 +406,7 @@ sub test_Exception_Base_try {
 
         eval { 1; };
         my $v3 = Exception::Base->try([eval { (1,2,3); }]);
-        $self->assert(qr/^ARRAY/, $v3);
+        $self->assert_matches(qr/^ARRAY/, $v3);
         my $e3 = Exception::Base->catch(my $obj3);
         $self->assert_equals(0, $e3);
         $self->assert_null($obj3);
@@ -474,7 +474,7 @@ sub test_Exception_Base_try {
 
         eval { 1; };
         my $v12 = Exception::Base::try([eval { die "Die 12\n"; }]);
-        $self->assert(qr/^ARRAY/, $v12);
+        $self->assert_matches(qr/^ARRAY/, $v12);
         my $e12 = Exception::Base->catch(my $obj12);
         $self->assert_equals(1, $e12);
         $self->assert_not_null($obj12);
@@ -510,14 +510,14 @@ sub test_Exception_Base_import {
 
         eval 'Exception::Base->unimport(qw[try]);';
         eval 'try eval { throw Exception::Base; };';
-        $self->assert(qr/^syntax error/, "$@");
+        $self->assert_matches(qr/^syntax error/, "$@");
 
         eval 'Exception::Base->unimport();';
         eval 'catch my $e, ["Exception"];';
-        $self->assert(qr/^syntax error/, "$@");
+        $self->assert_matches(qr/^syntax error/, "$@");
 
         eval 'throw Exception::Base::import::Test1;';
-        $self->assert(qr/^Can.t locate object method/, "$@");
+        $self->assert_matches(qr/^Can.t locate object method/, "$@");
 
         eval 'throw Exception::Base;';
         my $obj1 = $@;
@@ -557,7 +557,7 @@ sub test_Exception_Base_import {
         $self->assert("$@");
 
         eval 'Exception::Base::import::Test3->import(qw(Exception::Base::import::Test7));';
-        $self->assert(qr/can only be created with/, "$@");
+        $self->assert_matches(qr/can only be created with/, "$@");
 
         eval 'Exception::Base->import(Exception::Base::import::Test8 => "__Scalar");';
         $self->assert_equals('', "$@");
@@ -595,7 +595,7 @@ sub test_Exception_Base_import {
         $self->assert_equals('2.11', $obj11->VERSION);
 
         eval 'Exception::Base->import("Exception::Base" => {version=>999.12});';
-        $self->assert(qr/class can not be created automatically/, "$@");
+        $self->assert_matches(qr/class can not be created automatically/, "$@");
     };
     die "$@" if $@;
 }
@@ -603,34 +603,70 @@ sub test_Exception_Base_import {
 sub test_Exception_Base__collect_system_data {
     my $self = shift;
 
+    {
+	package Exception::BaseTest::_collect_system_data::Test1;
+	sub sub1 {
+	    my $obj = shift;
+	    $obj->_collect_system_data;
+	    return $obj;
+	}
+	sub sub2 {
+	    return sub1 shift();
+	}
+	sub sub3 {
+	    return sub2 shift();
+	}
+	
+	package Exception::BaseTest::_collect_system_data::Test2;
+	sub sub1 {
+	    return Exception::BaseTest::_collect_system_data::Test1::sub1 shift();
+	}
+	sub sub2 {
+	    return sub1 shift();
+	}
+	sub sub3 {
+	    return sub2 shift();
+	}
+
+	package Exception::BaseTest::_collect_system_data::Test3;
+	sub sub1 {
+	    return Exception::BaseTest::_collect_system_data::Test2::sub1 shift();
+	}
+	sub sub2 {
+	    return sub1 shift();
+	}
+	sub sub3 {
+	    return sub2 shift();
+	}
+    }
+
     my $obj1 = Exception::Base->new;
-    $obj1->_collect_system_data;
-    $self->assert_equals('Test::Unit::TestCase', $obj1->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::test_Exception_Base__collect_system_data', $obj1->{caller_stack}->[0]->[3]);
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj1);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj1->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj1->{caller_stack}->[0]->[3]);
 
     my $obj2 = Exception::Base->new;
-    $obj2->{ignore_level} = 1;
-    $obj2->_collect_system_data;
-    $self->assert_equals('Test::Unit::TestCase', $obj2->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Test::Unit::TestCase::run_test', $obj2->{caller_stack}->[0]->[3]);
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj2);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj2->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj2->{caller_stack}->[0]->[3]);
 
     my $obj3 = Exception::Base->new;
-    $obj3->{ignore_package} = 'Test::Unit::TestCase';
-    $obj3->_collect_system_data;
-    $self->assert_equals('Error::subs', $obj3->{caller_stack}->[0]->[0]);
-    $self->assert(qr/^Test::Unit::TestCase::__ANON__/, $obj3->{caller_stack}->[0]->[3]);
+    $obj3->{ignore_package} = 'Exception::BaseTest::_collect_system_data::Test2';
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj3);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test3', $obj3->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2::sub1', $obj3->{caller_stack}->[0]->[3]);
 
     my $obj4 = Exception::Base->new;
-    $obj4->{ignore_package} = ['Test::Unit::TestCase'];
-    $obj4->_collect_system_data;
-    $self->assert_equals('Error::subs', $obj4->{caller_stack}->[0]->[0]);
-    $self->assert(qr/^Test::Unit::TestCase::__ANON__/, $obj4->{caller_stack}->[0]->[3]);
+    $obj4->{ignore_package} = ['Exception::BaseTest::_collect_system_data::Test2'];
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj4);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test3', $obj4->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2::sub1', $obj4->{caller_stack}->[0]->[3]);
 
     my $obj5 = Exception::Base->new;
     $obj5->{ignore_package} = ['Non::Existant'];
-    $obj5->_collect_system_data;
-    $self->assert_equals('Test::Unit::TestCase', $obj1->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::test_Exception_Base__collect_system_data', $obj1->{caller_stack}->[0]->[3]);
+    Exception::BaseTest::_collect_system_data::Test3::sub3($obj5);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj1->{caller_stack}->[0]->[0]);
+    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj1->{caller_stack}->[0]->[3]);
 }
 
 sub test_Exception_Base__caller_info {

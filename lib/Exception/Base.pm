@@ -1,7 +1,8 @@
 #!/usr/bin/perl -c
 
 package Exception::Base;
-our $VERSION = 0.03;
+use 5.006;
+our $VERSION = '0.04';
 
 =head1 NAME
 
@@ -49,12 +50,13 @@ Exception::Base - Lightweight exceptions
 =head1 DESCRIPTION
 
 This class implements a fully OO exception mechanism similar to
-Exception::Class or Class::Throwable.  It does not depend on other modules
-like Exception::Class and it is more powerful than Class::Throwable.  Also it
-does not use closures as Error and does not polute namespace as
-Exception::Class::TryCatch.  It is also much faster than Exception::Class.
+L<Exception::Class> or L<Class::Throwable>.  It does not depend on other
+modules like L<Exception::Class> and it is more powerful than
+L<Class::Throwable>.  Also it does not use closures as L<Error> and does not
+polute namespace as L<Exception::Class::TryCatch>.  It is also much faster
+than L<Exception::Class>.
 
-The features of Exception::Base:
+The features of L<Exception::Base>:
 
 =over 2
 
@@ -671,7 +673,7 @@ Exports the B<catch> and B<try> functions to the caller namespace.
 
 Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
-class will be based on Exception::Base class.
+class will be based on L<Exception::Base> class.
 
   use Exception::Base qw[Exception::Custom Exception::SomethingWrong];
   throw Exception::Custom;
@@ -731,7 +733,7 @@ Optional property with the default value if the field value is not defined.
 =back
 
 The read-write fields can be set with B<new> constructor.  Read-only fields
-are modified by Exception::Base class itself and arguments for B<new>
+are modified by L<Exception::Base> class itself and arguments for B<new>
 constructor will be stored in B<properties> field.
 
 The constant have to be defined in derivered class if it brings additional
@@ -1107,7 +1109,7 @@ There are more implementation of exception objects available on CPAN:
 
 Complete implementation of try/catch/finally/otherwise mechanism.  Uses
 nested closures with a lot of syntactic sugar.  It is slightly faster than
-Exception::Base module.  It doesn't provide a simple way to create user
+L<Exception::Base> module.  It doesn't provide a simple way to create user
 defined exceptions.  It doesn't collect system data and stack trace on error.
 
 =item L<Exception::Class>
@@ -1123,7 +1125,7 @@ L<Exception::Class>.
 =item L<Class::Throwable>
 
 Elegant OO exceptions without try/catch mechanism.  It might be missing some
-features found in Exception::Base and L<Exception::Class>.
+features found in L<Exception::Base> and L<Exception::Class>.
 
 =item L<Exceptions>
 
@@ -1132,11 +1134,11 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 =back
 
 See also L<Exception::System> class as an example for implementation of
-echanced exception class based on this Exception::Base class.
+echanced exception class based on this L<Exception::Base> class.
 
 =head1 PERFORMANCE
 
-The Exception::Base module was benchmarked with other implementation.  The
+The L<Exception::Base> module was benchmarked with other implementation.  The
 results are following:
 
 =over
@@ -1149,11 +1151,11 @@ results are following:
 
 165414/s
 
-=item Exception::Base module with default options
+=item L<Exception::Base> module with default options
 
 6338/s
 
-=item Exception::Base module with verbosity = 1
+=item L<Exception::Base> module with verbosity = 1
 
 16746/s
 
@@ -1175,15 +1177,17 @@ results are following:
 
 =back
 
-The Exception::Base module is 80 times slower than pure eval/die.  This
+The L<Exception::Base> module is 80 times slower than pure eval/die.  This
 module was written to be as fast as it is possible.  It does not use i.e.
 accessor functions which are slower about 6 times than standard variable.  It
 is slower than pure die/eval because it is object oriented by its design.  It
 can be a litte faster if some features, as stack trace, are disabled.
 
-=head1 BUGS
+=head1 TESTS
 
 The module was tested with L<Devel::Cover> and L<Devel::Dprof>.
+
+=head1 BUGS
 
 If you find the bug, please report it.
 
