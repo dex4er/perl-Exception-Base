@@ -1,4 +1,9 @@
 ------------------------------------------------------------------------
+0.05 | Piotr Roszatycki <dexter@debian.org> | 2007-05-11
+
+* Added bundled Test/Unit/Lite.pm to MANIFEST.
+
+------------------------------------------------------------------------
 0.04 | Piotr Roszatycki <dexter@debian.org> | 2007-05-11
 
 * use 5.006
