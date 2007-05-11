@@ -1,7 +1,7 @@
 --- #YAML:1.0
 name: Exception-Base
 abstract: Error handling with exception class
-version: 0.04
+version: 0.05
 author:
   - Piotr Roszatycki <dexter@debian.org>
 license: perl
