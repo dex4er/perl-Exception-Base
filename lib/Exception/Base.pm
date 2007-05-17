@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 =head1 NAME
 
@@ -13,7 +13,8 @@ Exception::Base - Lightweight exceptions
   # Use module and create needed exceptions
   use Exception::Base (
     'Exception::IO',
-    'Exception::FileNotFound' => { isa => 'Exception::IO' },
+    'Exception::FileNotFound' => { message => 'File not found',
+                                   isa => 'Exception::IO' },
   );
 
   # try / catch
@@ -186,15 +187,50 @@ sub import {
                         Carp::croak("Exceptions can only be created with " . __PACKAGE__ . " class");
                     }
                     if ($name eq __PACKAGE__) {
-                        Carp::croak($name . " class can not be created automatically");
+                        Carp::croak("$name class can not be created automatically");
                     }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
                     $version = 0.01 if not $version;
-                    eval << "END";
+
+                    # Handle defaults for fields
+                    my $fields;
+                    eval { $fields = $isa->FIELDS; };
+                    if ($@ ne '') {
+                        Carp::croak("$name class is based on $isa class which does not implement FIELDS");
+                    }
+
+                    my %defaults;
+                    foreach my $field (keys %{ $param }) {
+                        next if $field =~ /^(isa|version)$/;
+                        if (not defined $fields->{$field}->{default}) {
+                            Carp::croak("$isa class does not implement default value for $field field");
+                        }
+                        my %properties = %{ $fields->{$field} };
+                        $properties{default} = $param->{$field};
+                        $defaults{$field} = { %properties };
+                    }
+
+                    my $code = << "END";
 package ${name};
-use base qw(${isa});
-our \$VERSION = ${version};
+use base '${isa}';
+our \$VERSION = '${version}';
 END
+
+                    if (%defaults) {
+                        $code     .= "use constant FIELDS => {\n"
+                                   . "    \%{ ${isa}->FIELDS },\n";
+                        foreach my $field (keys %defaults) {
+                            $code .= "    ${field} => { ";
+                            foreach my $property (keys %{ $defaults{$field} }) {
+                                (my $value = $defaults{$field}->{$property}) =~ s/([\\\'])/\\$1/g;
+                                $code .= "$property => '$value', ";
+                            }
+                            $code .= "},\n";
+                        }
+                        $code     .= "};\n";
+                    }
+
+                    eval $code;
                     if ($@) {
                         Carp::croak("An error occured while constructing " . __PACKAGE__ . " exception class ($name) : $@");
                     }
@@ -678,18 +714,46 @@ class will be based on L<Exception::Base> class.
   use Exception::Base qw[Exception::Custom Exception::SomethingWrong];
   throw Exception::Custom;
 
-=item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version> };
+=item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };
 
 Loads additional exception class module.  If the module's version is lower
 than given parameter or the module can't be loaded, creates the exception
 class automatically at compile time.  The newly created class will be based
 on given class and has the given $VERSION variable.
 
+=over
+
+=item isa
+
+The newly created class will be based on given class.
+
+=item version
+
+The class will be created only if the module's version is lower than given
+parameter and will have the version given in the argument.
+
+=item message
+
+=item verbosity
+
+=item max_arg_len
+
+=item max_arg_nums
+
+=item max_eval_len
+
+=item I<other field having default property>
+
+The class will have the default property for the given field.
+
+=over
+
   use Exception::Base
     'try', 'catch',
     'Exception::IO',
     'Exception::FileNotFound' => { isa => 'Exception::IO' },
-    'Exception::My' => { version => 0.2 };
+    'Exception::My' => { version => 0.2 },
+    'Exception::WithDefault' => { message => 'Default message' };
   try eval { throw Exception::FileNotFound; };
   if (catch my $e) {
     if ($e->isa('Exception::IO')) { warn "can be also FileNotFound"; }
