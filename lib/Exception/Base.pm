@@ -199,6 +199,7 @@ sub import {
                         Carp::croak("$name class is based on $isa class which does not implement FIELDS");
                     }
 
+                    # Create properties hash for new class
                     my %defaults;
                     foreach my $field (keys %{ $param }) {
                         next if $field =~ /^(isa|version)$/;

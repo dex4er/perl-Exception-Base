@@ -596,6 +596,20 @@ sub test_Exception_Base_import {
 
         eval 'Exception::Base->import("Exception::Base" => {version=>999.12});';
         $self->assert_matches(qr/class can not be created automatically/, "$@");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test12" => {message=>"Message", verbosity=>1});';
+        $self->assert_equals('', "$@");
+        eval 'throw Exception::Base::import::Test12;';
+        my $obj12 = $@;
+        $self->assert($obj12->isa('Exception::Base::import::Test12'));
+        $self->assert($obj12->isa('Exception::Base'));
+        $self->assert_equals("Message\n", "$obj12");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test13" => {time=>"readonly"});';
+        $self->assert_matches(qr/class does not implement default value/, "$@");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test13" => {unknown=>"unknown"});';
+        $self->assert_matches(qr/class does not implement default value/, "$@");
     };
     die "$@" if $@;
 }
