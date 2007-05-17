@@ -2,6 +2,7 @@
 0.06 | Piotr Roszatycki <dexter@debian.org> | ????-??-??
 
 * Can define default value for rw properties with "use".
+* Does not undefine other typeglobs than CODE with "unimport".
 
 ------------------------------------------------------------------------
 0.05 | Piotr Roszatycki <dexter@debian.org> | 2007-05-11

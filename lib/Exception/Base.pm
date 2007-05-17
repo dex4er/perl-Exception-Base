@@ -259,8 +259,18 @@ sub unimport {
     no strict 'refs';
     while (my $name = shift @export) {
         if ($name eq 'try' or $name eq 'catch') {
-            if (defined &{$callpkg . '::' . $name}) {
-                delete ${$callpkg . '::'}{$name};
+            if (defined *{$callpkg . '::' . $name}{CODE}) {
+                # Store and restore other typeglobs than CODE
+                my %glob;
+                foreach my $type (qw<SCALAR ARRAY HASH IO FORMAT>) {
+                    $glob{$type} = *{$callpkg . '::' . $name}{$type}
+                        if defined *{$callpkg . '::' . $name}{$type};
+                }
+                undef *{$callpkg . '::' . $name};
+                foreach my $type (qw<SCALAR ARRAY HASH IO FORMAT>) {
+                    *{$callpkg . '::' . $name} = $glob{$type}
+                        if defined $glob{$type};
+                }
             }
         }
     }
