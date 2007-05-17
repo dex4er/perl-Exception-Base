@@ -122,7 +122,7 @@ use Exporter ();
 
 
 # Export try/catch syntactic sugar
-our @EXPORT_OK = qw(try catch);
+our @EXPORT_OK = qw<try catch>;
 
 
 # Overload the stringify operation
@@ -254,7 +254,7 @@ sub unimport {
     my $pkg = shift;
     my $callpkg = caller;
 
-    my @export = scalar @_ ? @_ : qw[catch try];
+    my @export = scalar @_ ? @_ : qw<catch try>;
 
     no strict 'refs';
     while (my $name = shift @export) {
@@ -584,7 +584,7 @@ sub _caller_info {
         if defined $self->{caller_stack} and defined $self->{caller_stack}->[$i];
 
     @call_info{
-        qw(pack file line sub has_args wantarray evaltext is_require)
+        qw<pack file line sub has_args wantarray evaltext is_require>
     } = @call_info[0..7];
 
     unless (defined $call_info{pack}) {
@@ -708,11 +708,11 @@ END
 
 =over
 
-=item use Exception::Base qw[catch try];
+=item use Exception::Base qw<catch try>;
 
 Exports the B<catch> and B<try> functions to the caller namespace.
 
-  use Exception::Base qw[catch try];
+  use Exception::Base qw<catch try>;
   try eval { throw Exception::Base; };
   if (catch my $e) { warn "$e"; }
 
@@ -722,7 +722,7 @@ Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
 class will be based on L<Exception::Base> class.
 
-  use Exception::Base qw[Exception::Custom Exception::SomethingWrong];
+  use Exception::Base qw<Exception::Custom Exception::SomethingWrong>;
   throw Exception::Custom;
 
 =item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };
@@ -757,7 +757,7 @@ parameter and will have the version given in the argument.
 
 The class will have the default property for the given field.
 
-=over
+=back
 
   use Exception::Base
     'try', 'catch',
@@ -771,13 +771,13 @@ The class will have the default property for the given field.
     if ($e->isa('Exception::My')) { print $e->VERSION; }
   }
 
-=item no Exception::Base qw[catch try];
+=item no Exception::Base qw<catch try>;
 
 =item no Exception::Base;
 
 Unexports the B<catch> and B<try> functions from the caller namespace.
 
-  use Exception::Base qw[try catch], 'Exception::FileNotFound';
+  use Exception::Base qw<try catch>, 'Exception::FileNotFound';
   try eval { throw Exception::FileNotFound; };  # ok
   no Exception::Base;
   try eval { throw Exception::FileNotFound; };  # syntax error
