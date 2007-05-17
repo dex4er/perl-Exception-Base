@@ -500,21 +500,27 @@ sub test_Exception_Base_import {
         eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
         $self->assert_not_equals('', "$@");
 
-        eval 'Exception::Base->import(qw[try catch]);';
+        eval '$try = "SCALAR";';
+        $self->assert_equals('SCALAR', $try);
+
+        eval 'Exception::Base->import(qw<try catch>);';
+        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        $self->assert_equals('', "$@");
+        $self->assert_equals('SCALAR', $try);
+
+        eval 'Exception::Base->unimport(qw<notsuchfunction>);';
         eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
-        eval 'Exception::Base->unimport(qw[notsuchfunction]);';
-        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
-        $self->assert_equals('', "$@");
-
-        eval 'Exception::Base->unimport(qw[try]);';
+        eval 'Exception::Base->unimport(qw<try>);';
         eval 'try eval { throw Exception::Base; };';
         $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->unimport();';
         eval 'catch my $e, ["Exception"];';
         $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_equals('SCALAR', $try);
 
         eval 'throw Exception::Base::import::Test1;';
         $self->assert_matches(qr/^Can.t locate object method/, "$@");
@@ -524,10 +530,10 @@ sub test_Exception_Base_import {
         $self->assert_not_null($obj1);
         $self->assert($obj1->isa('Exception::Base'));
 
-        eval 'Exception::Base->import(qw(Exception::Base));';
+        eval 'Exception::Base->import(qw<Exception::Base>);';
         $self->assert_equals('', "$@");
 
-        eval 'Exception::Base->import(qw(Exception::Base::import::Test2));';
+        eval 'Exception::Base->import(qw<Exception::Base::import::Test2>);';
         $self->assert_equals('', "$@");
         eval 'throw Exception::Base::import::Test2;';
         my $obj2 = $@;
@@ -535,7 +541,7 @@ sub test_Exception_Base_import {
         $self->assert($obj2->isa('Exception::Base'));
         $self->assert_equals('0.01', $obj2->VERSION);
 
-        eval 'Exception::Base->import(Exception::Base::import::Test3 => {isa=>qw(Exception::Base::import::Test2),
+        eval 'Exception::Base->import(Exception::Base::import::Test3 => {isa=>qw<Exception::Base::import::Test2>,
             version=>1.3});';
         $self->assert_equals('', "$@");
         eval 'throw Exception::Base::import::Test3;';
@@ -553,10 +559,10 @@ sub test_Exception_Base_import {
         $self->assert($obj4->isa('Exception::Base'));
         $self->assert_equals('1.4', $obj4->VERSION);
 
-        eval 'Exception::Base->import(Exception::Base::import::Test5 => {isa=>qw(Exception::Base::import::Test6)});';
+        eval 'Exception::Base->import(Exception::Base::import::Test5 => {isa=>qw<Exception::Base::import::Test6>});';
         $self->assert("$@");
 
-        eval 'Exception::Base::import::Test3->import(qw(Exception::Base::import::Test7));';
+        eval 'Exception::Base::import::Test3->import(qw<Exception::Base::import::Test7>);';
         $self->assert_matches(qr/can only be created with/, "$@");
 
         eval 'Exception::Base->import(Exception::Base::import::Test8 => "__Scalar");';
@@ -568,7 +574,7 @@ sub test_Exception_Base_import {
         $self->assert_equals('0.01', $obj8->VERSION);
 
         eval 'package Exception::Base::import::Test9; our $VERSION = 1.9; our @ISA = ("Exception::Base"); 1;';
-        eval 'Exception::Base->import(qw(Exception::Base::import::Test9));';
+        eval 'Exception::Base->import(qw<Exception::Base::import::Test9>);';
         $self->assert_equals('', "$@");
         eval 'throw Exception::Base::import::Test9;';
         my $obj9 = $@;
@@ -596,6 +602,20 @@ sub test_Exception_Base_import {
 
         eval 'Exception::Base->import("Exception::Base" => {version=>999.12});';
         $self->assert_matches(qr/class can not be created automatically/, "$@");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test12" => {message=>"Message", verbosity=>1});';
+        $self->assert_equals('', "$@");
+        eval 'throw Exception::Base::import::Test12;';
+        my $obj12 = $@;
+        $self->assert($obj12->isa('Exception::Base::import::Test12'));
+        $self->assert($obj12->isa('Exception::Base'));
+        $self->assert_equals("Message\n", "$obj12");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test13" => {time=>"readonly"});';
+        $self->assert_matches(qr/class does not implement default value/, "$@");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test13" => {unknown=>"unknown"});';
+        $self->assert_matches(qr/class does not implement default value/, "$@");
     };
     die "$@" if $@;
 }
@@ -732,10 +752,10 @@ sub test_Exception_Base__format_arg {
     $self->assert_equals('"\x{c3}"', $obj->_format_arg("\x{c3}"));
     $self->assert_equals('"\x{263a}"', $obj->_format_arg("\x{263a}"));
     $self->assert_equals('"\x{c3}\x{263a}"', $obj->_format_arg("\x{c3}\x{263a}"));
-    $self->assert(qw/^ARRAY/, $obj->_format_arg([]));
-    $self->assert(qw/^HASH/, $obj->_format_arg({}));
-    $self->assert(qw/^Exception::BaseTest=/, $obj->_format_arg($self));
-    $self->assert(qw/^Exception::Base=/, $obj->_format_arg($obj));
+    $self->assert(qr/^.ARRAY/, $obj->_format_arg([]));
+    $self->assert(qr/^.HASH/, $obj->_format_arg({}));
+    $self->assert(qr/^.Exception::BaseTest=/, $obj->_format_arg($self));
+    $self->assert(qr/^.Exception::Base=/, $obj->_format_arg($obj));
     $obj->{defaults}->{max_arg_len} = 5;
     $self->assert_equals('12...', $obj->_format_arg('123456789'));
     $obj->{max_arg_len} = 10;
