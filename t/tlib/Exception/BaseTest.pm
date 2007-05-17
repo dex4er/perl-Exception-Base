@@ -500,9 +500,13 @@ sub test_Exception_Base_import {
         eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
         $self->assert_not_equals('', "$@");
 
+        eval '$try = "SCALAR";';
+        $self->assert_equals('SCALAR', $try);
+
         eval 'Exception::Base->import(qw[try catch]);';
         eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
+        $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->unimport(qw[notsuchfunction]);';
         eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
@@ -511,10 +515,12 @@ sub test_Exception_Base_import {
         eval 'Exception::Base->unimport(qw[try]);';
         eval 'try eval { throw Exception::Base; };';
         $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->unimport();';
         eval 'catch my $e, ["Exception"];';
         $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_equals('SCALAR', $try);
 
         eval 'throw Exception::Base::import::Test1;';
         $self->assert_matches(qr/^Can.t locate object method/, "$@");
