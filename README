@@ -5,7 +5,8 @@ SYNOPSIS
       # Use module and create needed exceptions
       use Exception::Base (
         'Exception::IO',
-        'Exception::FileNotFound' => { isa => 'Exception::IO' },
+        'Exception::FileNotFound' => { message => 'File not found',
+                                       isa => 'Exception::IO' },
       );
 
       # try / catch
@@ -31,7 +32,7 @@ SYNOPSIS
       @v = try Exception::Base [eval { do_something_returning_array(); }];
 
       # use syntactic sugar
-      use Exception::Base qw[try catch];
+      use Exception::Base qw<try catch>;
       try eval {
         throw Exception::Base;
       };    # don't forget about semicolon
