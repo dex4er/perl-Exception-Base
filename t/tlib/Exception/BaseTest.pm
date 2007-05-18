@@ -614,8 +614,9 @@ sub test_Exception_Base_import {
         eval 'Exception::Base->import("Exception::Base::import::Test13" => {time=>"readonly"});';
         $self->assert_matches(qr/class does not implement default value/, "$@");
 
-        eval 'Exception::Base->import("Exception::Base::import::Test13" => {unknown=>"unknown"});';
-        $self->assert_matches(qr/class does not implement default value/, "$@");
+        eval 'Exception::Base->import("Exception::Base::import::Test14" => {
+            isa=>Exception::Base::import::Test14::NotExists});';
+        $self->assert_matches(qr/can not be found/, "$@");
     };
     die "$@" if $@;
 }
@@ -624,40 +625,40 @@ sub test_Exception_Base__collect_system_data {
     my $self = shift;
 
     {
-	package Exception::BaseTest::_collect_system_data::Test1;
-	sub sub1 {
-	    my $obj = shift;
-	    $obj->_collect_system_data;
-	    return $obj;
-	}
-	sub sub2 {
-	    return sub1 shift();
-	}
-	sub sub3 {
-	    return sub2 shift();
-	}
-	
-	package Exception::BaseTest::_collect_system_data::Test2;
-	sub sub1 {
-	    return Exception::BaseTest::_collect_system_data::Test1::sub1 shift();
-	}
-	sub sub2 {
-	    return sub1 shift();
-	}
-	sub sub3 {
-	    return sub2 shift();
-	}
+        package Exception::BaseTest::_collect_system_data::Test1;
+        sub sub1 {
+            my $obj = shift;
+            $obj->_collect_system_data;
+            return $obj;
+        }
+        sub sub2 {
+            return sub1 shift();
+        }
+        sub sub3 {
+            return sub2 shift();
+        }
 
-	package Exception::BaseTest::_collect_system_data::Test3;
-	sub sub1 {
-	    return Exception::BaseTest::_collect_system_data::Test2::sub1 shift();
-	}
-	sub sub2 {
-	    return sub1 shift();
-	}
-	sub sub3 {
-	    return sub2 shift();
-	}
+        package Exception::BaseTest::_collect_system_data::Test2;
+        sub sub1 {
+            return Exception::BaseTest::_collect_system_data::Test1::sub1 shift();
+        }
+        sub sub2 {
+            return sub1 shift();
+        }
+        sub sub3 {
+            return sub2 shift();
+        }
+
+        package Exception::BaseTest::_collect_system_data::Test3;
+        sub sub1 {
+            return Exception::BaseTest::_collect_system_data::Test2::sub1 shift();
+        }
+        sub sub2 {
+            return sub1 shift();
+        }
+        sub sub3 {
+            return sub2 shift();
+        }
     }
 
     my $obj1 = Exception::Base->new;
