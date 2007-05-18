@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 =head1 NAME
 
@@ -42,7 +42,7 @@ Exception::Base - Lightweight exceptions
   @v = try Exception::Base [eval { do_something_returning_array(); }];
 
   # use syntactic sugar
-  use Exception::Base qw[try catch], 'Exception::IO';
+  use Exception::Base qw<try catch>, 'Exception::IO';
   try eval {
     throw Exception::IO;
   };    # don't forget about semicolon
@@ -191,6 +191,17 @@ sub import {
                     }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
                     $version = 0.01 if not $version;
+
+                    # Base class is needed
+                    {
+                        no strict 'refs';
+                        if (not defined ${$isa . '::VERSION'}) {
+                            eval "use $isa;";
+                            if ($@ ne '') {
+                                Carp::croak("Base class $isa for class $name can not be found");
+                            }
+                        }
+                    }
 
                     # Handle defaults for fields
                     my $fields;
