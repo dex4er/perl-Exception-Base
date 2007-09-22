@@ -1276,7 +1276,7 @@ If you find the bug, please report it.
 
 =for readme continue
 
-=head1 AUTHORS
+=head1 AUTHOR
 
 Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
