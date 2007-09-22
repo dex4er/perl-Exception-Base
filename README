@@ -10,15 +10,17 @@ SYNOPSIS
       );
 
       # try / catch
-      try Exception::Base eval {
+      try Exception eval {
         do_something() or throw Exception::FileNotFound
-                                    message=>'Something wrong', tag=>'something';
+                                    message=>'Something wrong',
+                                    tag=>'something';
       };
+      # Catch the Exception::Base, other exceptions throw immediately
       if (catch Exception::Base my $e) {
         # $e is an exception object for sure, no need to check if is blessed
-        if ($e->isa('Exception::IO') { warn "IO problem"; }
-        elsif ($e->isa('Exception::Die') { warn "eval died"; }
-        elsif ($e->isa('Exception::Warn') { warn "some warn was caught"; }
+        if ($e->isa('Exception::IO')) { warn "IO problem"; }
+        elsif ($e->isa('Exception::Die')) { warn "eval died"; }
+        elsif ($e->isa('Exception::Warn')) { warn "some warn was caught"; }
         elsif ($e->with(tag=>'something')) { warn "something happened"; }
         elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
         else { $e->throw; } # rethrow the exception
@@ -32,11 +34,11 @@ SYNOPSIS
       @v = try Exception::Base [eval { do_something_returning_array(); }];
 
       # use syntactic sugar
-      use Exception::Base qw<try catch>;
+      use Exception::Base qw<try catch>, 'Exception::IO';
       try eval {
-        throw Exception::Base;
+        throw Exception::IO;
       };    # don't forget about semicolon
-      catch my $e, ['Exception::IO'];
+      catch my $e, ['Exception::IO'];  # Exception::Base is by default
 
 DESCRIPTION
     This class implements a fully OO exception mechanism similar to
@@ -73,11 +75,477 @@ DESCRIPTION
 
     * easly expendable, see Exception::System class for example
 
+IMPORTS
+    use Exception::Base qw<catch try>;
+        Exports the catch and try functions to the caller namespace.
+
+          use Exception::Base qw<catch try>;
+          try eval { throw Exception::Base; };
+          if (catch my $e) { warn "$e"; }
+
+    use Exception::Base '*Exception*', ...;
+        Loads additional exception class module. If the module is not
+        available, creates the exception class automatically at compile
+        time. The newly created class will be based on Exception::Base
+        class.
+
+          use Exception::Base qw<Exception::Custom Exception::SomethingWrong>;
+          throw Exception::Custom;
+
+    use Exception::Base '*Exception*' => { isa => *BaseException*, version
+    => *version*, ... };
+        Loads additional exception class module. If the module's version is
+        lower than given parameter or the module can't be loaded, creates
+        the exception class automatically at compile time. The newly created
+        class will be based on given class and has the given $VERSION
+        variable.
+
+        isa The newly created class will be based on given class.
+
+        version
+            The class will be created only if the module's version is lower
+            than given parameter and will have the version given in the
+            argument.
+
+        message
+        verbosity
+        max_arg_len
+        max_arg_nums
+        max_eval_len
+        *other field having default property*
+            The class will have the default property for the given field.
+
+          use Exception::Base
+            'try', 'catch',
+            'Exception::IO',
+            'Exception::FileNotFound' => { isa => 'Exception::IO' },
+            'Exception::My' => { version => 0.2 },
+            'Exception::WithDefault' => { message => 'Default message' };
+          try eval { throw Exception::FileNotFound; };
+          if (catch my $e) {
+            if ($e->isa('Exception::IO')) { warn "can be also FileNotFound"; }
+            if ($e->isa('Exception::My')) { print $e->VERSION; }
+          }
+
+    no Exception::Base qw<catch try>;
+    no Exception::Base;
+        Unexports the catch and try functions from the caller namespace.
+
+          use Exception::Base qw<try catch>, 'Exception::FileNotFound';
+          try eval { throw Exception::FileNotFound; };  # ok
+          no Exception::Base;
+          try eval { throw Exception::FileNotFound; };  # syntax error
+
+CONSTANTS
+    FIELDS
+        Declaration of class fields as reference to hash.
+
+        The fields are listed as *name* => {*properties*}, where
+        *properties* is a list of field properties:
+
+        is  Can be 'rw' for read-write fields or 'ro' for read-only fields.
+
+        default
+            Optional property with the default value if the field value is
+            not defined.
+
+        The read-write fields can be set with new constructor. Read-only
+        fields are modified by Exception::Base class itself and arguments
+        for new constructor will be stored in properties field.
+
+        The constant have to be defined in derivered class if it brings
+        additional fields.
+
+          package Exception::My;
+          our $VERSION = 0.01;
+          use base 'Exception::Base';
+
+          # Define new class fields
+          use constant FIELDS => {
+            %{Exception::Base->FIELDS},       # base's fields have to be first
+            readonly  => { is=>'ro', default=>'value' },  # new ro field
+            readwrite => { is=>'rw' },                    # new rw field
+          };
+
+          package main;
+          try Exception::Base eval {
+            throw Exception::My readonly=>1, readwrite=>2;
+          };
+          if (catch Exception::Base my $e) {
+            print $e->{readwrite};                # = 2
+            print $e->{properties}->{readonly};   # = 1
+            print $e->{defaults}->{readwrite};    # = "value"
+          }
+
+FIELDS
+    Class fields are implemented as values of blessed hash.
+
+    message (rw, default: 'Unknown exception')
+        Contains the message of the exception. It is the part of the string
+        representing the exception object.
+
+          eval { throw Exception message=>"Message", tag=>"TAG"; };
+          print $@->{message} if $@;
+
+    properties (ro)
+        Contains the additional properies of the exception. They can be
+        later used with "with" method.
+
+          eval { throw Exception message=>"Message", tag=>"TAG"; };
+          print $@->{properties}->{tag} if $@;
+
+    verbosity (rw, default: 3)
+        Contains the verbosity level of the exception object. It allows to
+        change the string representing the exception object. There are
+        following levels of verbosity:
+
+        0 Empty string
+
+        1
+           Message
+
+        2
+           Message at %s line %d.
+
+          The same as the standard output of die() function.
+
+        3
+           Class: Message at %s line %d
+                   %c_ = %s::%s() called at %s line %d
+           ...
+
+          The output contains full trace of error stack. This is the default
+          option.
+
+        If the verbosity is undef, then the default verbosity for exception
+        objects is used.
+
+        If the verbosity set with constructor (new or throw) is lower that
+        3, the full stack trace won't be collected.
+
+    ignore_package (rw)
+        Contains the name (scalar) or names (as references array) of
+        packages which are ignored in error stack trace. It is useful if
+        some package throws an exception but this module shouldn't be listed
+        in stack trace.
+
+          package My::Package;
+          use Exception::Base;
+          sub my_function {
+            do_something() or throw Exception::Base ignore_package=>__PACKAGE__;
+          }
+
+    ignore_level (rw)
+        Contains the number of level on stack trace to ignore. It is useful
+        if some package throws an exception but this module shouldn't be
+        listed in stack trace. It can be used with or without ignore_package
+        field.
+
+          package My::Package;
+          use Exception::Base;
+          sub my_function {
+            do_something() or throw Exception::Base ignore_level=>2;
+          }
+
+    time (ro)
+        Contains the timestamp of the thrown exception.
+
+          eval { throw Exception message=>"Message"; };
+          print scalar localtime $@->{time};
+
+    pid (ro)
+        Contains the PID of the Perl process at time of thrown exception.
+
+          eval { throw Exception message=>"Message"; };
+          kill 10, $@->{pid};
+
+    tid (ro)
+        Constains the tid of the thread or undef if threads are not used.
+
+    uid (ro)
+    euid (ro)
+    gid (ro)
+    egid (ro)
+        Contains the real and effective uid and gid of the Perl process at
+        time of thrown exception.
+
+    caller_stack (ro)
+        If the verbosity on throwing exception was greater that 1, it
+        contains the error stack as array of array with informations about
+        caller functions. The first 8 elements of the array's row are the
+        same as first 8 elements of the output of caller() function. Further
+        elements are optional and are the arguments of called function.
+
+          eval { throw Exception message=>"Message"; };
+          ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
+          $evaltext, $is_require, @args) = $@->{caller_stack}->[0];
+
+    max_arg_len (rw, default: 64)
+        Contains the maximal length of argument for functions in backtrace
+        output. Zero means no limit for length.
+
+          sub a { throw Exception max_arg_len=>5 }
+          a("123456789");
+
+    max_arg_nums (rw, default: 8)
+        Contains the maximal number of arguments for functions in backtrace
+        output. Zero means no limit for arguments.
+
+          sub a { throw Exception max_arg_nums=>1 }
+          a(1,2,3);
+
+    max_eval_len (rw, default: 0)
+        Contains the maximal length of eval strings in backtrace output.
+        Zero means no limit for length.
+
+          eval "throw Exception max_eval_len=>10";
+          print "$@";
+
+    defaults (rw)
+        Meta-field contains the list of default values.
+
+          my $e = new Exception;
+          print defined $e->{verbosity}
+            ? $e->{verbosity}
+            : $e->{defaults}->{verbosity};
+
+CONSTRUCTORS
+    new([%*args*])
+        Creates the exception object, which can be thrown later. The system
+        data fields like time, pid, uid, gid, euid, egid are not filled.
+
+        If the key of the argument is read-write field, this field will be
+        filled. Otherwise, the properties field will be used.
+
+          $e = new Exception message=>"Houston, we have a problem",
+                             tag => "BIG";
+          print $e->{message};
+          print $e->{properties}->{tag};
+
+        The constructor reads the list of class fields from FIELDS constant
+        function and stores it in the internal cache for performance reason.
+        The defaults values for the class are also stored in internal cache.
+
+    throw([%*args*]])
+        Creates the exception object and immediately throws it with die()
+        function.
+
+          open FILE, $file
+            or throw Exception message=>"Can not open file: $file";
+
+METHODS
+    throw([$*exception*])
+        Immediately throws exception object with die() function. It can be
+        used as for throwing new exception as for rethrowing existing
+        exception object.
+
+          eval { throw Exception message=>"Problem", tag => "TAG"; };
+          # rethrow, $@ is an exception object
+          $@->throw if $@->{properties}->{tag} eq "TAG";
+
+    stringify([$*verbosity*[, $*message*]])
+        Returns the string representation of exception object. It is called
+        automatically if the exception object is used in scalar context. The
+        method can be used explicity and then the verbosity level can be
+        used.
+
+          eval { throw Exception; };
+          $@->{verbosity} = 1;
+          print "$@";
+          print $@->stringify(3) if $VERY_VERBOSE;
+
+    with(*condition*)
+        Checks if the exception object matches the given condition. If the
+        first argument is single value, the message attribute will be
+        matched. If the argument is a part of hash, the properties attribute
+        will be matched or the attribute of the exception object if the
+        properties attribute is not defined.
+
+          $e->with("message");
+          $e->with(tag=>"property");
+          $e->with("message", tag=>"and the property");
+          $e->with(tag1=>"property", tag2=>"another property");
+          $e->with(uid=>0);
+          $e->with(message=>'$e->{properties}->{message} or $e->{message}');
+
+        The argument (for message or properties) can be simple string or
+        code reference or regexp.
+
+          $e->with("message");
+          $e->with(sub {/message/});
+          $e->with(qr/message/);
+
+    try(*eval*)
+        The "try" method or function can be used with eval block as
+        argument. Then the eval's error is pushed into error stack and can
+        be used with "catch" later.
+
+          try Exception::Base eval { throw Exception; };
+          eval { die "another error messing with \$@ variable"; };
+          catch Exception::Base my $e;
+
+        The "try" returns the value of the argument in scalar context. If
+        the argument is array reference, the "try" returns the value of the
+        argument in array context.
+
+          $v = try Exception::Base eval { 2 + 2; }; # $v == 4
+          @v = try Exception::Base [ eval { (1,2,3); }; ]; # @v = (1,2,3)
+
+        The "try" can be used as method or function.
+
+          try Exception::Base eval { throw Exception::Base "method"; };
+          Exception::Base::try eval { throw Exception::Base "function"; };
+          Exception::Base->import('try');
+          try eval { throw Exception::Base "exported function"; };
+
+    *CLASS*->catch([$*variable*])
+        The exception is popped from error stack (or $@ variable is used if
+        stack is empty) and the exception is written into the method
+        argument. If the exception is not based on the *CLASS*, the
+        exception is thrown immediately.
+
+          eval { throw Exception; };
+          catch Exception::Base my $e;
+          print $e->stringify(1);
+
+        If the $@ variable does not contain the exception object but string,
+        new exception object is created with message from $@ variable.
+
+          eval { die "Died\n"; };
+          catch Exception::Base my $e;
+          print $e->stringify;
+
+        The method returns 1, if the exception object is caught, and returns
+        0 otherwise.
+
+          eval { throw Exception; };
+          if (catch Exception::Base my $e) {
+            warn "Exception caught: " . ref $e;
+          }
+
+        If the method argument is missing, the method returns the exception
+        object.
+
+          eval { throw Exception; };
+          my $e = catch Exception::Base;
+
+        The "catch" can be used as method or function. If it is used as
+        function, then the *CLASS* is Exception::Base by default.
+
+          eval { throw Exception::Base "method"; };
+          Exception::Base->import('catch');
+          catch my $e;  # the same as catch Exception::Base my $e;
+          print $e->stringify;
+
+    *CLASS*->catch([$*variable*,] \@*ExceptionClasses*)
+        The exception is popped from error stack (or $@ variable is used if
+        stack is empty). If the exception is not based on the *CLASS* and is
+        not based on one of the class from argument, the exception is thrown
+        immediately.
+
+          eval { throw Exception::IO; }
+          catch Exception::Base my $e, ['Exception::IO'];
+          print "Only IO exception was caught: " . $e->stringify(1);
+
+PRIVATE METHODS
+    _collect_system_data
+        Collect system data and fill the attributes of exception object.
+        This method is called automatically if exception if thrown. It can
+        be used by derived class.
+
+          package Exception::Special;
+          use base 'Exception::Base';
+          use constant FIELDS => {
+            %{Exception::Base->FIELDS},
+            'special' => { is => 'ro' },
+          };
+          sub _collect_system_data {
+            my $self = shift;
+            $self->SUPER::_collect_system_data(@_);
+            $self->{special} = get_special_value();
+            return $self;
+          }
+
+        Method returns the reference to the self object.
+
+SEE ALSO
+    There are more implementation of exception objects available on CPAN:
+
+    Error
+        Complete implementation of try/catch/finally/otherwise mechanism.
+        Uses nested closures with a lot of syntactic sugar. It is slightly
+        faster than Exception::Base module. It doesn't provide a simple way
+        to create user defined exceptions. It doesn't collect system data
+        and stack trace on error.
+
+    Exception::Class
+        More perl-ish way to do OO exceptions. It is too heavy and too slow.
+        It requires non-core perl modules to work. It missing try/catch
+        mechanism.
+
+    Exception::Class::TryCatch
+        Additional try/catch mechanism for Exception::Class. It is also slow
+        as Exception::Class.
+
+    Class::Throwable
+        Elegant OO exceptions without try/catch mechanism. It might be
+        missing some features found in Exception::Base and Exception::Class.
+
+    Exceptions
+        Not recommended. Abadoned. Modifies %SIG handlers.
+
+    See also Exception::System class as an example for implementation of
+    echanced exception class based on this Exception::Base class.
+
+PERFORMANCE
+    The Exception::Base module was benchmarked with other implementation.
+    The results are following:
+
+    pure eval/die with string
+        504122/s
+
+    pure eval/die with object
+        165414/s
+
+    Exception::Base module with default options
+        6338/s
+
+    Exception::Base module with verbosity = 1
+        16746/s
+
+    Error module
+        17934/s
+
+    Exception::Class module
+        1569/s
+
+    Exception::Class::TryCatch module
+        1520/s
+
+    Class::Throwable module
+        7587/s
+
+    The Exception::Base module is 80 times slower than pure eval/die. This
+    module was written to be as fast as it is possible. It does not use i.e.
+    accessor functions which are slower about 6 times than standard
+    variable. It is slower than pure die/eval because it is object oriented
+    by its design. It can be a litte faster if some features, as stack
+    trace, are disabled.
+
+TESTS
+    The module was tested with Devel::Cover and Devel::Dprof.
+
+BUGS
+    If you find the bug, please report it.
+
+AUTHORS
+    Piotr Roszatycki <dexter@debian.org>
+
 LICENSE
     Copyright 2007 by Piotr Roszatycki <dexter@debian.org>.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
 
-    See <http://www.perl.com/perl/misc/Artistic.html>
+    See http://www.perl.com/perl/misc/Artistic.html
 

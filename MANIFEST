@@ -1,3 +1,4 @@
+Build.PL
 Changes
 eg/file-not-found_exception.pl
 inc/Test/Unit/Lite.pm
@@ -14,3 +15,4 @@ t/profile.pl
 t/test.sh
 t/tlib/AllTests.pm
 t/tlib/Exception/BaseTest.pm
+META.yml
