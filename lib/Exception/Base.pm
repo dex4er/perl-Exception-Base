@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.07_01;
+our $VERSION = 0.08;
 
 =head1 NAME
 
@@ -16,7 +16,7 @@ Exception::Base - Lightweight exceptions
     'Exception::FileNotFound' => { message => 'File not found',
                                    isa => 'Exception::IO' },
   );
-
+  
   # try / catch
   try Exception eval {
     do_something() or throw Exception::FileNotFound
@@ -33,16 +33,16 @@ Exception::Base - Lightweight exceptions
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
-
+  
   # the exception can be thrown later
   $e = new Exception::Base;
   $e->throw;
-
+  
   # try with array context
   @v = try Exception::Base [eval { do_something_returning_array(); }];
-
+  
   # use syntactic sugar
-  use Exception::Base qw<try catch>, 'Exception::IO';
+  use Exception::Base ':all', 'Exception::IO';
   try eval {
     throw Exception::IO;
   };    # don't forget about semicolon
@@ -108,7 +108,7 @@ creating automatically the derived exception classes ("use" interface)
 
 =item *
 
-easly expendable, see Exception::System class for example
+easly expendable, see L<Exception::System> class for example
 
 =back
 
@@ -118,11 +118,12 @@ easly expendable, see Exception::System class for example
 use strict;
 
 use Carp ();
-use Exporter ();
 
 
 # Export try/catch syntactic sugar
-our @EXPORT_OK = qw<try catch>;
+use Exporter ();
+our @EXPORT_OK = qw< try catch >;
+our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
 
 # Overload the stringify operation
@@ -170,7 +171,7 @@ sub import {
 
     while (defined $_[0]) {
         my $name = shift;
-        if ($name eq 'try' or $name eq 'catch') {
+        if ($name =~ /^(try|catch|:all)$/) {
             push @export, $name;
         }
         else {
@@ -195,7 +196,7 @@ sub import {
                     # Base class is needed
                     {
                         no strict 'refs';
-                        if (not defined ${$isa . '::VERSION'}) {
+                        if (not defined $isa->VERSION) {
                             eval "use $isa;";
                             if ($@ ne '') {
                                 Carp::croak("Base class $isa for class $name can not be found");
@@ -210,42 +211,27 @@ sub import {
                         Carp::croak("$name class is based on $isa class which does not implement FIELDS");
                     }
 
-                    # Create properties hash for new class
-                    my %defaults;
+                    # Create the hash with overriden fields
+                    my %overriden_fields;
                     foreach my $field (keys %{ $param }) {
                         next if $field =~ /^(isa|version)$/;
                         if (not defined $fields->{$field}->{default}) {
                             Carp::croak("$isa class does not implement default value for $field field");
                         }
-                        my %properties = %{ $fields->{$field} };
-                        $properties{default} = $param->{$field};
-                        $defaults{$field} = { %properties };
-                    }
-
-                    my $code = << "END";
-package ${name};
-use base '${isa}';
-our \$VERSION = '${version}';
-END
-
-                    if (%defaults) {
-                        $code     .= "use constant FIELDS => {\n"
-                                   . "    \%{ ${isa}->FIELDS },\n";
-                        foreach my $field (keys %defaults) {
-                            $code .= "    ${field} => { ";
-                            foreach my $property (keys %{ $defaults{$field} }) {
-                                (my $value = $defaults{$field}->{$property}) =~ s/([\\\'])/\\$1/g;
-                                $code .= "$property => '$value', ";
-                            }
-                            $code .= "},\n";
+                        $overriden_fields{$field} = { };
+                        $overriden_fields{$field}->{default} = $param->{$field};
+                        foreach my $property (keys %{ $fields->{$field} }) {
+                            next if $property eq 'default';
+                            $overriden_fields{$field}->{$property} = $fields->{$field}->{$property};
                         }
-                        $code     .= "};\n";
                     }
 
-                    eval $code;
-                    if ($@) {
-                        Carp::croak("An error occured while constructing " . __PACKAGE__ . " exception class ($name) : $@");
-                    }
+                    no strict 'refs';
+                    ${$name . '::VERSION'} = $version;
+                    @{$name . '::ISA'} = ($isa);
+                    *{$name . '::FIELDS'} = sub {
+                        return { %{ $isa->FIELDS }, %overriden_fields };
+                    };
                 }
             }
         }
@@ -265,20 +251,23 @@ sub unimport {
     my $pkg = shift;
     my $callpkg = caller;
 
-    my @export = scalar @_ ? @_ : qw<catch try>;
+    my @export = scalar @_ ? @_ : qw< catch try >;
 
     no strict 'refs';
     while (my $name = shift @export) {
-        if ($name eq 'try' or $name eq 'catch') {
+        if ($name eq ':all') {
+            unshift @export, @EXPORT_OK;
+        }
+        elsif ($name eq 'try' or $name eq 'catch') {
             if (defined *{$callpkg . '::' . $name}{CODE}) {
                 # Store and restore other typeglobs than CODE
                 my %glob;
-                foreach my $type (qw<SCALAR ARRAY HASH IO FORMAT>) {
+                foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
                     $glob{$type} = *{$callpkg . '::' . $name}{$type}
                         if defined *{$callpkg . '::' . $name}{$type};
                 }
                 undef *{$callpkg . '::' . $name};
-                foreach my $type (qw<SCALAR ARRAY HASH IO FORMAT>) {
+                foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
                     *{$callpkg . '::' . $name} = $glob{$type}
                         if defined $glob{$type};
                 }
@@ -595,7 +584,7 @@ sub _caller_info {
         if defined $self->{caller_stack} and defined $self->{caller_stack}->[$i];
 
     @call_info{
-        qw<pack file line sub has_args wantarray evaltext is_require>
+        qw< pack file line sub has_args wantarray evaltext is_require >
     } = @call_info[0..7];
 
     unless (defined $call_info{pack}) {
@@ -688,6 +677,12 @@ sub _str_len_trim {
 }
 
 
+# Universal method for __blessed(). Stolen from Scalar::Util
+sub UNIVERSAL::Exception_Base__a_sub_not_likely_to_be_here {
+    return ref($_[0]);
+}
+
+
 # Check if scalar is blessed. This is function, not a method!
 eval "use Scalar::Util 'blessed';";
 if (defined &Scalar::Util::blessed) {
@@ -695,31 +690,27 @@ if (defined &Scalar::Util::blessed) {
     *__blessed = \&Scalar::Util::blessed;
 }
 else {
-    eval << 'END';
-
-    # Universal method for __blessed(). Stolen from Scalar::Util
-    sub UNIVERSAL::Exception_Base__a_sub_not_likely_to_be_here {
-        return ref($_[0]);
-    }
-
     # Pure Perl implementation of blessed function. Stolen from Scalar::Util
-    sub __blessed ($) {
+    *__blessed = sub ($) {
         local($@, $SIG{__DIE__}, $SIG{__WARN__});
         return length(ref($_[0]))
             ? eval { $_[0]->Exception_Base__a_sub_not_likely_to_be_here }
             : undef;
     }
-END
 }
 
 1;
 
 
+__END__
+
+=for readme stop
+
 =head1 IMPORTS
 
 =over
 
-=item use Exception::Base qw<catch try>;
+=item use Exception::Base qw< catch try >;
 
 Exports the B<catch> and B<try> functions to the caller namespace.
 
@@ -727,13 +718,17 @@ Exports the B<catch> and B<try> functions to the caller namespace.
   try eval { throw Exception::Base; };
   if (catch my $e) { warn "$e"; }
 
+=item use Exception::Base ':all';
+
+Exports all available symbols to the caller namespace.
+
 =item use Exception::Base 'I<Exception>', ...;
 
 Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
 class will be based on L<Exception::Base> class.
 
-  use Exception::Base qw<Exception::Custom Exception::SomethingWrong>;
+  use Exception::Base qw< Exception::Custom Exception::SomethingWrong >;
   throw Exception::Custom;
 
 =item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };
@@ -782,13 +777,15 @@ The class will have the default property for the given field.
     if ($e->isa('Exception::My')) { print $e->VERSION; }
   }
 
-=item no Exception::Base qw<catch try>;
+=item no Exception::Base qw< catch try >;
+
+=item no Exception::Base ':all';
 
 =item no Exception::Base;
 
 Unexports the B<catch> and B<try> functions from the caller namespace.
 
-  use Exception::Base qw<try catch>, 'Exception::FileNotFound';
+  use Exception::Base ':all', 'Exception::FileNotFound';
   try eval { throw Exception::FileNotFound; };  # ok
   no Exception::Base;
   try eval { throw Exception::FileNotFound; };  # syntax error
@@ -1276,6 +1273,8 @@ The module was tested with L<Devel::Cover> and L<Devel::Dprof>.
 =head1 BUGS
 
 If you find the bug, please report it.
+
+=for readme continue
 
 =head1 AUTHORS
 

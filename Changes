@@ -1,10 +1,15 @@
 ------------------------------------------------------------------------
-0.07_01 | Piotr Roszatycki <dexter@debian.org> | 2007-??-??
+0.08 | Piotr Roszatycki <dexter@debian.org> | 2007-??-??
+
+New:
+
+* use Exception::Base ':all'
 
 Changes:
 
 * Switched to Module::Build.
 * Updated bundled Test::Unit::Lite to 0.04.
+* Replaced some textevals with closures.
 
 ------------------------------------------------------------------------
 0.07 | Piotr Roszatycki <dexter@debian.org> | 2007-05-18

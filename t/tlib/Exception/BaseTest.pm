@@ -260,6 +260,9 @@ sub test_Exception_Base_catch {
     my $self = shift;
 
     eval {
+        # empty stack trace
+        while (Exception::Base->catch(my $obj0)) { };
+
         eval { 1; };
         my $e1 = Exception::Base->catch(my $obj1);
         $self->assert_str_equals('', $e1);
@@ -267,7 +270,7 @@ sub test_Exception_Base_catch {
 
         eval { die "Die 2\n"; };
         my $e2 = Exception::Base->catch(my $obj2);
-        $self->assert_str_not_equals('', $e2);
+        $self->assert_str_equals('1', $e2);
         $self->assert_not_null($obj2);
         $self->assert($obj2->isa('Exception::Base'));
         $self->assert_equals("Die 2\n", $obj2->{message});
@@ -390,6 +393,9 @@ sub test_Exception_Base_try {
     my $self = shift;
 
     eval {
+        # empty stack trace
+        while (Exception::Base->catch(my $obj0)) { };
+
         eval { 1; };
         my $v1 = Exception::Base->try(eval { 1; });
         $self->assert_equals(1, $v1);
@@ -415,7 +421,7 @@ sub test_Exception_Base_try {
         my $v4 = Exception::Base->try(eval { die "Die 4\n"; });
         $self->assert_null($v4);
         my $e4 = Exception::Base->catch(my $obj4);
-        $self->assert_str_not_equals('', $e4);
+        $self->assert_str_equals(1, $e4);
         $self->assert_not_null($obj4);
         $self->assert($obj4->isa('Exception::Base'));
         $self->assert_equals("Die 4\n", $obj4->{message});
@@ -425,7 +431,7 @@ sub test_Exception_Base_try {
         $self->assert_null($v5);
         eval { 1; };
         my $e5 = Exception::Base->catch(my $obj5);
-        $self->assert_str_not_equals('', $e5);
+        $self->assert_str_equals(1, $e5);
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
         $self->assert_equals("Die 5\n", $obj5->{message});
@@ -437,13 +443,13 @@ sub test_Exception_Base_try {
         $self->assert_null($v7);
         eval { 1; };
         my $e7 = Exception::Base->catch(my $obj7);
-        $self->assert_str_not_equals('', $e7);
+        $self->assert_str_equals(1, $e7);
         $self->assert_not_null($obj7);
         $self->assert($obj7->isa('Exception::Base'));
         $self->assert_equals("Die 7\n", $obj7->{message});
         eval { 1; };
         my $e6 = Exception::Base->catch(my $obj6);
-        $self->assert_str_not_equals('', $e6);
+        $self->assert_str_equals(1, $e6);
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
         $self->assert_equals("Die 6\n", $obj6->{message});
@@ -457,7 +463,7 @@ sub test_Exception_Base_try {
         my $v9 = Exception::Base::try(eval { die "Die 9\n"; });
         $self->assert_null($v9);
         my $e9 = Exception::Base::catch(my $obj9);
-        $self->assert_str_not_equals('', $e9);
+        $self->assert_str_equals(1, $e9);
         $self->assert_not_null($obj9);
         $self->assert($obj9->isa('Exception::Base'));
         $self->assert_equals("Die 9\n", $obj9->{message});
@@ -467,7 +473,7 @@ sub test_Exception_Base_try {
         my $v11 = $obj10->try(eval { die "Die 11\n"; });
         $self->assert_null($v11);
         my $e11 = $obj10->catch(my $obj11);
-        $self->assert_str_not_equals('', $e11);
+        $self->assert_str_equals(1, $e11);
         $self->assert_not_null($obj11);
         $self->assert($obj11->isa('Exception::Base'));
         $self->assert_equals("Die 11\n", $obj11->{message});
@@ -476,7 +482,7 @@ sub test_Exception_Base_try {
         my $v12 = Exception::Base::try([eval { die "Die 12\n"; }]);
         $self->assert_matches(qr/^ARRAY/, $v12);
         my $e12 = Exception::Base->catch(my $obj12);
-        $self->assert_str_not_equals('', $e12);
+        $self->assert_str_equals(1, $e12);
         $self->assert_not_null($obj12);
         $self->assert($obj12->isa('Exception::Base'));
         $self->assert_equals("Die 12\n", $obj12->{message});
@@ -516,6 +522,19 @@ sub test_Exception_Base_import {
         eval 'try eval { throw Exception::Base; };';
         $self->assert_matches(qr/^syntax error/, "$@");
         $self->assert_equals('SCALAR', $try);
+
+        eval 'Exception::Base->import(qw<:all>);';
+        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        $self->assert_equals('', "$@");
+
+        eval 'Exception::Base->unimport(qw<:all>);';
+        eval 'catch my $e, ["Exception"];';
+        $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_equals('SCALAR', $try);
+
+        eval 'Exception::Base->import(qw<:all>);';
+        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport();';
         eval 'catch my $e, ["Exception"];';
