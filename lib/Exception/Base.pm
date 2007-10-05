@@ -170,19 +170,19 @@ sub import {
     my @export;
 
     while (defined $_[0]) {
-        my $name = shift;
+        my $name = shift @_;
         if ($name =~ /^(try|catch|:all)$/) {
             push @export, $name;
         }
         else {
             # Try to use external module
-            my $param = shift if defined $_[0] and ref $_[0] eq 'HASH';
+            my $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
             my $version = defined $param->{version} ? $param->{version} : 0;
             my $mod_version = $name->VERSION || 0;
             if (not $mod_version or $version > $mod_version) {
                 # Package is needed
                 eval "use $name $version;";
-                if ($@ ne '') {
+                if ($@) {
                     # Package not found so it have to be created
                     if ($pkg ne __PACKAGE__) {
                         Carp::croak("Exceptions can only be created with " . __PACKAGE__ . " class");
@@ -198,7 +198,7 @@ sub import {
                         no strict 'refs';
                         if (not defined $isa->VERSION) {
                             eval "use $isa;";
-                            if ($@ ne '') {
+                            if ($@) {
                                 Carp::croak("Base class $isa for class $name can not be found");
                             }
                         }
@@ -207,7 +207,7 @@ sub import {
                     # Handle defaults for fields
                     my $fields;
                     eval { $fields = $isa->FIELDS; };
-                    if ($@ ne '') {
+                    if ($@) {
                         Carp::croak("$name class is based on $isa class which does not implement FIELDS");
                     }
 
@@ -226,6 +226,7 @@ sub import {
                         }
                     }
 
+                    # Create the new package
                     no strict 'refs';
                     ${$name . '::VERSION'} = $version;
                     @{$name . '::ISA'} = ($isa);
@@ -251,7 +252,8 @@ sub unimport {
     my $pkg = shift;
     my $callpkg = caller;
 
-    my @export = scalar @_ ? @_ : qw< catch try >;
+    # Unexport all by default
+    my @export = scalar @_ ? @_ : ':all';
 
     no strict 'refs';
     while (my $name = shift @export) {
@@ -327,7 +329,7 @@ sub throw {
     my $self = shift;
 
     # rethrow the exception; update the system data
-    if (__blessed($self) and $self->isa(__PACKAGE__)) {
+    if (ref $self and do { local $@; eval { $self->isa(__PACKAGE__) } }) {
         $self->_collect_system_data;
         die $self;
     }
@@ -342,9 +344,7 @@ sub throw {
 
 # Convert an exception to string
 sub stringify {
-    my $self = shift;
-    my $verbosity = shift;
-    my $message = shift;
+    my ($self, $verbosity, $message) = @_;
 
     $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity}
         if not defined $verbosity;
@@ -380,8 +380,7 @@ sub stringify {
 
 # Stringify for overloaded operator
 sub _stringify {
-    my $self = shift;
-    return $self->stringify();
+    return $_[0]->stringify();
 }
 
 
@@ -392,7 +391,7 @@ sub with {
 
     # Odd number of arguments - first is message
     if (scalar @_ % 2 == 1) {
-        my $message = shift;
+        my $message = shift @_;
         if (not defined $message) {
             return 0 if defined $self->{message};
         }
@@ -410,7 +409,9 @@ sub with {
         else {
             return 0 if $self->{message} ne $message;
         }
+        return 1 unless @_;
     }
+
 
     my %args = @_;
     while (my($key,$val) = each %args) {
@@ -456,10 +457,10 @@ sub with {
 # Push the exception on error stack. Stolen from Exception::Class::TryCatch
 sub try ($) {
     # Can be used also as function
-    my $self = shift if defined $_[0] and ref $_[0] eq '' and $_[0] ne ''
-                        or __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
+    my $self = shift if do { local $@; eval { $_[0]->isa(__PACKAGE__) } }; 
 
-    my $v = shift;
+    my ($v) = @_;
+
     push @Exception_Stack, $@;
     return ref($v) eq 'ARRAY' ? @$v : $v if wantarray;
     return $v;
@@ -469,8 +470,7 @@ sub try ($) {
 # Pop the exception on error stack. Stolen from Exception::Class::TryCatch
 sub catch {
     # Can be used also as function
-    my $self = shift if defined $_[0] and ref $_[0] eq '' and $_[0] ne ''
-                        or __blessed($_[0]) and $_[0]->isa(__PACKAGE__);
+    my $self = shift if do { local $@; eval { $_[0]->isa(__PACKAGE__) } }; 
 
     # Class based on self object, Exception::Class by default
     my $class = defined $self ? (ref $self || $self) : __PACKAGE__;
@@ -480,7 +480,7 @@ sub catch {
 
     my $e;
     my $exception = @Exception_Stack ? pop @Exception_Stack : $@;
-    if (__blessed($exception) and $exception->isa(__PACKAGE__)) {
+    if (ref $exception and do { local $@; eval { $exception->isa(__PACKAGE__) } }) {
         # Caught exception
         $e = $exception;
     }
@@ -496,7 +496,7 @@ sub catch {
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
         # Save object in argument, return only status
         $_[0] = $e;
-        shift;
+        shift @_;
         $want_object = 0;
     }
     if (defined $e) {
@@ -517,7 +517,7 @@ sub catch {
 
 # Collect system data and fill the attributes and caller stack.
 sub _collect_system_data {
-    my $self = shift;
+    my ($self) = @_;
 
     $self->{time}  = CORE::time();
     $self->{pid}   = $$;
@@ -553,7 +553,7 @@ sub _collect_system_data {
 
 # Stringify caller backtrace. Stolen from Carp
 sub _caller_backtrace {
-    my $self = shift;
+    my ($self) = @_;
     my $i = 0;
     my $mess;
 
@@ -575,8 +575,7 @@ sub _caller_backtrace {
 
 # Return info about caller. Stolen from Carp
 sub _caller_info {
-    my $self = shift;
-    my $i = shift;
+    my ($self, $i) = @_;
     my %call_info;
     my @call_info = ();
 
@@ -612,8 +611,7 @@ sub _caller_info {
 
 # Figures out the name of the sub/require/eval. Stolen from Carp
 sub _get_subname {
-    my $self = shift;
-    my $info = shift;
+    my ($self, $info) = @_;
     if (defined($info->{evaltext})) {
         my $eval = $info->{evaltext};
         if ($info->{is_require}) {
@@ -633,8 +631,7 @@ sub _get_subname {
 
 # Transform an argument to a function into a string. Stolen from Carp
 sub _format_arg {
-    my $self = shift;
-    my $arg = shift;
+    my ($self, $arg) = @_;
 
     return 'undef' if not defined $arg;
 
@@ -667,37 +664,14 @@ sub _format_arg {
 
 # If a string is too long, trims it with ... . Stolen from Carp
 sub _str_len_trim {
-    my $self = shift;
-    my $str = shift;
-    my $max = shift || 0;
+    my ($self, $str, $max) = @_;
+    $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
         substr($str, $max - 3) = '...';
     }
     return $str;
 }
 
-
-# Universal method for __blessed(). Stolen from Scalar::Util
-sub UNIVERSAL::Exception_Base__a_sub_not_likely_to_be_here {
-    return ref($_[0]);
-}
-
-
-# Check if scalar is blessed. This is function, not a method!
-eval "use Scalar::Util 'blessed';";
-if (defined &Scalar::Util::blessed) {
-    # Use faster XS version of blessed if available
-    *__blessed = \&Scalar::Util::blessed;
-}
-else {
-    # Pure Perl implementation of blessed function. Stolen from Scalar::Util
-    *__blessed = sub ($) {
-        local($@, $SIG{__DIE__}, $SIG{__WARN__});
-        return length(ref($_[0]))
-            ? eval { $_[0]->Exception_Base__a_sub_not_likely_to_be_here }
-            : undef;
-    }
-}
 
 1;
 
@@ -1282,7 +1256,7 @@ Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright 2007 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright (C) 2007 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -39,3 +39,4 @@
 \.gz$
 \.ppd$
 \.tgz$
+\bException-Base-

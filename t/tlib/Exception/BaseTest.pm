@@ -9,7 +9,7 @@ sub new {
     return $self;
 }
 
-sub test_Exception_Base_isa {
+sub test___isa {
     my $self = shift;
     my $obj1 = Exception::Base->new;
     $self->assert_not_null($obj1);
@@ -19,7 +19,7 @@ sub test_Exception_Base_isa {
     $self->assert($obj2->isa('Exception::Base'));
 }
 
-sub test_Exception_Base_field_message {
+sub test_field_message {
     my $self = shift;
     my $obj = Exception::Base->new(message=>'Message');
     $self->assert_equals('Message', $obj->{message});
@@ -27,13 +27,13 @@ sub test_Exception_Base_field_message {
     $self->assert_equals('New Message', $obj->{message});
 }
 
-sub test_Exception_Base_field_properties {
+sub test_field_properties {
     my $self = shift;
     my $obj = Exception::Base->new(message=>'Message', tag=>'Tag');
     $self->assert_equals('Tag', $obj->{properties}->{tag});
 }
 
-sub test_Exception_Base_throw {
+sub test_throw {
     my $self = shift;
 
     # Secure with eval
@@ -46,7 +46,7 @@ sub test_Exception_Base_throw {
         $self->assert_not_null($obj1);
         $self->assert($obj1->isa('Exception::Base'));
         $self->assert_equals('Throw', $obj1->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_Exception_Base_throw', $obj1->{caller_stack}->[3]->[3]);
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj1->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj1->{caller_stack}->[3]->[8]);
 
         # Rethrow
@@ -57,13 +57,13 @@ sub test_Exception_Base_throw {
         $self->assert_not_null($obj2);
         $self->assert($obj2->isa('Exception::Base'));
         $self->assert_equals('Throw', $obj2->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_Exception_Base_throw', $obj2->{caller_stack}->[3]->[3]);
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj2->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj2->{caller_stack}->[3]->[8]);
     };
     die "$@" if $@;
 }
 
-sub test_Exception_Base_stringify {
+sub test_stringify {
     my $self = shift;
 
     eval {
@@ -150,7 +150,7 @@ END
     die "$@" if $@;
 }
 
-sub test_Exception_Base_with {
+sub test_with {
     my $self = shift;
 
     eval {
@@ -256,7 +256,7 @@ sub test_Exception_Base_with {
     die "$@" if $@;
 }
 
-sub test_Exception_Base_catch {
+sub test_catch {
     my $self = shift;
 
     eval {
@@ -275,7 +275,7 @@ sub test_Exception_Base_catch {
         $self->assert($obj2->isa('Exception::Base'));
         $self->assert_equals("Die 2\n", $obj2->{message});
         $self->assert($obj2->isa('Exception::Base'));
-        $self->assert_equals(__PACKAGE__ . '::test_Exception_Base_catch', $obj2->{caller_stack}->[2]->[3]);
+        $self->assert_equals(__PACKAGE__ . '::test_catch', $obj2->{caller_stack}->[2]->[3]);
         $self->assert_equals($self, $obj2->{caller_stack}->[2]->[8]);
 
         eval { die "Die 3\n"; };
@@ -389,7 +389,7 @@ sub test_Exception_Base_catch {
     die "$@" if $@;
 }
 
-sub test_Exception_Base_try {
+sub test_try {
     my $self = shift;
 
     eval {
@@ -497,7 +497,7 @@ sub test_Exception_Base_try {
     die "$@" if $@;
 }
 
-sub test_Exception_Base_import {
+sub test_import {
     my $self = shift;
 
     eval {
@@ -640,7 +640,7 @@ sub test_Exception_Base_import {
     die "$@" if $@;
 }
 
-sub test_Exception_Base__collect_system_data {
+sub test__collect_system_data {
     my $self = shift;
 
     {
@@ -709,7 +709,7 @@ sub test_Exception_Base__collect_system_data {
     $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj1->{caller_stack}->[0]->[3]);
 }
 
-sub test_Exception_Base__caller_info {
+sub test__caller_info {
     my $self = shift;
 
     my $obj = Exception::Base->new;
@@ -738,7 +738,7 @@ sub test_Exception_Base__caller_info {
     $self->assert_equals($obj->FIELDS->{max_arg_nums}->{default}, $obj->{defaults}->{max_arg_nums} = $obj->FIELDS->{max_arg_nums}->{default});
 }
 
-sub test_Exception_Base__get_subname {
+sub test__get_subname {
     my $self = shift;
     my $obj = Exception::Base->new;
     $self->assert_equals('sub', $obj->_get_subname({sub=>'sub'}));
@@ -756,7 +756,7 @@ sub test_Exception_Base__get_subname {
     $self->assert_equals($obj->FIELDS->{max_eval_len}->{default}, $obj->{defaults}->{max_eval_len} = $obj->FIELDS->{max_eval_len}->{default});
 }
 
-sub test_Exception_Base__format_arg {
+sub test__format_arg {
     my $self = shift;
     my $obj = Exception::Base->new;
     $self->assert_equals('undef', $obj->_format_arg());
@@ -786,7 +786,7 @@ sub test_Exception_Base__format_arg {
     $self->assert_equals($obj->FIELDS->{max_arg_len}->{default}, $obj->{defaults}->{max_arg_len} = $obj->FIELDS->{max_arg_len}->{default});
 }
 
-sub test_Exception_Base__str_len_trim {
+sub test__str_len_trim {
     my $self = shift;
     my $obj = Exception::Base->new;
     $self->assert_equals('', $obj->_str_len_trim(''));
@@ -831,16 +831,6 @@ sub test_Exception_Base__str_len_trim {
     $self->assert_equals('1234', $obj->_str_len_trim('1234', 5));
     $self->assert_equals('12345', $obj->_str_len_trim('12345', 5));
     $self->assert_equals('12...', $obj->_str_len_trim('123456789', 5));
-}
-
-sub test_Exception_Base___blessed {
-    my $self = shift;
-    my $obj = Exception::Base->new(message=>'Blessed');
-    $self->assert($obj->isa('Exception::Base'));
-    $self->assert(Exception::Base::__blessed($obj));
-    my $scalar = 'Scalar';
-    $self->assert(!Exception::Base::__blessed($scalar));
-    $self->assert(!Exception::Base::__blessed(\$scalar));
 }
 
 1;
