@@ -10,7 +10,7 @@ Changes:
 * Switched to Module::Build.
 * Updated bundled Test::Unit::Lite to 0.05.
 * Replaced some textevals with closures or pure references.
-* Removed informal dependency on Scalar::Util (blessed).
+* Does not use Scalar::Util::blessed() and Carp::croak().
 
 ------------------------------------------------------------------------
 0.07 | Piotr Roszatycki <dexter@debian.org> | 2007-05-18

@@ -18,7 +18,7 @@ Exception::Base - Lightweight exceptions
   );
   
   # try / catch
-  try Exception eval {
+  try Exception::Base eval {
     do_something() or throw Exception::FileNotFound
                                 message=>'Something wrong',
                                 tag=>'something';
@@ -117,8 +117,6 @@ easly expendable, see L<Exception::System> class for example
 
 use strict;
 
-use Carp ();
-
 
 # Export try/catch syntactic sugar
 use Exporter ();
@@ -185,10 +183,15 @@ sub import {
                 if ($@) {
                     # Package not found so it have to be created
                     if ($pkg ne __PACKAGE__) {
-                        Carp::croak("Exceptions can only be created with " . __PACKAGE__ . " class");
+                        throw Exception::Base
+                              message => "Exceptions can only be created with " . __PACKAGE__ . " class",
+                              verbosity => 1;
                     }
+                    # Paranoid check
                     if ($name eq __PACKAGE__) {
-                        Carp::croak("$name class can not be created automatically");
+                        throw Exception::Base
+                              message => "$name class can not be created automatically",
+                              verbosity => 1;
                     }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
                     $version = 0.01 if not $version;
@@ -199,7 +202,9 @@ sub import {
                         if (not defined $isa->VERSION) {
                             eval "use $isa;";
                             if ($@) {
-                                Carp::croak("Base class $isa for class $name can not be found");
+                                throw Exception::Base
+                                      message => "Base class $isa for class $name can not be found",
+                                      verbosity => 1;
                             }
                         }
                     }
@@ -208,7 +213,9 @@ sub import {
                     my $fields;
                     eval { $fields = $isa->FIELDS; };
                     if ($@) {
-                        Carp::croak("$name class is based on $isa class which does not implement FIELDS");
+                        throw Exception::Base
+                              message => "$name class is based on $isa class which does not implement FIELDS",
+                              verbosity => 1;
                     }
 
                     # Create the hash with overriden fields
@@ -216,7 +223,9 @@ sub import {
                     foreach my $field (keys %{ $param }) {
                         next if $field =~ /^(isa|version)$/;
                         if (not defined $fields->{$field}->{default}) {
-                            Carp::croak("$isa class does not implement default value for $field field");
+                            throw Exception::Base
+                                  message => "$isa class does not implement default value for $field field",
+                                  verbosity => 1;
                         }
                         $overriden_fields{$field} = { };
                         $overriden_fields{$field}->{default} = $param->{$field};
