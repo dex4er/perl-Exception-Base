@@ -1206,50 +1206,52 @@ echanced exception class based on this L<Exception::Base> class.
 
 =head1 PERFORMANCE
 
-The L<Exception::Base> module was benchmarked with other implementation.  The
-results are following:
+The L<Exception::Base> module was benchmarked with other implementations for
+simple try/catch scenario.  The results are following:
 
 =over
 
 =item pure eval/die with string
 
-504122/s
+526091/s
 
 =item pure eval/die with object
 
-165414/s
+143912/s
 
 =item L<Exception::Base> module with default options
 
-6338/s
+5530/s
 
 =item L<Exception::Base> module with verbosity = 1
 
-16746/s
+13152/s
 
 =item L<Error> module
 
-17934/s
+20285/s
 
 =item L<Exception::Class> module
 
-1569/s
+1359/s
 
 =item L<Exception::Class::TryCatch> module
 
-1520/s
+1321/s
 
 =item L<Class::Throwable> module
 
-7587/s
+7585/s
 
 =back
 
 The L<Exception::Base> module is 80 times slower than pure eval/die.  This
 module was written to be as fast as it is possible.  It does not use i.e.
-accessor functions which are slower about 6 times than standard variable.  It
+accessor functions which are slower about 6 times than standard variables.  It
 is slower than pure die/eval because it is object oriented by its design.  It
-can be a litte faster if some features, as stack trace, are disabled.
+can be a litte faster if some features are disables, i.e. the stack trace.
+
+You can find the benchmark script in this package distribution.
 
 =head1 TESTS
 
