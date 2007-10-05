@@ -498,8 +498,8 @@ sub catch {
         $e = undef;
     }
     else {
-        # New exception based on error from $@
-        $exception =~ s/ at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s;
+        # New exception based on error from $@. Clean up the message.
+        $exception =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $e = $class->new(message=>"$exception");
         $e->_collect_system_data;
     }
@@ -1100,7 +1100,8 @@ exception is not based on the I<CLASS>, the exception is thrown immediately.
   print $e->stringify(1);
 
 If the B<$@> variable does not contain the exception object but string, new
-exception object is created with message from B<$@> variable.
+exception object is created with message from B<$@> variable with removed
+C<" at file line 123."> string and the last end of line (LF).
 
   eval { die "Died\n"; };
   catch Exception::Base my $e;
