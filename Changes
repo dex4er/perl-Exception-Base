@@ -4,8 +4,9 @@
 New:
 
 * use Exception::Base ':all'.
+* Removed " foo at file line 123." string for caught standard die message.
 
-Changes:
+Minor changes:
 
 * Switched to Module::Build.
 * Updated bundled Test::Unit::Lite to 0.05.

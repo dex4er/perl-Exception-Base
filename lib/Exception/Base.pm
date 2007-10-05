@@ -176,7 +176,7 @@ sub import {
             # Try to use external module
             my $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
             my $version = defined $param->{version} ? $param->{version} : 0;
-            my $mod_version = $name->VERSION || 0;
+            my $mod_version = eval { $name->VERSION } || 0;
             if (not $mod_version or $version > $mod_version) {
                 # Package is needed
                 eval "use $name $version;";
@@ -199,7 +199,7 @@ sub import {
                     # Base class is needed
                     {
                         no strict 'refs';
-                        if (not defined $isa->VERSION) {
+                        if (not defined eval { $isa->VERSION }) {
                             eval "use $isa;";
                             if ($@) {
                                 throw Exception::Base
@@ -211,7 +211,7 @@ sub import {
 
                     # Handle defaults for fields
                     my $fields;
-                    eval { $fields = $isa->FIELDS; };
+                    eval { $fields = $isa->FIELDS };
                     if ($@) {
                         throw Exception::Base
                               message => "$name class is based on $isa class which does not implement FIELDS",
@@ -227,7 +227,7 @@ sub import {
                                   message => "$isa class does not implement default value for $field field",
                                   verbosity => 1;
                         }
-                        $overriden_fields{$field} = { };
+                        $overriden_fields{$field} = {};
                         $overriden_fields{$field}->{default} = $param->{$field};
                         foreach my $property (keys %{ $fields->{$field} }) {
                             next if $property eq 'default';
@@ -499,6 +499,7 @@ sub catch {
     }
     else {
         # New exception based on error from $@
+        $exception =~ s/ at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s;
         $e = $class->new(message=>"$exception");
         $e->_collect_system_data;
     }

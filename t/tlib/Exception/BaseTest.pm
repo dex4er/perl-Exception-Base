@@ -389,6 +389,40 @@ sub test_catch {
     die "$@" if $@;
 }
 
+sub test_catch_non_exception {
+    my $self = shift;
+
+    eval {
+        # empty stack trace
+        while (Exception::Base->catch(my $obj0)) { };
+
+        my $file = __FILE__;
+        my $regexp = qr/Exception::Base: Unknown message at $file line \d+( thread \d+)?\n/s;
+
+        eval { 1; };
+        $@ = "Unknown message";
+        my $obj1 = Exception::Base->catch;
+        $self->assert_matches($regexp, "$obj1");
+
+        eval { 1; };
+        $@ = "Unknown message at file line 123.\n";
+        my $obj2 = Exception::Base->catch;
+        $self->assert_matches($regexp, "$obj2");
+
+        eval { 1; };
+        $@ = "Unknown message at file line 123 thread 456789.\n";
+        my $obj3 = Exception::Base->catch;
+        $self->assert_matches($regexp, "$obj3");
+
+        eval { 1; };
+        $@ = "Unknown message at foo at bar at baz at file line 123.\n";
+        my $obj4 = Exception::Base->catch;
+        $regexp = qr/Exception::Base: Unknown message at foo at bar at baz at $file line \d+( thread \d+)?\n/s;
+        $self->assert_matches($regexp, "$obj4");
+    };
+    die "$@" if $@;
+}
+
 sub test_try {
     my $self = shift;
 
