@@ -28,7 +28,7 @@ Exception::Base - Lightweight exceptions
                                 message=>'Something wrong',
                                 tag=>'something';
   };
-  # Catch the Exception::Base and derived, others rethrow immediately
+  # Catch the Exception::Base and derived, rethrow immediately others
   if (catch my $e) {
     # $e is an exception object for sure, no need to check if is blessed
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
@@ -47,11 +47,11 @@ Exception::Base - Lightweight exceptions
   # try with array context
   @v = try [eval { do_something_returning_array(); }];
   
-  # catch only IO errors, others rethrow immediately
+  # catch only IO errors, rethrow immediately others
   try eval { File::Stat::Moose->stat("/etc/passwd") };
   catch my $e, ['Exception::IO'];
   
-  # immediately rethrow all caught exceptions
+  # immediately rethrow all caught exceptions and eval errors
   try eval { die "Bang!\n" };
   catch my $e, [];
   
@@ -835,10 +835,11 @@ fields.
   };
 
   package main;
-  try Exception::Base eval {
+  use Exception::Base ':all';
+  try eval {
     throw Exception::My readonly=>1, readwrite=>2;
   };
-  if (catch Exception::Base my $e) {
+  if (catch my $e) {
     print $e->{readwrite};                # = 2
     print $e->{properties}->{readonly};   # = 1
     print $e->{defaults}->{readwrite};    # = "value"
