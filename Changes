@@ -1,4 +1,22 @@
 ------------------------------------------------------------------------
+0.08 | Piotr Roszatycki <dexter@debian.org> | 2007-??-??
+
+New:
+
+* use Exception::Base ':all'.
+* Removed " foo at file line 123." string for caught standard die message.
+* Removed also the end of line (LF) for caught standard die message.
+* The system data are not collected with verbosity level lower than 2.
+
+Minor changes:
+
+* Switched to Module::Build.
+* Updated bundled Test::Unit::Lite to 0.05.
+* Replaced some textevals with closures or pure references.
+* Does not use Scalar::Util::blessed() and Carp::croak().
+* Updated benchmark results in documentation.
+
+------------------------------------------------------------------------
 0.07 | Piotr Roszatycki <dexter@debian.org> | 2007-05-18
 
 Fixed error:
