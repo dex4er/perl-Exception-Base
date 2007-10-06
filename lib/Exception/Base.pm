@@ -529,17 +529,18 @@ sub catch {
 sub _collect_system_data {
     my ($self) = @_;
 
-    $self->{time}  = CORE::time();
-    $self->{pid}   = $$;
-    $self->{tid}   = Thread->self->tid if defined &Thread::tid;
-    $self->{uid}   = $<;
-    $self->{euid}  = $>;
-    $self->{gid}   = $(;
-    $self->{egid}  = $);
-
+    # Collect system data only if verbosity is meaning
     my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
-    # Collect stack info only if verbosity is meaning
     if ($verbosity > 1) {
+        $self->{time}  = CORE::time();
+        $self->{pid}   = $$;
+        $self->{tid}   = Thread->self->tid if defined &Thread::tid;
+        $self->{uid}   = $<;
+        $self->{euid}  = $>;
+        $self->{gid}   = $(;
+        $self->{egid}  = $);
+
+        # Collect stack info
         my @caller_stack;
         my $start = 1 + (defined $self->{ignore_level} ? $self->{ignore_level} : 0);
         for (my $i = $start; my @c = do { package DB; caller($i) }; $i++) {
@@ -886,8 +887,11 @@ The output contains full trace of error stack.  This is the default option.
 If the verbosity is undef, then the default verbosity for exception objects
 is used.
 
-If the verbosity set with constructor (B<new> or B<throw>) is lower that 3,
+If the verbosity set with constructor (B<new> or B<throw>) is lower than 3,
 the full stack trace won't be collected.
+
+If the verbosity is lower than 2, the full system data (time, pid, tid, uid,
+euid, gid, egid) won't be collected.
 
 =item ignore_package (rw)
 
@@ -915,21 +919,24 @@ trace.  It can be used with or without ignore_package field.
 
 =item time (ro)
 
-Contains the timestamp of the thrown exception.
+Contains the timestamp of the thrown exception.  Collected if the verbosity
+on throwing exception was greater than 1.
 
   eval { throw Exception message=>"Message"; };
   print scalar localtime $@->{time};
 
 =item pid (ro)
 
-Contains the PID of the Perl process at time of thrown exception.
+Contains the PID of the Perl process at time of thrown exception.  Collected
+if the verbosity on throwing exception was greater than 1.
 
   eval { throw Exception message=>"Message"; };
   kill 10, $@->{pid};
 
 =item tid (ro)
 
-Constains the tid of the thread or undef if threads are not used.
+Constains the tid of the thread or undef if threads are not used.  Collected
+if the verbosity on throwing exception was greater than 1.
 
 =item uid (ro)
 
@@ -940,15 +947,17 @@ Constains the tid of the thread or undef if threads are not used.
 =item egid (ro)
 
 Contains the real and effective uid and gid of the Perl process at time of
-thrown exception.
+thrown exception.  Collected if the verbosity on throwing exception was
+greater than 1.
 
 =item caller_stack (ro)
 
-If the verbosity on throwing exception was greater that 1, it contains the
-error stack as array of array with informations about caller functions.  The
-first 8 elements of the array's row are the same as first 8 elements of the
-output of caller() function.  Further elements are optional and are the
-arguments of called function.
+Contains the error stack as array of array with informations about caller
+functions.  The first 8 elements of the array's row are the same as first 8
+elements of the output of caller() function.  Further elements are optional
+and are the arguments of called function.  Collected if the verbosity on
+throwing exception was greater than 1.  Contains only the first element of
+caller stack if the verbosity was lower than 3.
 
   eval { throw Exception message=>"Message"; };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
@@ -1207,7 +1216,8 @@ echanced exception class based on this L<Exception::Base> class.
 =head1 PERFORMANCE
 
 The L<Exception::Base> module was benchmarked with other implementations for
-simple try/catch scenario.  The results are following:
+simple try/catch scenario.  The results (Perl 5.8.8
+i486-linux-gnu-thread-multi) are following:
 
 =over
 
@@ -1217,39 +1227,40 @@ simple try/catch scenario.  The results are following:
 
 =item pure eval/die with object
 
-143912/s
+162293/s
 
 =item L<Exception::Base> module with default options
 
-5530/s
+5582/s
 
 =item L<Exception::Base> module with verbosity = 1
 
-13152/s
+19548/s
 
 =item L<Error> module
 
-20285/s
+18618/s
 
 =item L<Exception::Class> module
 
-1359/s
+1643/s
 
 =item L<Exception::Class::TryCatch> module
 
-1321/s
+1583/s
 
 =item L<Class::Throwable> module
 
-7585/s
+8072/s
 
 =back
 
 The L<Exception::Base> module is 80 times slower than pure eval/die.  This
 module was written to be as fast as it is possible.  It does not use i.e.
-accessor functions which are slower about 6 times than standard variables.  It
-is slower than pure die/eval because it is object oriented by its design.  It
-can be a litte faster if some features are disables, i.e. the stack trace.
+accessor functions which are slower about 6 times than standard variables. 
+It is slower than pure die/eval because it is uses OO mechanism which are
+slow in Perl.  It can be a litte faster if some features are disables, i.e.
+the stack trace and higher verbosity.
 
 You can find the benchmark script in this package distribution.
 

@@ -6,6 +6,7 @@ New:
 * use Exception::Base ':all'.
 * Removed " foo at file line 123." string for caught standard die message.
 * Removed also the end of line (LF) for caught standard die message.
+* The system data are not collected with verbosity level lower than 2.
 
 Minor changes:
 
