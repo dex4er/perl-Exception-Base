@@ -12,23 +12,28 @@ Exception::Base - Lightweight exceptions
 
   # Use module and create needed exceptions
   use Exception::Base (
-    'Exception::IO',
-    'Exception::FileNotFound' => { message => 'File not found',
-                                   isa => 'Exception::IO' },
+    ':all',                            # import try/catch functions
+    'Exception::Runtime',              # create new module
+    'Exception::System',               # load existing module
+    'Exception::IO',          => {
+        isa => 'Exception::System' },  # create new based on existing
+    'Exception::FileNotFound' => {
+        message => 'File not found',
+        isa => 'Exception::IO' },      # create new based on new
   );
   
   # try / catch
-  try Exception::Base eval {
+  try eval {
     do_something() or throw Exception::FileNotFound
                                 message=>'Something wrong',
                                 tag=>'something';
   };
-  # Catch the Exception::Base, other exceptions throw immediately
-  if (catch Exception::Base my $e) {
+  # Catch the Exception::Base and derived, others rethrow immediately
+  if (catch my $e) {
     # $e is an exception object for sure, no need to check if is blessed
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
-    elsif ($e->isa('Exception::Die')) { warn "eval died"; }
-    elsif ($e->isa('Exception::Warn')) { warn "some warn was caught"; }
+    elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
+    elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
     elsif ($e->with(tag=>'something')) { warn "something happened"; }
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
@@ -36,17 +41,28 @@ Exception::Base - Lightweight exceptions
   
   # the exception can be thrown later
   $e = new Exception::Base;
+  # (...)
   $e->throw;
   
   # try with array context
-  @v = try Exception::Base [eval { do_something_returning_array(); }];
+  @v = try [eval { do_something_returning_array(); }];
   
-  # use syntactic sugar
-  use Exception::Base ':all', 'Exception::IO';
-  try eval {
+  # catch only IO errors, others rethrow immediately
+  try eval { File::Stat::Moose->stat("/etc/passwd") };
+  catch my $e, ['Exception::IO'];
+  
+  # immediately rethrow all caught exceptions
+  try eval { die "Bang!\n" };
+  catch my $e, [];
+  
+  # don't use syntactic sugar
+  use Exception::Base;          # does not import ':all' tag
+  try Exception::Base eval {
     throw Exception::IO;
-  };    # don't forget about semicolon
-  catch my $e, ['Exception::IO'];  # Exception::Base is by default
+  };
+  catch Exception::Base my $e;  # catch Exception::Base and derived
+  # or
+  catch Exception::IO my $e;    # catch IO errors and rethrow others
 
 =head1 DESCRIPTION
 
