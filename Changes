@@ -12,6 +12,10 @@ New:
 * New "Exception::Base->throw($e, ...)" syntax for rethrowing the exception
   with changed own class.
 
+Changes:
+
+* Removed message argument for stringify() method.
+
 ------------------------------------------------------------------------
 0.08 | Piotr Roszatycki <dexter@debian.org> | 2007-10-06
 

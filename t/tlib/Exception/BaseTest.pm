@@ -186,8 +186,6 @@ END
         $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception::Base->FIELDS->{verbosity}->{default});
         $self->assert_equals(1, $obj->{verbosity} = 1);
         $self->assert_equals("Stringify\n", $obj->stringify);
-
-        $self->assert_equals("Message\n", $obj->stringify(1, "Message"));
     };
     die "$@" if $@;
 }

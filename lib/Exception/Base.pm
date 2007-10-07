@@ -403,12 +403,16 @@ sub throw {
 
 # Convert an exception to string
 sub stringify {
-    my ($self, $verbosity, $message) = @_;
+    my ($self, $verbosity) = @_;
 
-    $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity}
+    $verbosity = defined $self->{verbosity}
+             ? $self->{verbosity}
+             : $self->{defaults}->{verbosity}
         if not defined $verbosity;
-    $message = defined $self->{message} ? $self->{message} : $self->{defaults}->{message}
-        if not defined $message;
+
+    my $message = defined $self->{message} && $self->{message} ne ''
+             ? $self->{message}
+             : $self->{defaults}->{message};
 
     my $string;
 
