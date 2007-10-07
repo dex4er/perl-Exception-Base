@@ -27,10 +27,26 @@ sub test_field_message {
     $self->assert_equals('New Message', $obj->{message});
 }
 
+sub test_accessor_message {
+    my $self = shift;
+    my $obj = Exception::Base->new(message=>'Message');
+    $self->assert_equals('Message', $obj->message);
+    $self->assert_equals('New Message', $obj->message('New Message'));
+    $self->assert_equals('New Message', $obj->message);
+    $self->assert_equals('Lvalue accessor Message', $obj->message = 'Lvalue accessor Message');
+    $self->assert_equals('Lvalue accessor Message', $obj->message);
+}
+
 sub test_field_properties {
     my $self = shift;
     my $obj = Exception::Base->new(message=>'Message', tag=>'Tag');
     $self->assert_equals('Tag', $obj->{properties}->{tag});
+}
+
+sub test_accessor_properties {
+    my $self = shift;
+    my $obj = Exception::Base->new(message=>'Message', tag=>'Tag');
+    $self->assert_equals('Tag', $obj->properties->{tag});
 }
 
 sub test_throw {

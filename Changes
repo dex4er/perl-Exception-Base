@@ -1,5 +1,12 @@
 ------------------------------------------------------------------------
-0.08 | Piotr Roszatycki <dexter@debian.org> | 2007-??-??
+0.09 | Piotr Roszatycki <dexter@debian.org> | 2007-10-07
+
+New:
+
+* Define accessors for class fields.
+
+------------------------------------------------------------------------
+0.08 | Piotr Roszatycki <dexter@debian.org> | 2007-10-06
 
 New:
 

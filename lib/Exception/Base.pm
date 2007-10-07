@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.08;
+our $VERSION = 0.09;
 
 =head1 NAME
 
@@ -700,6 +700,34 @@ sub _str_len_trim {
 }
 
 
+# Create accessors for this class
+sub _make_accessors {
+    my ($class) = @_;
+    $class = ref $class if ref $class;
+
+    no strict 'refs';
+    my $fields = $class->FIELDS;
+    foreach my $key (keys %{ $fields }) {
+        if (not defined *{$class . '::' . $key}{CODE}) {
+            if ($fields->{$key}->{is} eq 'ro') {
+                *{$class . '::' . $key} = sub {
+                    $_[0]->{$key};
+                };
+            }
+            elsif ($fields->{$key}->{is} eq 'rw') {
+                *{$class . '::' . $key} = sub :lvalue {
+                    @_ > 1 ? $_[0]->{$key} = $_[1]
+                           : $_[0]->{$key};
+                };
+            }
+        }
+    }
+}
+
+
+__PACKAGE__->_make_accessors;
+
+
 1;
 
 
@@ -849,7 +877,8 @@ fields.
 
 =head1 FIELDS
 
-Class fields are implemented as values of blessed hash.
+Class fields are implemented as values of blessed hash.  The fields are also
+available as accessors methods.
 
 =over
 
@@ -1188,8 +1217,19 @@ class.
     $self->{special} = get_special_value();
     return $self;
   }
+  __PACKAGE__->_make_accessors;
+  1;
 
 Method returns the reference to the self object.
+
+=item _make_accessors
+
+Create accessors for each field.  This static method should be called in each
+derived class which defines new fields.
+
+  package Exception::My;
+  # (...)
+  __PACKAGE__->_make_accessors;
 
 =back
 
