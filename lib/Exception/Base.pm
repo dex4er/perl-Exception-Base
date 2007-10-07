@@ -146,6 +146,8 @@ use overload q|""| => "_stringify", fallback => 1;
 
 # List of class fields (name => {is=>ro|rw, default=>value})
 use constant FIELDS => {
+    properties     => { },
+    defaults       => { },
     message        => { is => 'rw', default => 'Unknown exception' },
     caller_stack   => { is => 'ro' },
     egid           => { is => 'ro' },
@@ -153,9 +155,12 @@ use constant FIELDS => {
     gid            => { is => 'ro' },
     pid            => { is => 'ro' },
     tid            => { is => 'ro' },
-    properties     => { is => 'ro' },
     time           => { is => 'ro' },
     uid            => { is => 'ro' },
+    package        => { is => 'ro' },
+    file           => { is => 'ro' },
+    subroutine     => { is => 'ro' },
+    line           => { is => 'ro' },
     verbosity      => { is => 'rw', default => 3 },
     ignore_package => { is => 'rw' },
     ignore_level   => { is => 'rw' },
@@ -331,10 +336,11 @@ sub new {
     my $self = {};
 
     # If the attribute is rw, initialize its value. Otherwise: properties.
+    no warnings 'uninitialized';
     my %args = @_;
     $self->{properties} = {};
     foreach my $key (keys %args) {
-        if (defined $fields->{$key} and $fields->{$key}->{is} eq 'rw') {
+        if ($fields->{$key}->{is} eq 'rw') {
             $self->{$key} = $args{$key};
         }
         else {
@@ -345,7 +351,10 @@ sub new {
     # Defaults for this object
     $self->{defaults} = { %$defaults };
 
-    return bless $self => $class;
+    bless $self => $class;
+    $self->_collect_system_data;
+    
+    return $self;
 }
 
 
@@ -353,17 +362,42 @@ sub new {
 sub throw {
     my $self = shift;
 
-    # rethrow the exception; update the system data
-    if (ref $self and do { local $@; eval { $self->isa(__PACKAGE__) } }) {
-        $self->_collect_system_data;
-        die $self;
+    my $old;
+    my $class = ref $self;
+    if (not ref $self) {
+        # throw new exception
+        if (scalar @_ % 2 == 0) {
+            die $self->new(@_);
+        }
+        # rethrow old exception
+        $class = $self;
+        $old = shift @_;
+    }
+    else {
+        # rethrow old exception
+        $class = ref $self;
+        $old = $self;
     }
 
-    # new exception
-    my $e = $self->new(@_);
-
-    $e->_collect_system_data;
-    die $e;
+    # check paranoid if $old is really an exception
+    if (ref $old and do { local $@; eval { $old->isa(__PACKAGE__) } }) {
+        no warnings 'uninitialized';
+        my %args = @_;
+        my $fields = $self->FIELDS;
+        foreach my $key (keys %args) {
+            if ($fields->{$key}->{is} eq 'rw') {
+                $old->{$key} = $args{$key};
+            }
+            else {
+                $old->{properties}->{$key} = $args{$key};
+            }
+        }
+        if (ref $old ne $class) {
+            # rebless if this is new class
+            bless $old => $class;
+        }
+        die $old;
+    }
 }
 
 
@@ -527,13 +561,13 @@ sub catch {
     }
     if (defined $e) {
         # For real exceptions...
-        if (defined $self and not $e->isa($class)) {
+        if (defined $self and not do { local $@; eval { $e->isa($class) } }) {
             # ... throw if the exception is not our class
-            $e->throw();
+            $e->throw;
         }
         if (defined $_[0] and ref $_[0] eq 'ARRAY') {
             # ... throw if the exception class is not listed
-            $e->throw() unless grep { $e->isa($_) } @{$_[0]};
+            $e->throw unless grep { do { local $@; eval { $e->isa($_) } } } @{$_[0]};
         }
     }
     # Return status or object
@@ -572,6 +606,8 @@ sub _collect_system_data {
             last if $verbosity < 3;
         }
         $self->{caller_stack} = \@caller_stack;
+        @{$self}{qw< package file line subroutine >} = @{$caller_stack[0]}[0..3];
+        $self->{file} = $caller_stack[0][1];
     }
 
     return $self;
@@ -706,18 +742,19 @@ sub _make_accessors {
     $class = ref $class if ref $class;
 
     no strict 'refs';
+    no warnings 'uninitialized';
     my $fields = $class->FIELDS;
     foreach my $key (keys %{ $fields }) {
         if (not defined *{$class . '::' . $key}{CODE}) {
-            if ($fields->{$key}->{is} eq 'ro') {
-                *{$class . '::' . $key} = sub {
-                    $_[0]->{$key};
-                };
-            }
-            elsif ($fields->{$key}->{is} eq 'rw') {
+            if ($fields->{$key}->{is} eq 'rw') {
                 *{$class . '::' . $key} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
                            : $_[0]->{$key};
+                };
+            }
+            else {
+                *{$class . '::' . $key} = sub {
+                    $_[0]->{$key};
                 };
             }
         }
@@ -836,7 +873,8 @@ list of field properties:
 
 =item is
 
-Can be 'rw' for read-write fields or 'ro' for read-only fields.
+Can be 'rw' for read-write fields or 'ro' for read-only fields.  The field is
+read-only and does not have an accessor created if 'is' property is missed.
 
 =item default
 
@@ -996,6 +1034,22 @@ Contains the real and effective uid and gid of the Perl process at time of
 thrown exception.  Collected if the verbosity on throwing exception was
 greater than 1.
 
+=item package (ro)
+
+Contains the package name of the subroutine which thrown an exception.
+
+=item file (ro)
+
+Contains the file name of the subroutine which thrown an exception.
+
+=item line (ro)
+
+Contains the line number for file of the subroutine which thrown an exception.
+
+=item subroutine (ro)
+
+Contains the subroutine name which thrown an exception.
+
 =item caller_stack (ro)
 
 Contains the error stack as array of array with informations about caller
@@ -1078,14 +1132,27 @@ Creates the exception object and immediately throws it with die() function.
 
 =over
 
-=item throw([$I<exception>])
+=item throw([%I<args>])
 
-Immediately throws exception object with die() function.  It can be used as
-for throwing new exception as for rethrowing existing exception object.
+Immediately throws exception object.  It can be used for rethrowing existing
+exception object.  Additional arguments will override the fields in existing
+exception object.
 
-  eval { throw Exception message=>"Problem", tag => "TAG"; };
-  # rethrow, $@ is an exception object
-  $@->throw if $@->{properties}->{tag} eq "TAG";
+  $e = new Exception::Base;
+  # (...)
+  $e->throw(message=>"thrown exception with overriden message");
+
+  eval { throw Exception::Base message=>"Problem", fatal=>1 };
+  $@->throw if $@->properties->{fatal};
+
+=item throw($I<exception>, [%I<args>])
+
+Immediately rethrows an existing exception object as an other exception
+class.
+
+  eval { open $f, "w", "/etc/passwd" or throw Exception::System };
+  # convert Exception::System into Exception::Base
+  throw Exception::Base $@;
 
 =item stringify([$I<verbosity>[, $I<message>]])
 
