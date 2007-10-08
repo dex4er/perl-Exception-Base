@@ -27,10 +27,26 @@ sub test_field_message {
     $self->assert_equals('New Message', $obj->{message});
 }
 
+sub test_accessor_message {
+    my $self = shift;
+    my $obj = Exception::Base->new(message=>'Message');
+    $self->assert_equals('Message', $obj->message);
+    $self->assert_equals('New Message', $obj->message('New Message'));
+    $self->assert_equals('New Message', $obj->message);
+    $self->assert_equals('Lvalue accessor Message', $obj->message = 'Lvalue accessor Message');
+    $self->assert_equals('Lvalue accessor Message', $obj->message);
+}
+
 sub test_field_properties {
     my $self = shift;
     my $obj = Exception::Base->new(message=>'Message', tag=>'Tag');
     $self->assert_equals('Tag', $obj->{properties}->{tag});
+}
+
+sub test_accessor_properties {
+    my $self = shift;
+    my $obj = Exception::Base->new(message=>'Message', tag=>'Tag');
+    $self->assert_equals('Tag', $obj->properties->{tag});
 }
 
 sub test_throw {
@@ -59,6 +75,32 @@ sub test_throw {
         $self->assert_equals('Throw', $obj2->{message});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj2->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj2->{caller_stack}->[3]->[8]);
+
+        # Rethrow with overriden message
+        eval {
+            $obj1->throw(message=>'New throw');
+        };
+        my $obj3 = $@;
+        $self->assert_not_null($obj3);
+        $self->assert($obj3->isa('Exception::Base'));
+        $self->assert_equals('New throw', $obj3->{message});
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj3->{caller_stack}->[3]->[3]);
+        $self->assert_equals(ref $self, ref $obj3->{caller_stack}->[3]->[8]);
+
+        {
+            package Exception::Base::throw::Test1;
+            our @ISA = ('Exception::Base');
+        }
+
+        eval {
+            Exception::Base::throw::Test1->throw($obj1);
+        };
+        my $obj4 = $@;
+        $self->assert_not_null($obj4);
+        $self->assert($obj4->isa('Exception::Base'));
+        $self->assert_equals('New throw', $obj4->{message});
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj4->{caller_stack}->[3]->[3]);
+        $self->assert_equals(ref $self, ref $obj4->{caller_stack}->[3]->[8]);
     };
     die "$@" if $@;
 }
@@ -74,13 +116,13 @@ sub test_stringify {
 
         $self->assert_equals('', $obj->stringify(0));
         $self->assert_equals("Unknown exception\n", $obj->stringify(1));
-        $self->assert_equals("Unknown exception at unknown line 0.\n", $obj->stringify(2));
+        $self->assert_matches(qr/Unknown exception at .* line \d+.\n/s, $obj->stringify(2));
 
         $self->assert_equals('', $obj->stringify(0));
         $obj->{message} = 'Stringify';
         $self->assert_equals("Stringify\n", $obj->stringify(1));
-        $self->assert_equals("Stringify at unknown line 0.\n", $obj->stringify(2));
-        $self->assert_equals("Exception::Base: Stringify at unknown line 0\n", $obj->stringify(3));
+        $self->assert_matches(qr/Stringify at .* line \d+.\n/s, $obj->stringify(2));
+        $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->stringify(3));
 
         $obj->{caller_stack} = [
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
@@ -92,6 +134,8 @@ sub test_stringify {
             ['Package6', '-e', 6, 'Package6::func6', 0, undef, undef, undef ],
             ['Package7', undef, undef, 'Package7::func7', 0, undef, undef, undef ],
         ];
+        $obj->{file} = 'Package1.pm';
+        $obj->{line} = 1;
 
         $self->assert_equals("Stringify at Package1.pm line 1.\n", $obj->stringify(2));
 
@@ -146,6 +190,7 @@ END
         $self->assert_equals("Stringify\n", $obj->stringify);
 
         $self->assert_equals("Message\n", $obj->stringify(1, "Message"));
+        $self->assert_equals("Unknown exception\n", $obj->stringify(1, ''));
     };
     die "$@" if $@;
 }

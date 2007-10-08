@@ -1,5 +1,23 @@
 ------------------------------------------------------------------------
-0.08 | Piotr Roszatycki <dexter@debian.org> | 2007-??-??
+0.09 | Piotr Roszatycki <dexter@debian.org> | 2007-10-08
+
+New:
+
+* Defined accessors for class fields.
+* New fields: package, file, line, subroutine.
+
+Changes:
+
+* Exception::Base->new() collects system data.
+* $e->throw() does not overrides existing caller stack.
+* Additional "$e->throw(overriden=>'value')" syntax for rethrowing the
+  exception with overriden some field.
+* Additional "Exception::Base->throw($e, ...)" syntax for rethrowing the
+  exception with changed own class.
+* Use default message if argument or field is an empty string.
+
+------------------------------------------------------------------------
+0.08 | Piotr Roszatycki <dexter@debian.org> | 2007-10-06
 
 New:
 
