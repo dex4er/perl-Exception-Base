@@ -619,21 +619,20 @@ sub _collect_system_data {
 sub _caller_backtrace {
     my ($self) = @_;
     my $i = 0;
-    my $mess;
+    my $message;
 
     my $tid_msg = '';
     $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
 
-    my %i = ($self->_caller_info($i));
-    $i{file} = 'unknown' unless $i{file};
-    $i{line} = 0 unless $i{line};
-    $mess = " at $i{file} line $i{line}$tid_msg\n";
+    $self->{file} = 'unknown' unless $self->{file};
+    $self->{line} = 0 unless $self->{line};
+    $message = " at $self->{file} line $self->{line}$tid_msg\n";
 
     while (my %i = $self->_caller_info(++$i)) {
-        $mess .= "\t$i{wantarray}$i{sub_name} called at $i{file} line $i{line}$tid_msg\n";
+        $message .= "\t$i{wantarray}$i{sub_name} called at $i{file} line $i{line}$tid_msg\n";
     }
 
-    return $mess;
+    return $message;
 }
 
 
