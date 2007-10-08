@@ -30,10 +30,10 @@ sub throw {
 
 package My::Exception;
 use lib 'lib', '../lib';	
-use Exception::Base qw[try catch];
+use Exception::Base ':all';
 our $n = 0;
 sub test {
-    try eval { throw Exception::Base message=>'Message'; };
+    try eval { throw Exception::Base message=>'Message' };
     if (catch my $e) {
         if ($e->isa('Exception::Base') and $e->with('Message')) { $n++; }
     }
@@ -42,10 +42,10 @@ sub test {
 
 package My::Exception1;
 use lib 'lib', '../lib';
-use Exception::Base qw[try catch];
+use Exception::Base ':all';
 our $n = 0;
 sub test {
-    try eval { throw Exception::Base message=>'Message', verbosity=>1; };
+    try eval { throw Exception::Base message=>'Message', verbosity=>1 };
     if (catch my $e) {
         if ($e->isa('Exception::Base') and $e->with('Message')) { $n++; }
     }
