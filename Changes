@@ -1,4 +1,13 @@
 ------------------------------------------------------------------------
+0.10 | Piotr Roszatycki <dexter@debian.org> | 2007-10-09
+
+Changes:
+
+* Throw new exception if first parameter for Exception::Base->throw($e,
+  @args) is not an Exception::Base object.
+* Skip derived from Exception::Base on stack dump output.
+
+------------------------------------------------------------------------
 0.09 | Piotr Roszatycki <dexter@debian.org> | 2007-10-08
 
 New:
