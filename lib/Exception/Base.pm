@@ -403,16 +403,17 @@ sub throw {
 
 # Convert an exception to string
 sub stringify {
-    my ($self, $verbosity) = @_;
+    my ($self, $verbosity, $message) = @_;
 
     $verbosity = defined $self->{verbosity}
-             ? $self->{verbosity}
-             : $self->{defaults}->{verbosity}
+               ? $self->{verbosity}
+               : $self->{defaults}->{verbosity}
         if not defined $verbosity;
-
-    my $message = defined $self->{message} && $self->{message} ne ''
+    $message = defined $self->{message} && $self->{message} ne ''
              ? $self->{message}
-             : $self->{defaults}->{message};
+             : $self->{defaults}->{message}
+        if not defined $message;
+    $message = $self->{defaults}->{message} if $message eq '';
 
     my $string;
 
@@ -422,12 +423,8 @@ sub stringify {
     elsif ($verbosity == 2) {
         $string = sprintf "%s at %s line %d.\n",
             $message,
-            defined $self->{caller_stack} && $self->{caller_stack}->[0]->[1]
-                ? $self->{caller_stack}->[0]->[1]
-                : 'unknown',
-            defined $self->{caller_stack} && $self->{caller_stack}->[0]->[2]
-                ? $self->{caller_stack}->[0]->[2]
-                : 0;
+            defined $self->{file} ? $self->{file} : 'unknown',
+            defined $self->{line} ? $self->{line} : 0;
     }
     elsif ($verbosity >= 3) {
         $string .= sprintf "%s: %s", ref $self, $message;
@@ -1168,6 +1165,10 @@ can be used explicity and then the verbosity level can be used.
   $@->{verbosity} = 1;
   print "$@";
   print $@->stringify(3) if $VERY_VERBOSE;
+
+It also replaces any message stored in object with the I<message> argument if
+it exists.  This feature can be used by derived class overwriting
+B<stringify> method.
 
 =item with(I<condition>)
 

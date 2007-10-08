@@ -134,6 +134,8 @@ sub test_stringify {
             ['Package6', '-e', 6, 'Package6::func6', 0, undef, undef, undef ],
             ['Package7', undef, undef, 'Package7::func7', 0, undef, undef, undef ],
         ];
+        $obj->{file} = 'Package1.pm';
+        $obj->{line} = 1;
 
         $self->assert_equals("Stringify at Package1.pm line 1.\n", $obj->stringify(2));
 
@@ -186,6 +188,9 @@ END
         $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception::Base->FIELDS->{verbosity}->{default});
         $self->assert_equals(1, $obj->{verbosity} = 1);
         $self->assert_equals("Stringify\n", $obj->stringify);
+
+        $self->assert_equals("Message\n", $obj->stringify(1, "Message"));
+        $self->assert_equals("Unknown exception\n", $obj->stringify(1, ''));
     };
     die "$@" if $@;
 }
