@@ -6,6 +6,7 @@ Changes:
 * Throw new exception if first parameter for Exception::Base->throw($e,
   @args) is not an Exception::Base object.
 * Skip derived from Exception::Base on stack dump output.
+* Do not test POD errors unless $ENV{PERL_TEST_POD} is true.
 
 ------------------------------------------------------------------------
 0.09 | Piotr Roszatycki <dexter@debian.org> | 2007-10-08
