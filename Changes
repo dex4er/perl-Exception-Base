@@ -1,4 +1,16 @@
 ------------------------------------------------------------------------
+0.10 | Piotr Roszatycki <dexter@debian.org> | 2007-10-09
+
+Changes:
+
+* Throw new exception if first parameter for Exception::Base->throw($e,
+  @args) is not an Exception::Base object.  It gives the syntax for
+  rethrowing the simple eval's error.
+* Skip derived from Exception::Base on stack dump output.  It is useful if
+  the derived class overwrites throw() method.
+* Do not test POD errors unless $ENV{PERL_TEST_POD} is true.
+
+------------------------------------------------------------------------
 0.09 | Piotr Roszatycki <dexter@debian.org> | 2007-10-08
 
 New:

@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.09;
+our $VERSION = '0.10';
 
 =head1 NAME
 
@@ -398,6 +398,9 @@ sub throw {
         }
         die $old;
     }
+
+    $old =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
+    die $class->new(message=>"$old");
 }
 
 
@@ -552,7 +555,6 @@ sub catch {
         # New exception based on error from $@. Clean up the message.
         $exception =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $e = $class->new(message=>"$exception");
-        $e->_collect_system_data;
     }
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
         # Save object in argument, return only status
@@ -596,7 +598,7 @@ sub _collect_system_data {
         my $start = 1 + (defined $self->{ignore_level} ? $self->{ignore_level} : 0);
         for (my $i = $start; my @c = do { package DB; caller($i) }; $i++) {
             # Skip own package
-            next if $c[0] eq __PACKAGE__;
+            next if do { local $@; $c[0]->isa(__PACKAGE__) };
             # Skip packages to ignore
             next if defined $self->{ignore_package}
                 and ref $self->{ignore_package} eq 'ARRAY'
