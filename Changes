@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+0.11 | Piotr Roszatycki <dexter@debian.org> | 2007-10-10
+
+Changes:
+
+* Die if can't load existing module.
+
+------------------------------------------------------------------------
 0.10 | Piotr Roszatycki <dexter@debian.org> | 2007-10-09
 
 Changes:
