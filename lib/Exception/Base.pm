@@ -202,6 +202,13 @@ sub import {
                 # Package is needed
                 eval "use $name $version;";
                 if ($@) {
+                    # Die unless can't load module
+                    if ($@ !~ /Can\'t locate/) {
+                        throw Exception::Base
+                              message => "Can not load available $name class: $@",
+                              verbosity => 1;
+                    }
+
                     # Package not found so it have to be created
                     if ($pkg ne __PACKAGE__) {
                         throw Exception::Base
