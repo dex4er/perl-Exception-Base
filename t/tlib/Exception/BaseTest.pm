@@ -744,7 +744,7 @@ sub test_import {
         $self->assert_equals('2.11', $obj11->VERSION);
 
         eval 'Exception::Base->import("Exception::Base" => {version=>999.12});';
-        $self->assert_matches(qr/class can not be created automatically/, "$@");
+        $self->assert_matches(qr/version 999.12 required/, "$@");
 
         eval 'Exception::Base->import("Exception::Base::import::Test12" => {message=>"Message", verbosity=>1});';
         $self->assert_equals('', "$@");
@@ -760,6 +760,12 @@ sub test_import {
         eval 'Exception::Base->import("Exception::Base::import::Test14" => {
             isa=>Exception::Base::import::Test14::NotExists});';
         $self->assert_matches(qr/can not be found/, "$@");
+
+        eval 'Exception::Base->import("Exception::BaseTest::SyntaxError");';
+        $self->assert_matches(qr/Can not load/, "$@");
+
+        eval 'Exception::Base->import("Exception::BaseTest::MissingVersion");';
+        $self->assert_matches(qr/Can not load/, "$@");
     };
     die "$@" if $@;
 }
