@@ -115,7 +115,8 @@ sub test_throw {
         my $obj5 = $@;
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
-        $self->assert_equals('Died', $obj5->{message});
+        $self->assert_null($obj5->{message});
+        $self->assert_equals("Died", $obj5->{eval_error});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj5->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj5->{caller_stack}->[3]->[8]);
 
@@ -131,7 +132,8 @@ sub test_throw {
         my $obj6 = $@;
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
-        $self->assert_equals('Died', $obj6->{message});
+        $self->assert_null($obj6->{message});
+        $self->assert_equals("Died", $obj6->{eval_error});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj6->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj6->{caller_stack}->[3]->[8]);
     };
@@ -351,7 +353,8 @@ sub test_catch {
         $self->assert_str_equals('1', $e2);
         $self->assert_not_null($obj2);
         $self->assert($obj2->isa('Exception::Base'));
-        $self->assert_equals("Die 2", $obj2->{message});
+        $self->assert_null($obj2->{message});
+        $self->assert_equals("Die 2", $obj2->{eval_error});
         $self->assert($obj2->isa('Exception::Base'));
         $self->assert_equals(__PACKAGE__ . '::test_catch', $obj2->{caller_stack}->[2]->[3]);
         $self->assert_equals($self, $obj2->{caller_stack}->[2]->[8]);
@@ -360,13 +363,15 @@ sub test_catch {
         my $obj3 = Exception::Base->catch;
         $self->assert_not_null($obj3);
         $self->assert($obj3->isa('Exception::Base'));
-        $self->assert_equals("Die 3", $obj3->{message});
+        $self->assert_null($obj3->{message});
+        $self->assert_equals("Die 3", $obj3->{eval_error});
 
         eval { die "Die 4\n"; };
         my $obj4 = Exception::Base->catch(['Exception::Base']);
         $self->assert_not_null($obj4);
         $self->assert($obj4->isa('Exception::Base'));
-        $self->assert_equals("Die 4", $obj4->{message});
+        $self->assert_null($obj4->{message});
+        $self->assert_equals("Die 4", $obj4->{eval_error});
 
         eval { Exception::Base->throw; };
         my $e5 = Exception::Base->catch(my $obj5);
@@ -414,13 +419,15 @@ sub test_catch {
         $self->assert_str_not_equals('', $e11);
         $self->assert_not_null($obj11);
         $self->assert($obj11->isa('Exception::Base'));
-        $self->assert_equals("Die 11", $obj11->{message});
+        $self->assert_null($obj11->{message});
+        $self->assert_equals("Die 11", $obj11->{eval_error});
 
         eval { die "Die 12\n"; };
         my $obj12 = Exception::Base::catch;
         $self->assert_not_null($obj12);
         $self->assert($obj12->isa('Exception::Base'));
-        $self->assert_equals("Die 12", $obj12->{message});
+        $self->assert_null($obj12->{message});
+        $self->assert_equals("Die 12", $obj12->{eval_error});
 
         eval { die $self; };
         my $e13 = Exception::Base->catch(my $obj13);
@@ -548,7 +555,8 @@ sub test_try {
         $self->assert_str_equals(1, $e4);
         $self->assert_not_null($obj4);
         $self->assert($obj4->isa('Exception::Base'));
-        $self->assert_equals("Die 4", $obj4->{message});
+        $self->assert_null($obj4->{message});
+        $self->assert_equals("Die 4", $obj4->{eval_error});
 
         eval { 1; };
         my $v5 = Exception::Base->try(eval { die "Die 5\n"; });
@@ -558,7 +566,8 @@ sub test_try {
         $self->assert_str_equals(1, $e5);
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
-        $self->assert_equals("Die 5", $obj5->{message});
+        $self->assert_null($obj5->{message});
+        $self->assert_equals("Die 5", $obj5->{eval_error});
 
         eval { 1; };
         my $v6 = Exception::Base->try(eval { die "Die 6\n"; });
@@ -570,13 +579,15 @@ sub test_try {
         $self->assert_str_equals(1, $e7);
         $self->assert_not_null($obj7);
         $self->assert($obj7->isa('Exception::Base'));
-        $self->assert_equals("Die 7", $obj7->{message});
+        $self->assert_null($obj7->{message});
+        $self->assert_equals("Die 7", $obj7->{eval_error});
         eval { 1; };
         my $e6 = Exception::Base->catch(my $obj6);
         $self->assert_str_equals(1, $e6);
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
-        $self->assert_equals("Die 6", $obj6->{message});
+        $self->assert_null($obj6->{message});
+        $self->assert_equals("Die 6", $obj6->{eval_error});
 
         eval { 1; };
         my $e8 = Exception::Base->catch(my $obj8);
@@ -590,7 +601,8 @@ sub test_try {
         $self->assert_str_equals(1, $e9);
         $self->assert_not_null($obj9);
         $self->assert($obj9->isa('Exception::Base'));
-        $self->assert_equals("Die 9", $obj9->{message});
+        $self->assert_null($obj9->{message});
+        $self->assert_equals("Die 9", $obj9->{eval_error});
 
         my $obj10 = Exception::Base->new;
         eval { 1; };
@@ -600,7 +612,8 @@ sub test_try {
         $self->assert_str_equals(1, $e11);
         $self->assert_not_null($obj11);
         $self->assert($obj11->isa('Exception::Base'));
-        $self->assert_equals("Die 11", $obj11->{message});
+        $self->assert_null($obj11->{message});
+        $self->assert_equals("Die 11", $obj11->{eval_error});
 
         eval { 1; };
         my $v12 = Exception::Base::try([eval { die "Die 12\n"; }]);
@@ -609,7 +622,8 @@ sub test_try {
         $self->assert_str_equals(1, $e12);
         $self->assert_not_null($obj12);
         $self->assert($obj12->isa('Exception::Base'));
-        $self->assert_equals("Die 12", $obj12->{message});
+        $self->assert_null($obj12->{message});
+        $self->assert_equals("Die 12", $obj12->{eval_error});
 
         eval { 1; };
         my @v13 = Exception::Base->try({eval { (1,2,3,4); }});

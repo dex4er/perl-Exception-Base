@@ -1,6 +1,10 @@
 ------------------------------------------------------------------------
 0.11 | Piotr Roszatycki <dexter@debian.org> | 2007-10-10
 
+New:
+
+* New field eval_error contains pure eval's error.
+
 Changes:
 
 * Die if can't load existing module.

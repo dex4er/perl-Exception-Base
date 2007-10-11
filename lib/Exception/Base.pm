@@ -149,6 +149,7 @@ use constant FIELDS => {
     properties     => { },
     defaults       => { },
     message        => { is => 'rw', default => 'Unknown exception' },
+    eval_error     => { is => 'ro' },
     caller_stack   => { is => 'ro' },
     egid           => { is => 'ro' },
     euid           => { is => 'ro' },
@@ -374,11 +375,17 @@ sub throw {
     if (not ref $self) {
         # throw new exception
         if (scalar @_ % 2 == 0) {
-            die $self->new(@_);
+            # throw new exception if there was no error
+            die $self->new(@_) if not $@;
+            # otherwise collect pure eval error message
+            $class = $self;
+            $old = $@;
         }
-        # rethrow old exception
-        $class = $self;
-        $old = shift @_;
+        else {
+            # rethrow old exception
+            $class = $self;
+            $old = shift @_;
+        }
     }
     else {
         # rethrow old exception
@@ -406,8 +413,11 @@ sub throw {
         die $old;
     }
 
+    # rethrow pure eval error
     $old =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-    die $class->new(message=>"$old");
+    my $e = $class->new(@_);
+    $e->{eval_error} = $old;
+    die $e;
 }
 
 
@@ -419,13 +429,22 @@ sub stringify {
                ? $self->{verbosity}
                : $self->{defaults}->{verbosity}
         if not defined $verbosity;
-    $message = defined $self->{message} && $self->{message} ne ''
-             ? $self->{message}
-             : $self->{defaults}->{message}
-        if not defined $message;
-    $message = $self->{defaults}->{message} if $message eq '';
 
     my $string;
+
+    $message = $self->{message} if not defined $message;
+
+    my $is_message = defined $message && $message ne '';
+    my $is_eval_error = $self->{eval_error};
+
+    if ($is_message or $is_eval_error) {
+        $message = ($is_message ? $message : '')
+                . ($is_message && $is_eval_error ? ': ' : '')
+                . ($is_eval_error ? $self->{eval_error} : '');
+    }
+    else {
+        $message = $self->{defaults}->{message};
+    }
 
     if ($verbosity == 1) {
         $string = $message . "\n";
@@ -561,7 +580,8 @@ sub catch {
     else {
         # New exception based on error from $@. Clean up the message.
         $exception =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-        $e = $class->new(message=>"$exception");
+        $e = $class->new;
+        $e->{eval_error} = $exception;
     }
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
         # Save object in argument, return only status
