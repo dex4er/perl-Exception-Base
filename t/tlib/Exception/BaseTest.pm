@@ -1,5 +1,7 @@
 package Exception::BaseTest;
 
+use utf8;
+
 use base 'Test::Unit::TestCase';
 
 use Exception::Base;
@@ -115,7 +117,8 @@ sub test_throw {
         my $obj5 = $@;
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
-        $self->assert_equals('Died', $obj5->{message});
+        $self->assert_null($obj5->{message});
+        $self->assert_equals("Died", $obj5->{eval_error});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj5->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj5->{caller_stack}->[3]->[8]);
 
@@ -131,7 +134,8 @@ sub test_throw {
         my $obj6 = $@;
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
-        $self->assert_equals('Died', $obj6->{message});
+        $self->assert_null($obj6->{message});
+        $self->assert_equals("Died", $obj6->{eval_error});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj6->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj6->{caller_stack}->[3]->[8]);
     };
@@ -351,7 +355,8 @@ sub test_catch {
         $self->assert_str_equals('1', $e2);
         $self->assert_not_null($obj2);
         $self->assert($obj2->isa('Exception::Base'));
-        $self->assert_equals("Die 2", $obj2->{message});
+        $self->assert_null($obj2->{message});
+        $self->assert_equals("Die 2", $obj2->{eval_error});
         $self->assert($obj2->isa('Exception::Base'));
         $self->assert_equals(__PACKAGE__ . '::test_catch', $obj2->{caller_stack}->[2]->[3]);
         $self->assert_equals($self, $obj2->{caller_stack}->[2]->[8]);
@@ -360,13 +365,15 @@ sub test_catch {
         my $obj3 = Exception::Base->catch;
         $self->assert_not_null($obj3);
         $self->assert($obj3->isa('Exception::Base'));
-        $self->assert_equals("Die 3", $obj3->{message});
+        $self->assert_null($obj3->{message});
+        $self->assert_equals("Die 3", $obj3->{eval_error});
 
         eval { die "Die 4\n"; };
         my $obj4 = Exception::Base->catch(['Exception::Base']);
         $self->assert_not_null($obj4);
         $self->assert($obj4->isa('Exception::Base'));
-        $self->assert_equals("Die 4", $obj4->{message});
+        $self->assert_null($obj4->{message});
+        $self->assert_equals("Die 4", $obj4->{eval_error});
 
         eval { Exception::Base->throw; };
         my $e5 = Exception::Base->catch(my $obj5);
@@ -414,13 +421,15 @@ sub test_catch {
         $self->assert_str_not_equals('', $e11);
         $self->assert_not_null($obj11);
         $self->assert($obj11->isa('Exception::Base'));
-        $self->assert_equals("Die 11", $obj11->{message});
+        $self->assert_null($obj11->{message});
+        $self->assert_equals("Die 11", $obj11->{eval_error});
 
         eval { die "Die 12\n"; };
         my $obj12 = Exception::Base::catch;
         $self->assert_not_null($obj12);
         $self->assert($obj12->isa('Exception::Base'));
-        $self->assert_equals("Die 12", $obj12->{message});
+        $self->assert_null($obj12->{message});
+        $self->assert_equals("Die 12", $obj12->{eval_error});
 
         eval { die $self; };
         my $e13 = Exception::Base->catch(my $obj13);
@@ -548,7 +557,8 @@ sub test_try {
         $self->assert_str_equals(1, $e4);
         $self->assert_not_null($obj4);
         $self->assert($obj4->isa('Exception::Base'));
-        $self->assert_equals("Die 4", $obj4->{message});
+        $self->assert_null($obj4->{message});
+        $self->assert_equals("Die 4", $obj4->{eval_error});
 
         eval { 1; };
         my $v5 = Exception::Base->try(eval { die "Die 5\n"; });
@@ -558,7 +568,8 @@ sub test_try {
         $self->assert_str_equals(1, $e5);
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
-        $self->assert_equals("Die 5", $obj5->{message});
+        $self->assert_null($obj5->{message});
+        $self->assert_equals("Die 5", $obj5->{eval_error});
 
         eval { 1; };
         my $v6 = Exception::Base->try(eval { die "Die 6\n"; });
@@ -570,13 +581,15 @@ sub test_try {
         $self->assert_str_equals(1, $e7);
         $self->assert_not_null($obj7);
         $self->assert($obj7->isa('Exception::Base'));
-        $self->assert_equals("Die 7", $obj7->{message});
+        $self->assert_null($obj7->{message});
+        $self->assert_equals("Die 7", $obj7->{eval_error});
         eval { 1; };
         my $e6 = Exception::Base->catch(my $obj6);
         $self->assert_str_equals(1, $e6);
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
-        $self->assert_equals("Die 6", $obj6->{message});
+        $self->assert_null($obj6->{message});
+        $self->assert_equals("Die 6", $obj6->{eval_error});
 
         eval { 1; };
         my $e8 = Exception::Base->catch(my $obj8);
@@ -590,7 +603,8 @@ sub test_try {
         $self->assert_str_equals(1, $e9);
         $self->assert_not_null($obj9);
         $self->assert($obj9->isa('Exception::Base'));
-        $self->assert_equals("Die 9", $obj9->{message});
+        $self->assert_null($obj9->{message});
+        $self->assert_equals("Die 9", $obj9->{eval_error});
 
         my $obj10 = Exception::Base->new;
         eval { 1; };
@@ -600,7 +614,8 @@ sub test_try {
         $self->assert_str_equals(1, $e11);
         $self->assert_not_null($obj11);
         $self->assert($obj11->isa('Exception::Base'));
-        $self->assert_equals("Die 11", $obj11->{message});
+        $self->assert_null($obj11->{message});
+        $self->assert_equals("Die 11", $obj11->{eval_error});
 
         eval { 1; };
         my $v12 = Exception::Base::try([eval { die "Die 12\n"; }]);
@@ -609,7 +624,8 @@ sub test_try {
         $self->assert_str_equals(1, $e12);
         $self->assert_not_null($obj12);
         $self->assert($obj12->isa('Exception::Base'));
-        $self->assert_equals("Die 12", $obj12->{message});
+        $self->assert_null($obj12->{message});
+        $self->assert_equals("Die 12", $obj12->{eval_error});
 
         eval { 1; };
         my @v13 = Exception::Base->try({eval { (1,2,3,4); }});
@@ -627,28 +643,28 @@ sub test_import {
     eval {
         no warnings 'reserved';
 
-        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
         $self->assert_not_equals('', "$@");
 
         eval '$try = "SCALAR";';
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->import(qw<try catch>);';
-        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->unimport(qw<notsuchfunction>);';
-        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport(qw<try>);';
-        eval 'try eval { throw Exception::Base; };';
+        eval 'try eval { Exception::Base->throw; };';
         $self->assert_matches(qr/^syntax error/, "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->import(qw<:all>);';
-        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport(qw<:all>);';
@@ -657,7 +673,7 @@ sub test_import {
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->import(qw<:all>);';
-        eval 'try eval { throw Exception::Base; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport();';
@@ -665,10 +681,10 @@ sub test_import {
         $self->assert_matches(qr/^syntax error/, "$@");
         $self->assert_equals('SCALAR', $try);
 
-        eval 'throw Exception::Base::import::Test1;';
+        eval 'Exception::Base::import::Test1->throw;';
         $self->assert_matches(qr/^Can.t locate object method/, "$@");
 
-        eval 'throw Exception::Base;';
+        eval 'Exception::Base->throw;';
         my $obj1 = $@;
         $self->assert_not_null($obj1);
         $self->assert($obj1->isa('Exception::Base'));
@@ -678,39 +694,39 @@ sub test_import {
 
         eval 'Exception::Base->import(qw<Exception::Base::import::Test2>);';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test2;';
+        eval 'Exception::Base::import::Test2->throw;';
         my $obj2 = $@;
         $self->assert($obj2->isa('Exception::Base::import::Test2'));
         $self->assert($obj2->isa('Exception::Base'));
         $self->assert_equals('0.01', $obj2->VERSION);
 
-        eval 'Exception::Base->import(Exception::Base::import::Test3 => {isa=>qw<Exception::Base::import::Test2>,
+        eval 'Exception::Base->import("Exception::Base::import::Test3" => {isa=>"Exception::Base::import::Test2",
             version=>1.3});';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test3;';
+        eval 'Exception::Base::import::Test3->throw;';
         my $obj3 = $@;
         $self->assert($obj3->isa('Exception::Base::import::Test3'));
         $self->assert($obj3->isa('Exception::Base::import::Test2'));
         $self->assert($obj3->isa('Exception::Base'));
         $self->assert_equals('1.3', $obj3->VERSION);
 
-        eval 'Exception::Base->import(Exception::Base::import::Test4 => {version=>1.4});';
+        eval 'Exception::Base->import("Exception::Base::import::Test4" => {version=>1.4});';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test4;';
+        eval 'Exception::Base::import::Test4->throw;';
         my $obj4 = $@;
         $self->assert($obj4->isa('Exception::Base::import::Test4'));
         $self->assert($obj4->isa('Exception::Base'));
         $self->assert_equals('1.4', $obj4->VERSION);
 
-        eval 'Exception::Base->import(Exception::Base::import::Test5 => {isa=>qw<Exception::Base::import::Test6>});';
+        eval 'Exception::Base->import("Exception::Base::import::Test5" => {isa=>qw<Exception::Base::import::Test6>});';
         $self->assert("$@");
 
         eval 'Exception::Base::import::Test3->import(qw<Exception::Base::import::Test7>);';
         $self->assert_matches(qr/can only be created with/, "$@");
 
-        eval 'Exception::Base->import(Exception::Base::import::Test8 => "__Scalar");';
+        eval 'Exception::Base->import("Exception::Base::import::Test8" => "__Scalar");';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test8;';
+        eval 'Exception::Base::import::Test8->throw;';
         my $obj8 = $@;
         $self->assert($obj8->isa('Exception::Base::import::Test8'));
         $self->assert($obj8->isa('Exception::Base'));
@@ -719,7 +735,7 @@ sub test_import {
         eval 'package Exception::Base::import::Test9; our $VERSION = 1.9; our @ISA = ("Exception::Base"); 1;';
         eval 'Exception::Base->import(qw<Exception::Base::import::Test9>);';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test9;';
+        eval 'Exception::Base::import::Test9->throw;';
         my $obj9 = $@;
         $self->assert($obj9->isa('Exception::Base::import::Test9'));
         $self->assert($obj9->isa('Exception::Base'));
@@ -728,7 +744,7 @@ sub test_import {
         eval 'package Exception::Base::import::Test10; our $VERSION = 1.10; our @ISA = ("Exception::Base"); 1;';
         eval 'Exception::Base->import("Exception::Base::import::Test10" => {version=>0.10});';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test10;';
+        eval 'Exception::Base::import::Test10->throw;';
         my $obj10 = $@;
         $self->assert($obj10->isa('Exception::Base::import::Test10'));
         $self->assert($obj10->isa('Exception::Base'));
@@ -737,18 +753,18 @@ sub test_import {
         eval 'package Exception::Base::import::Test11; our $VERSION = 1.11; our @ISA = ("Exception::Base"); 1;';
         eval 'Exception::Base->import("Exception::Base::import::Test11" => {version=>2.11});';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test11;';
+        eval 'Exception::Base::import::Test11->throw;';
         my $obj11 = $@;
         $self->assert($obj11->isa('Exception::Base::import::Test11'));
         $self->assert($obj11->isa('Exception::Base'));
         $self->assert_equals('2.11', $obj11->VERSION);
 
         eval 'Exception::Base->import("Exception::Base" => {version=>999.12});';
-        $self->assert_matches(qr/class can not be created automatically/, "$@");
+        $self->assert_matches(qr/version 999.12 required/, "$@");
 
         eval 'Exception::Base->import("Exception::Base::import::Test12" => {message=>"Message", verbosity=>1});';
         $self->assert_equals('', "$@");
-        eval 'throw Exception::Base::import::Test12;';
+        eval 'Exception::Base::import::Test12->throw;';
         my $obj12 = $@;
         $self->assert($obj12->isa('Exception::Base::import::Test12'));
         $self->assert($obj12->isa('Exception::Base'));
@@ -758,8 +774,14 @@ sub test_import {
         $self->assert_matches(qr/class does not implement default value/, "$@");
 
         eval 'Exception::Base->import("Exception::Base::import::Test14" => {
-            isa=>Exception::Base::import::Test14::NotExists});';
+            isa=>"Exception::Base::import::Test14::NotExists"});';
         $self->assert_matches(qr/can not be found/, "$@");
+
+        eval 'Exception::Base->import("Exception::BaseTest::SyntaxError");';
+        $self->assert_matches(qr/Can not load/, "$@");
+
+        eval 'Exception::Base->import("Exception::BaseTest::MissingVersion");';
+        $self->assert_matches(qr/Can not load/, "$@");
     };
     die "$@" if $@;
 }

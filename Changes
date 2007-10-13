@@ -1,4 +1,17 @@
 ------------------------------------------------------------------------
+0.11 | Piotr Roszatycki <dexter@debian.org> | 2007-10-13
+
+New:
+
+* New field eval_error contains pure eval's error.
+
+Changes:
+
+* Die if can't load existing module.
+* Updated bundled Test::Unit::Lite to 0.0601.
+* Compatibility with Kurila 1.4.
+
+------------------------------------------------------------------------
 0.10 | Piotr Roszatycki <dexter@debian.org> | 2007-10-09
 
 Changes:

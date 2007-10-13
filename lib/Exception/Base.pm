@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = '0.10';
+our $VERSION = 0.11;
 
 =head1 NAME
 
@@ -132,9 +132,16 @@ easly expendable, see L<Exception::System> class for example
 
 
 use strict;
+use warnings;
+
+use utf8;
 
 
-# Export try/catch syntactic sugar
+# Compatibility with Kurila
+BEGIN { *Symbol::fetch_glob = sub ($) { no strict 'refs'; \*{$_[0]} } unless defined &Symbol::fetch_glob; }
+
+
+# Syntactic sugar
 use Exporter ();
 our @EXPORT_OK = qw< try catch >;
 our %EXPORT_TAGS = (all => [@EXPORT_OK]);
@@ -149,6 +156,7 @@ use constant FIELDS => {
     properties     => { },
     defaults       => { },
     message        => { is => 'rw', default => 'Unknown exception' },
+    eval_error     => { is => 'ro' },
     caller_stack   => { is => 'ro' },
     egid           => { is => 'ro' },
     euid           => { is => 'ro' },
@@ -202,30 +210,40 @@ sub import {
                 # Package is needed
                 eval "use $name $version;";
                 if ($@) {
+                    # Die unless can't load module
+                    if ($@ !~ /Can\'t locate/) {
+                        Exception::Base->throw(
+                              message => "Can not load available $name class: $@",
+                              verbosity => 1
+			);
+                    }
+
                     # Package not found so it have to be created
                     if ($pkg ne __PACKAGE__) {
-                        throw Exception::Base
+                        Exception::Base->throw(
                               message => "Exceptions can only be created with " . __PACKAGE__ . " class",
-                              verbosity => 1;
+                              verbosity => 1
+			);
                     }
                     # Paranoid check
                     if ($name eq __PACKAGE__) {
-                        throw Exception::Base
+                        Exception::Base->throw(
                               message => "$name class can not be created automatically",
-                              verbosity => 1;
+                              verbosity => 1
+			);
                     }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
                     $version = 0.01 if not $version;
 
                     # Base class is needed
                     {
-                        no strict 'refs';
                         if (not defined eval { $isa->VERSION }) {
                             eval "use $isa;";
                             if ($@) {
-                                throw Exception::Base
+                                Exception::Base->throw(
                                       message => "Base class $isa for class $name can not be found",
-                                      verbosity => 1;
+                                      verbosity => 1
+				);
                             }
                         }
                     }
@@ -234,9 +252,10 @@ sub import {
                     my $fields;
                     eval { $fields = $isa->FIELDS };
                     if ($@) {
-                        throw Exception::Base
+                        Exception::Base->throw(
                               message => "$name class is based on $isa class which does not implement FIELDS",
-                              verbosity => 1;
+                              verbosity => 1
+			);
                     }
 
                     # Create the hash with overriden fields
@@ -244,9 +263,10 @@ sub import {
                     foreach my $field (keys %{ $param }) {
                         next if $field =~ /^(isa|version)$/;
                         if (not defined $fields->{$field}->{default}) {
-                            throw Exception::Base
+                            Exception::Base->throw(
                                   message => "$isa class does not implement default value for $field field",
-                                  verbosity => 1;
+                                  verbosity => 1
+			    );
                         }
                         $overriden_fields{$field} = {};
                         $overriden_fields{$field}->{default} = $param->{$field};
@@ -257,10 +277,9 @@ sub import {
                     }
 
                     # Create the new package
-                    no strict 'refs';
-                    ${$name . '::VERSION'} = $version;
-                    @{$name . '::ISA'} = ($isa);
-                    *{$name . '::FIELDS'} = sub {
+                    ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
+                    @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
+                    *{Symbol::fetch_glob($name . '::FIELDS')} = sub {
                         return { %{ $isa->FIELDS }, %overriden_fields };
                     };
                 }
@@ -285,22 +304,21 @@ sub unimport {
     # Unexport all by default
     my @export = scalar @_ ? @_ : ':all';
 
-    no strict 'refs';
     while (my $name = shift @export) {
         if ($name eq ':all') {
             unshift @export, @EXPORT_OK;
         }
         elsif ($name eq 'try' or $name eq 'catch') {
-            if (defined *{$callpkg . '::' . $name}{CODE}) {
+            if (defined *{Symbol::fetch_glob($callpkg . '::' . $name)}{CODE}) {
                 # Store and restore other typeglobs than CODE
                 my %glob;
                 foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-                    $glob{$type} = *{$callpkg . '::' . $name}{$type}
-                        if defined *{$callpkg . '::' . $name}{$type};
+                    $glob{$type} = *{Symbol::fetch_glob($callpkg . '::' . $name)}{$type}
+                        if defined *{Symbol::fetch_glob($callpkg . '::' . $name)}{$type};
                 }
-                undef *{$callpkg . '::' . $name};
+                undef *{Symbol::fetch_glob($callpkg . '::' . $name)};
                 foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-                    *{$callpkg . '::' . $name} = $glob{$type}
+                    *{Symbol::fetch_glob($callpkg . '::' . $name)} = $glob{$type}
                         if defined $glob{$type};
                 }
             }
@@ -367,11 +385,17 @@ sub throw {
     if (not ref $self) {
         # throw new exception
         if (scalar @_ % 2 == 0) {
-            die $self->new(@_);
+            # throw new exception if there was no error
+            die $self->new(@_) if not $@;
+            # otherwise collect pure eval error message
+            $class = $self;
+            $old = $@;
         }
-        # rethrow old exception
-        $class = $self;
-        $old = shift @_;
+        else {
+            # rethrow old exception
+            $class = $self;
+            $old = shift @_;
+        }
     }
     else {
         # rethrow old exception
@@ -399,8 +423,11 @@ sub throw {
         die $old;
     }
 
+    # rethrow pure eval error
     $old =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-    die $class->new(message=>"$old");
+    my $e = $class->new(@_);
+    $e->{eval_error} = $old;
+    die $e;
 }
 
 
@@ -412,13 +439,22 @@ sub stringify {
                ? $self->{verbosity}
                : $self->{defaults}->{verbosity}
         if not defined $verbosity;
-    $message = defined $self->{message} && $self->{message} ne ''
-             ? $self->{message}
-             : $self->{defaults}->{message}
-        if not defined $message;
-    $message = $self->{defaults}->{message} if $message eq '';
 
     my $string;
+
+    $message = $self->{message} if not defined $message;
+
+    my $is_message = defined $message && $message ne '';
+    my $is_eval_error = $self->{eval_error};
+
+    if ($is_message or $is_eval_error) {
+        $message = ($is_message ? $message : '')
+                . ($is_message && $is_eval_error ? ': ' : '')
+                . ($is_eval_error ? $self->{eval_error} : '');
+    }
+    else {
+        $message = $self->{defaults}->{message};
+    }
 
     if ($verbosity == 1) {
         $string = $message . "\n";
@@ -554,7 +590,8 @@ sub catch {
     else {
         # New exception based on error from $@. Clean up the message.
         $exception =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-        $e = $class->new(message=>"$exception");
+        $e = $class->new;
+        $e->{eval_error} = $exception;
     }
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
         # Save object in argument, return only status
@@ -710,8 +747,8 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    use utf8;  #! TODO: should be here?
-    if (defined $utf8::VERSION and utf8::is_utf8($arg)) {
+    no warnings 'utf8';
+    if (not defined *utf8::is_utf{CODE} or utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
             ? sprintf("\\x{%04x}", $_)
             : chr($_) =~ /[[:cntrl:]]|[[:^ascii:]]/
@@ -743,19 +780,18 @@ sub _make_accessors {
     my ($class) = @_;
     $class = ref $class if ref $class;
 
-    no strict 'refs';
     no warnings 'uninitialized';
     my $fields = $class->FIELDS;
     foreach my $key (keys %{ $fields }) {
-        if (not defined *{$class . '::' . $key}{CODE}) {
+        if (not defined *{Symbol::fetch_glob($class . '::' . $key)}{CODE}) {
             if ($fields->{$key}->{is} eq 'rw') {
-                *{$class . '::' . $key} = sub :lvalue {
+                *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
                            : $_[0]->{$key};
                 };
             }
             else {
-                *{$class . '::' . $key} = sub {
+                *{Symbol::fetch_glob($class . '::' . $key)} = sub {
                     $_[0]->{$key};
                 };
             }
@@ -782,7 +818,7 @@ __END__
 
 Exports the B<catch> and B<try> functions to the caller namespace.
 
-  use Exception::Base qw<catch try>;
+  use Exception::Base qw< catch try >;
   try eval { throw Exception::Base; };
   if (catch my $e) { warn "$e"; }
 
@@ -1002,6 +1038,20 @@ trace.  It can be used with or without ignore_package field.
   sub my_function {
     do_something() or throw Exception::Base ignore_level=>2;
   }
+
+=item eval_error (ro)
+
+Contains the original eval error message if the exception was rethrown from
+B<$@> variable.  This message will be displayed as a part of
+L<Exception::Base> message.  The I<eval_error> has line number, file name and
+line-feed (\n) removed from its message.
+
+  try eval {
+    eval { $a = $b = 0; $c = $a / $b };
+    throw Exception::Base;
+  };
+  catch my $e;
+  print $e->eval_error;
 
 =item time (ro)
 

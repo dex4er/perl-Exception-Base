@@ -1,18 +1,21 @@
 Build.PL
 Changes
+eg/eval_throw.pl
 eg/file-not-found_exception.pl
+eg/try_catch_throw.pl
 inc/Test/Unit/Lite.pm
 lib/Exception/Base.pm
 Makefile.PL
 MANIFEST			This list of files
+META.yml
+README
 t/all_tests.t
 t/benchmark.pl
 t/cover.sh
 t/pod.t
 t/pod_coverage.t
 t/profile.pl
-t/test.sh
-t/tlib/AllTests.pm
+t/test.pl
 t/tlib/Exception/BaseTest.pm
-META.yml
-README
+t/tlib/Exception/BaseTest/MissingVersion.pm
+t/tlib/Exception/BaseTest/SyntaxError.pm
