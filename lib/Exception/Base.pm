@@ -1039,6 +1039,20 @@ trace.  It can be used with or without ignore_package field.
     do_something() or throw Exception::Base ignore_level=>2;
   }
 
+=item eval_error (ro)
+
+Contains the original eval error message if the exception was rethrown from
+B<$@> variable.  This message will be displayed as a part of
+L<Exception::Base> message.  The I<eval_error> has line number, file name and
+line-feed (\n) removed from its message.
+
+  try eval {
+    eval { $a = $b = 0; $c = $a / $b };
+    throw Exception::Base;
+  };
+  catch my $e;
+  print $e->eval_error;
+
 =item time (ro)
 
 Contains the timestamp of the thrown exception.  Collected if the verbosity
