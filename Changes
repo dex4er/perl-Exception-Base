@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+0.11_00_01 | Piotr Roszatycki <dexter@debian.org> | 2007-10-14
+
+Fixes:
+
+* ignore_level has meaning only for non-skipped levels.
+
+------------------------------------------------------------------------
 0.11 | Piotr Roszatycki <dexter@debian.org> | 2007-10-13
 
 New:

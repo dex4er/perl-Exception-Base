@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.11;
+our $VERSION = 0.11_00_01;
 
 =head1 NAME
 
@@ -623,8 +623,8 @@ sub _collect_system_data {
     my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
     if ($verbosity > 1) {
         $self->{time}  = CORE::time();
-        $self->{pid}   = $$;
         $self->{tid}   = Thread->self->tid if defined &Thread::tid;
+        $self->{pid}   = $$;
         $self->{uid}   = $<;
         $self->{euid}  = $>;
         $self->{gid}   = $(;
@@ -632,17 +632,35 @@ sub _collect_system_data {
 
         # Collect stack info
         my @caller_stack;
-        my $start = 1 + (defined $self->{ignore_level} ? $self->{ignore_level} : 0);
-        for (my $i = $start; my @c = do { package DB; caller($i) }; $i++) {
+        my $ignore_level = defined $self->{ignore_level}
+                         ? $self->{ignore_level}
+                         : defined $self->{defaults}->{ignore_level}
+                           ? $self->{defaults}->{ignore_level}
+                           : 0;
+        my $ignore_package = defined $self->{ignore_package}
+                         ? $self->{ignore_package}
+                         : $self->{defaults}->{ignore_package};
+        my $level = 1;
+        while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
             next if do { local $@; $c[0]->isa(__PACKAGE__) };
             # Skip packages to ignore
-            next if defined $self->{ignore_package}
-                and ref $self->{ignore_package} eq 'ARRAY'
-                    ? grep { $_ eq $c[0] } @{ $self->{ignore_package} }
-                    : $c[0] eq $self->{ignore_package};
+            if (defined $ignore_package) {
+                if (ref $ignore_package eq 'ARRAY') {
+                    next if grep { $_ eq $c[0] } @{ $ignore_package };
+                }
+                else {
+                    next if $c[0] eq $ignore_package;
+                }
+            }
+            # Skip ignored levels
+            if ($ignore_level > 0) {
+                $ignore_level --;
+                next;
+            }
+            # Collect the caller stack
             push @caller_stack, [ @c[0 .. 7], @DB::args ];
-            # Collect only one entry if verbosity is meaning
+            # Collect only one entry if verbosity is lower than 3
             last if $verbosity < 3;
         }
         $self->{caller_stack} = \@caller_stack;

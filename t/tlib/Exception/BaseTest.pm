@@ -1,15 +1,13 @@
 package Exception::BaseTest;
 
+use strict;
+use warnings;
+
 use utf8;
 
 use base 'Test::Unit::TestCase';
 
 use Exception::Base;
-
-sub new {
-    my $self = shift()->SUPER::new(@_);
-    return $self;
-}
 
 sub test___isa {
     my $self = shift;
@@ -646,6 +644,7 @@ sub test_import {
         eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
         $self->assert_not_equals('', "$@");
 
+        my $try;
         eval '$try = "SCALAR";';
         $self->assert_equals('SCALAR', $try);
 
