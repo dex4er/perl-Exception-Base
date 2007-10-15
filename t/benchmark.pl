@@ -115,7 +115,7 @@ BEGIN {
 
 package main;
 
-use Benchmark;
+use Benchmark ':all';
 
 my %tests = (
     '1_DieScalar'                 => sub { My::DieScalar->test },
@@ -128,4 +128,5 @@ $tests{'6_ExceptionClass'}         = sub { My::ExceptionClass->test }         if
 $tests{'7_ExceptionClassTryCatch'} = sub { My::ExceptionClassTryCatch->test } if eval { Exception::Class::TryCatch->VERSION };
 $tests{'8_ClassThrowable'}         = sub { My::ClassThrowable->test }         if eval { Class::Throwable->VERSION };
 
-timethese(-1, { %tests });
+my $result = timethese(-1, { %tests });
+cmpthese($result);

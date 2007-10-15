@@ -87,7 +87,7 @@ sub test_throw {
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj3->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj3->{caller_stack}->[3]->[8]);
 
-	# Rethrow with overriden class
+        # Rethrow with overriden class
         {
             package Exception::Base::throw::Test1;
             our @ISA = ('Exception::Base');
@@ -103,15 +103,15 @@ sub test_throw {
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj4->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj4->{caller_stack}->[3]->[8]);
 
-	# Throw based on last eval error (with \n)
+        # Throw based on last eval error (with \n)
         eval {
-	    die "Died\n";
+            die "Died\n";
         };
-	my $e5 = $@;
+        my $e5 = $@;
         $self->assert_not_equals('', $e5);
-	eval {
-	    Exception::Base->throw($e5);
-	};
+        eval {
+            Exception::Base->throw($e5);
+        };
         my $obj5 = $@;
         $self->assert_not_null($obj5);
         $self->assert($obj5->isa('Exception::Base'));
@@ -120,15 +120,15 @@ sub test_throw {
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj5->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj5->{caller_stack}->[3]->[8]);
 
-	# Throw based on last eval error (without \n)
+        # Throw based on last eval error (without \n)
         eval {
-	    die "Died";
+            die "Died";
         };
-	my $e6 = $@;
+        my $e6 = $@;
         $self->assert_not_equals('', $e6);
-	eval {
-	    Exception::Base->throw($e6);
-	};
+        eval {
+            Exception::Base->throw($e6);
+        };
         my $obj6 = $@;
         $self->assert_not_null($obj6);
         $self->assert($obj6->isa('Exception::Base'));
@@ -136,6 +136,17 @@ sub test_throw {
         $self->assert_equals("Died", $obj6->{eval_error});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj6->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj6->{caller_stack}->[3]->[8]);
+
+        # Throw and ignore levels
+        eval {
+            Exception::Base->throw(message=>'Throw', ignore_level => 2);
+        };
+        my $obj7 = $@;
+        $self->assert_not_null($obj7);
+        $self->assert($obj7->isa('Exception::Base'));
+        $self->assert_equals('Throw', $obj7->{message});
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj7->{caller_stack}->[1]->[3]);
+        $self->assert_equals(ref $self, ref $obj7->{caller_stack}->[1]->[8]);
     };
     die "$@" if $@;
 }

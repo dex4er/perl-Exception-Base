@@ -4,6 +4,8 @@
 Fixes:
 
 * ignore_level has meaning only for non-skipped levels.
+* Changed $SIG{__DIE__} does not interfere with evals used internally.
+* Minor refactoring.
 
 ------------------------------------------------------------------------
 0.11 | Piotr Roszatycki <dexter@debian.org> | 2007-10-13
