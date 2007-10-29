@@ -1146,22 +1146,6 @@ Contains the real and effective uid and gid of the Perl process at time of
 thrown exception.  Collected if the verbosity on throwing exception was
 greater than 1.
 
-=item package (ro)
-
-Contains the package name of the subroutine which thrown an exception.
-
-=item file (ro)
-
-Contains the file name of the subroutine which thrown an exception.
-
-=item line (ro)
-
-Contains the line number for file of the subroutine which thrown an exception.
-
-=item subroutine (ro)
-
-Contains the subroutine name which thrown an exception.
-
 =item caller_stack (ro)
 
 Contains the error stack as array of array with informations about caller
@@ -1376,6 +1360,22 @@ one of the class from argument, the exception is thrown immediately.
   catch Exception::Base my $e, ['Exception::IO'];
   print "Only IO exception was caught: " . $e->stringify(1);
 
+=item package
+
+Returns the package name of the subroutine which thrown an exception.
+
+=item file
+
+Returns the file name of the subroutine which thrown an exception.
+
+=item line
+
+Returns the line number for file of the subroutine which thrown an exception.
+
+=item subroutine
+
+Returns the subroutine name which thrown an exception.
+
 =back
 
 =head1 PRIVATE METHODS
@@ -1471,7 +1471,7 @@ i486-linux-gnu-thread-multi) are following:
 
 =item L<Exception::Base> module with default options
 
-5119/s
+5337/s
 
 =item L<Exception::Base> module with verbosity = 1
 
