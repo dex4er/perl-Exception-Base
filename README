@@ -13,7 +13,7 @@ SYNOPSIS
             message => 'File not found',
             isa => 'Exception::IO' },      # create new based on new
       );
-  
+
       # try / catch
       try eval {
         do_something() or throw Exception::FileNotFound
@@ -30,23 +30,23 @@ SYNOPSIS
         elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
         else { $e->throw; } # rethrow the exception
       }
-  
+
       # the exception can be thrown later
       $e = new Exception::Base;
       # (...)
       $e->throw;
-  
+
       # try with array context
       @v = try [eval { do_something_returning_array(); }];
-  
+
       # catch only IO errors, rethrow immediately others
       try eval { File::Stat::Moose->stat("/etc/passwd") };
       catch my $e, ['Exception::IO'];
-  
+
       # immediately rethrow all caught exceptions and eval errors
       try eval { die "Bang!\n" };
       catch my $e, [];
-  
+
       # don't use syntactic sugar
       use Exception::Base;          # does not import ':all' tag
       try Exception::Base eval {

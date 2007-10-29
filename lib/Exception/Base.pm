@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.11;
+our $VERSION = 0.12;
 
 =head1 NAME
 
@@ -21,7 +21,7 @@ Exception::Base - Lightweight exceptions
         message => 'File not found',
         isa => 'Exception::IO' },      # create new based on new
   );
-  
+
   # try / catch
   try eval {
     do_something() or throw Exception::FileNotFound
@@ -38,23 +38,23 @@ Exception::Base - Lightweight exceptions
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
-  
+
   # the exception can be thrown later
   $e = new Exception::Base;
   # (...)
   $e->throw;
-  
+
   # try with array context
   @v = try [eval { do_something_returning_array(); }];
-  
+
   # catch only IO errors, rethrow immediately others
   try eval { File::Stat::Moose->stat("/etc/passwd") };
   catch my $e, ['Exception::IO'];
-  
+
   # immediately rethrow all caught exceptions and eval errors
   try eval { die "Bang!\n" };
   catch my $e, [];
-  
+
   # don't use syntactic sugar
   use Exception::Base;          # does not import ':all' tag
   try Exception::Base eval {
@@ -165,10 +165,6 @@ use constant FIELDS => {
     tid            => { is => 'ro' },
     time           => { is => 'ro' },
     uid            => { is => 'ro' },
-    package        => { is => 'ro' },
-    file           => { is => 'ro' },
-    subroutine     => { is => 'ro' },
-    line           => { is => 'ro' },
     verbosity      => { is => 'rw', default => 3 },
     ignore_package => { is => 'rw' },
     ignore_level   => { is => 'rw' },
@@ -184,6 +180,10 @@ my %Class_Fields;
 
 # Cache for class' defaults
 my %Class_Defaults;
+
+
+# Cache for $obj->isa(__PACKAGE__)
+my %Isa_Package;
 
 
 # Exception stack for try/catch blocks
@@ -215,7 +215,7 @@ sub import {
                         Exception::Base->throw(
                               message => "Can not load available $name class: $@",
                               verbosity => 1
-			);
+                        );
                     }
 
                     # Package not found so it have to be created
@@ -223,14 +223,14 @@ sub import {
                         Exception::Base->throw(
                               message => "Exceptions can only be created with " . __PACKAGE__ . " class",
                               verbosity => 1
-			);
+                        );
                     }
                     # Paranoid check
                     if ($name eq __PACKAGE__) {
                         Exception::Base->throw(
                               message => "$name class can not be created automatically",
                               verbosity => 1
-			);
+                        );
                     }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
                     $version = 0.01 if not $version;
@@ -243,7 +243,7 @@ sub import {
                                 Exception::Base->throw(
                                       message => "Base class $isa for class $name can not be found",
                                       verbosity => 1
-				);
+                                );
                             }
                         }
                     }
@@ -255,7 +255,7 @@ sub import {
                         Exception::Base->throw(
                               message => "$name class is based on $isa class which does not implement FIELDS",
                               verbosity => 1
-			);
+                        );
                     }
 
                     # Create the hash with overriden fields
@@ -266,7 +266,7 @@ sub import {
                             Exception::Base->throw(
                                   message => "$isa class does not implement default value for $field field",
                                   verbosity => 1
-			    );
+                            );
                         }
                         $overriden_fields{$field} = {};
                         $overriden_fields{$field}->{default} = $param->{$field};
@@ -371,7 +371,7 @@ sub new {
 
     bless $self => $class;
     $self->_collect_system_data;
-    
+
     return $self;
 }
 
@@ -403,8 +403,8 @@ sub throw {
         $old = $self;
     }
 
-    # check paranoid if $old is really an exception
-    if (ref $old and do { local $@; eval { $old->isa(__PACKAGE__) } }) {
+    # check if $old is an exception
+    if (ref $old and do { local $@; local $SIG{__DIE__}; eval { $old->isa(__PACKAGE__) } }) {
         no warnings 'uninitialized';
         my %args = @_;
         my $fields = $self->FIELDS;
@@ -460,17 +460,18 @@ sub stringify {
         $string = $message . "\n";
     }
     elsif ($verbosity == 2) {
+        my $file = $self->file;
         $string = sprintf "%s at %s line %d.\n",
             $message,
-            defined $self->{file} ? $self->{file} : 'unknown',
-            defined $self->{line} ? $self->{line} : 0;
+            defined $file && $file ne '' ? $file : 'unknown',
+            $self->line || 0;
     }
     elsif ($verbosity >= 3) {
         $string .= sprintf "%s: %s", ref $self, $message;
         $string .= $self->_caller_backtrace;
     }
     else {
-        $string = "";
+        $string = q{};
     }
 
     return $string;
@@ -479,7 +480,7 @@ sub stringify {
 
 # Stringify for overloaded operator
 sub _stringify {
-    return $_[0]->stringify();
+    return $_[0]->stringify;
 }
 
 
@@ -556,43 +557,43 @@ sub with {
 # Push the exception on error stack. Stolen from Exception::Class::TryCatch
 sub try ($) {
     # Can be used also as function
-    my $self = shift if do { local $@; eval { $_[0]->isa(__PACKAGE__) } }; 
+    my $self = shift if defined $_[0] and do { local $@; local $SIG{__DIE__}; eval { $_[0]->isa(__PACKAGE__) } };
 
     my ($v) = @_;
 
     push @Exception_Stack, $@;
-    return ref($v) eq 'ARRAY' ? @$v : $v if wantarray;
-    return $v;
+    return wantarray && ref $v eq 'ARRAY' ? @$v : $v;
 }
 
 
 # Pop the exception on error stack. Stolen from Exception::Class::TryCatch
 sub catch {
     # Can be used also as function
-    my $self = shift if do { local $@; eval { $_[0]->isa(__PACKAGE__) } }; 
+    my $self = shift if defined $_[0] and do { local $@; local $SIG{__DIE__}; eval { $_[0]->isa(__PACKAGE__) } };
 
-    # Class based on self object, Exception::Class by default
+    # Recover class from object or set the default
     my $class = defined $self ? (ref $self || $self) : __PACKAGE__;
 
-    # Return exception object if no argument
+    # Will return exception object if no argument
     my $want_object = 1;
 
     my $e;
-    my $exception = @Exception_Stack ? pop @Exception_Stack : $@;
-    if (ref $exception and do { local $@; eval { $exception->isa(__PACKAGE__) } }) {
+    my $e_from_stack = @Exception_Stack ? pop @Exception_Stack : $@;
+    if (ref $e_from_stack and do { local $@; local $SIG{__DIE__}; eval { $e_from_stack->isa(__PACKAGE__) } }) {
         # Caught exception
-        $e = $exception;
+        $e = $e_from_stack;
     }
-    elsif ($exception eq '') {
+    elsif ($e_from_stack eq '') {
         # No error in $@
         $e = undef;
     }
     else {
         # New exception based on error from $@. Clean up the message.
-        $exception =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
+        $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $e = $class->new;
-        $e->{eval_error} = $exception;
+        $e->{eval_error} = $e_from_stack;
     }
+
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
         # Save object in argument, return only status
         $_[0] = $e;
@@ -601,13 +602,13 @@ sub catch {
     }
     if (defined $e) {
         # For real exceptions...
-        if (defined $self and not do { local $@; eval { $e->isa($class) } }) {
+        if (defined $self and not do { local $@; local $SIG{__DIE__}; eval { $e->isa($class) } }) {
             # ... throw if the exception is not our class
             $e->throw;
         }
         if (defined $_[0] and ref $_[0] eq 'ARRAY') {
             # ... throw if the exception class is not listed
-            $e->throw unless grep { do { local $@; eval { $e->isa($_) } } } @{$_[0]};
+            $e->throw unless grep { do { local $@; local $SIG{__DIE__}; eval { $e->isa($_) } } } @{$_[0]};
         }
     }
     # Return status or object
@@ -623,31 +624,22 @@ sub _collect_system_data {
     my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
     if ($verbosity > 1) {
         $self->{time}  = CORE::time();
-        $self->{pid}   = $$;
         $self->{tid}   = Thread->self->tid if defined &Thread::tid;
-        $self->{uid}   = $<;
-        $self->{euid}  = $>;
-        $self->{gid}   = $(;
-        $self->{egid}  = $);
+        @{$self}{qw < pid uid euid gid egid >}
+              = (     $$, $<, $>,  $(, $)    );
 
         # Collect stack info
         my @caller_stack;
-        my $start = 1 + (defined $self->{ignore_level} ? $self->{ignore_level} : 0);
-        for (my $i = $start; my @c = do { package DB; caller($i) }; $i++) {
+        my $level = 1;
+        while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
-            next if do { local $@; $c[0]->isa(__PACKAGE__) };
-            # Skip packages to ignore
-            next if defined $self->{ignore_package}
-                and ref $self->{ignore_package} eq 'ARRAY'
-                    ? grep { $_ eq $c[0] } @{ $self->{ignore_package} }
-                    : $c[0] eq $self->{ignore_package};
+            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
+            # Collect the caller stack
             push @caller_stack, [ @c[0 .. 7], @DB::args ];
-            # Collect only one entry if verbosity is meaning
+            # Collect only one entry if verbosity is lower than 3
             last if $verbosity < 3;
         }
         $self->{caller_stack} = \@caller_stack;
-        @{$self}{qw< package file line subroutine >} = @{$caller_stack[0]}[0..3];
-        $self->{file} = $caller_stack[0][1];
     }
 
     return $self;
@@ -657,21 +649,46 @@ sub _collect_system_data {
 # Stringify caller backtrace. Stolen from Carp
 sub _caller_backtrace {
     my ($self) = @_;
-    my $i = 0;
     my $message;
 
     my $tid_msg = '';
     $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
 
-    $self->{file} = 'unknown' unless $self->{file};
-    $self->{line} = 0 unless $self->{line};
-    $message = " at $self->{file} line $self->{line}$tid_msg\n";
+    my $ignore_level = defined $self->{ignore_level}
+                     ? $self->{ignore_level}
+                     : defined $self->{defaults}->{ignore_level}
+                       ? $self->{defaults}->{ignore_level}
+                       : 0;
+    my $ignore_package = defined $self->{ignore_package}
+                     ? $self->{ignore_package}
+                     : $self->{defaults}->{ignore_package};
 
-    while (my %i = $self->_caller_info(++$i)) {
-        $message .= "\t$i{wantarray}$i{sub_name} called at $i{file} line $i{line}$tid_msg\n";
+    my $level = 0;
+    while (my %c = $self->_caller_info($level++)) {
+        if (defined $ignore_package) {
+            if (ref $ignore_package eq 'ARRAY') {
+                next if grep { $_ eq $c{package} } @{ $ignore_package };
+            }
+            else {
+                next if $c{package} eq $ignore_package;
+            }
+        }
+        # Skip ignored levels
+        if ($ignore_level > 0) {
+            $ignore_level --;
+            next;
+        }
+        if (not defined $message) {
+            $message = sprintf " at %s line %s$tid_msg\n",
+                       defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
+                       $c{line} || 0;
+        }
+        else {
+            $message .= "\t$c{wantarray}$c{sub_name} called at $c{file} line $c{line}$tid_msg\n";
+        }
     }
 
-    return $message;
+    return $message || " at unknown line 0$tid_msg\n";
 }
 
 
@@ -685,10 +702,10 @@ sub _caller_info {
         if defined $self->{caller_stack} and defined $self->{caller_stack}->[$i];
 
     @call_info{
-        qw< pack file line sub has_args wantarray evaltext is_require >
+        qw< package file line subroutine has_args wantarray evaltext is_require >
     } = @call_info[0..7];
 
-    unless (defined $call_info{pack}) {
+    unless (defined $call_info{package}) {
         return ();
     }
 
@@ -727,7 +744,7 @@ sub _get_subname {
                 "'";
         }
     }
-    return ($info->{sub} eq '(eval)') ? 'eval {...}' : $info->{sub};
+    return ($info->{subroutine} eq '(eval)') ? 'eval {...}' : $info->{subroutine};
 }
 
 
@@ -737,8 +754,9 @@ sub _format_arg {
 
     return 'undef' if not defined $arg;
 
-    # Be careful! Do not recurse with our stringify!
-    return '"' . overload::StrVal($arg) . '"' if ref $arg;
+    if (do { local $@; local $SIG{__DIE__}; eval { $arg->isa(__PACKAGE__) } } or ref $arg) {
+        return q{"} . overload::StrVal($arg) . q{"};
+    }
 
     $arg =~ s/\\/\\\\/g;
     $arg =~ s/"/\\"/g;
@@ -783,7 +801,7 @@ sub _make_accessors {
     no warnings 'uninitialized';
     my $fields = $class->FIELDS;
     foreach my $key (keys %{ $fields }) {
-        if (not defined *{Symbol::fetch_glob($class . '::' . $key)}{CODE}) {
+        if (not $class->can($key)) {
             if ($fields->{$key}->{is} eq 'rw') {
                 *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
@@ -800,7 +818,49 @@ sub _make_accessors {
 }
 
 
-__PACKAGE__->_make_accessors;
+sub _make_caller_info_accessors {
+    my ($class) = @_;
+    $class = ref $class if ref $class;
+
+    foreach my $key (qw< package file line subroutine >) {
+        if (not $class->can($key)) {
+            *{Symbol::fetch_glob($class . '::' . $key)} = sub {
+                my $self = shift;
+                my $ignore_level = defined $self->{ignore_level}
+                                 ? $self->{ignore_level}
+                                 : defined $self->{defaults}->{ignore_level}
+                                   ? $self->{defaults}->{ignore_level}
+                                   : 0;
+                my $ignore_package = defined $self->{ignore_package}
+                                 ? $self->{ignore_package}
+                                 : $self->{defaults}->{ignore_package};
+                my $level = 0;
+                while (my %c = $self->_caller_info($level++)) {
+                    if (defined $ignore_package) {
+                        if (ref $ignore_package eq 'ARRAY') {
+                            next if grep { $_ eq $c{package} } @{ $ignore_package };
+                        }
+                        else {
+                            next if $c{package} eq $ignore_package;
+                        }
+                    }
+                    # Skip ignored levels
+                    if ($ignore_level > 0) {
+                        $ignore_level --;
+                        next;
+                    }
+                    return $c{$key};
+                }
+            };
+        }
+    }
+}
+
+
+INIT: {
+    __PACKAGE__->_make_accessors;
+    __PACKAGE__->_make_caller_info_accessors;
+}
 
 
 1;
@@ -1031,13 +1091,13 @@ exception but this module shouldn't be listed in stack trace.
 
 Contains the number of level on stack trace to ignore.  It is useful if some
 package throws an exception but this module shouldn't be listed in stack
-trace.  It can be used with or without ignore_package field.
+trace.  It can be used with or without I<ignore_package> field.
 
-  package My::Package;
-  use Exception::Base;
-  sub my_function {
-    do_something() or throw Exception::Base ignore_level=>2;
-  }
+  # Convert warning into exception. The signal handler ignores itself.
+  use Exception::Base 'Exception::Warning';
+  $SIG{__WARN__} = sub {
+    Exception::Warning->throw(message => $_[0], ignore_level => 1)
+  };
 
 =item eval_error (ro)
 
@@ -1085,22 +1145,6 @@ if the verbosity on throwing exception was greater than 1.
 Contains the real and effective uid and gid of the Perl process at time of
 thrown exception.  Collected if the verbosity on throwing exception was
 greater than 1.
-
-=item package (ro)
-
-Contains the package name of the subroutine which thrown an exception.
-
-=item file (ro)
-
-Contains the file name of the subroutine which thrown an exception.
-
-=item line (ro)
-
-Contains the line number for file of the subroutine which thrown an exception.
-
-=item subroutine (ro)
-
-Contains the subroutine name which thrown an exception.
 
 =item caller_stack (ro)
 
@@ -1316,6 +1360,22 @@ one of the class from argument, the exception is thrown immediately.
   catch Exception::Base my $e, ['Exception::IO'];
   print "Only IO exception was caught: " . $e->stringify(1);
 
+=item package
+
+Returns the package name of the subroutine which thrown an exception.
+
+=item file
+
+Returns the file name of the subroutine which thrown an exception.
+
+=item line
+
+Returns the line number for file of the subroutine which thrown an exception.
+
+=item subroutine
+
+Returns the subroutine name which thrown an exception.
+
 =back
 
 =head1 PRIVATE METHODS
@@ -1411,11 +1471,11 @@ i486-linux-gnu-thread-multi) are following:
 
 =item L<Exception::Base> module with default options
 
-5582/s
+5337/s
 
 =item L<Exception::Base> module with verbosity = 1
 
-19548/s
+20285/s
 
 =item L<Error> module
 
@@ -1437,7 +1497,7 @@ i486-linux-gnu-thread-multi) are following:
 
 The L<Exception::Base> module is 80 times slower than pure eval/die.  This
 module was written to be as fast as it is possible.  It does not use i.e.
-accessor functions which are slower about 6 times than standard variables. 
+accessor functions which are slower about 6 times than standard variables.
 It is slower than pure die/eval because it is uses OO mechanism which are
 slow in Perl.  It can be a litte faster if some features are disables, i.e.
 the stack trace and higher verbosity.
