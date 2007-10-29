@@ -37,6 +37,36 @@ sub test_accessor_message {
     $self->assert_equals('Lvalue accessor Message', $obj->message);
 }
 
+sub test_caller_stack_accessors {
+    my $self = shift;
+    my $obj = Exception::Base->new;
+    $obj->{caller_stack} = [
+        ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
+        ['Package2', 'Package2.pm', 2, 'Package2::func2', 6, 1, undef, undef, 1, 2, 3, 4, 5, 6 ],
+        ['Package3', 'Package3.pm', 3, 'Package3::func3', 2, 1, undef, undef, "123456789", "123456789" ],
+        ['Package4', 'Package4.pm', 4, '(eval)', 0, undef, "123456789", undef ],
+    ];
+
+    $self->assert_equals('Package1', $obj->package);
+    $self->assert_equals('Package1.pm', $obj->file);
+    $self->assert_equals('1', $obj->line);
+    $self->assert_equals('Package1::func1', $obj->subroutine);
+    
+    $obj->{ignore_level} = 1;
+
+    $self->assert_equals('Package2', $obj->package);
+    $self->assert_equals('Package2.pm', $obj->file);
+    $self->assert_equals('2', $obj->line);
+    $self->assert_equals('Package2::func2', $obj->subroutine);
+
+    $obj->{ignore_package} = 'Package1';
+
+    $self->assert_equals('Package3', $obj->package);
+    $self->assert_equals('Package3.pm', $obj->file);
+    $self->assert_equals('3', $obj->line);
+    $self->assert_equals('Package3::func3', $obj->subroutine);
+}
+
 sub test_field_properties {
     my $self = shift;
     my $obj = Exception::Base->new(message=>'Message', tag=>'Tag');
@@ -137,7 +167,7 @@ sub test_throw {
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj6->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj6->{caller_stack}->[3]->[8]);
 
-        # Throw and ignore levels
+        # Throw and ignore levels (does not modify caller stack)
         eval {
             Exception::Base->throw(message=>'Throw', ignore_level => 2);
         };
@@ -145,8 +175,8 @@ sub test_throw {
         $self->assert_not_null($obj7);
         $self->assert($obj7->isa('Exception::Base'));
         $self->assert_equals('Throw', $obj7->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj7->{caller_stack}->[1]->[3]);
-        $self->assert_equals(ref $self, ref $obj7->{caller_stack}->[1]->[8]);
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj7->{caller_stack}->[3]->[3]);
+        $self->assert_equals(ref $self, ref $obj7->{caller_stack}->[3]->[8]);
     };
     die "$@" if $@;
 }
@@ -225,6 +255,27 @@ END
 
         my $s5 = $obj->stringify;
         $self->assert_equals($s4, $s5);
+
+        $obj->{ignore_level} = 1;
+
+        my $s6 = << 'END';
+Exception::Base: Stringify at Package1.pm line 1
+\t@_ = Package2::func2(12..., 12...) called at Package2.pm line 2
+\t$_ = eval '12...' called at Package3.pm line 3
+END
+        $s6 =~ s/\\t/\t/g;
+
+        my $s7 = $obj->stringify;
+        $self->assert_equals($s6, $s7);
+
+        $obj->{ignore_package} = 'Package1';
+
+        my $s8 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+END
+
+        my $s9 = $obj->stringify;
+        $self->assert_equals($s8, $s9);
 
         $self->assert_equals(3, $obj->{defaults}->{verbosity});
         $self->assert_equals(1, $obj->{defaults}->{verbosity} = 1);
@@ -472,9 +523,9 @@ sub test_catch {
         $self->assert_equals('', "$@");
 
         eval { 1; };
-        eval 'package Exception::Base::catch::Test18a; our @ISA = "Exception::Base"; 1;';
+        eval 'package Exception::Base::catch::Test18a; our @ISA = ("Exception::Base"); 1;';
         $self->assert_equals('', "$@");
-        eval 'package Exception::Base::catch::Test18b; our @ISA = "Exception::Base"; 1;';
+        eval 'package Exception::Base::catch::Test18b; our @ISA = ("Exception::Base"); 1;';
         $self->assert_equals('', "$@");
         eval {
             eval { Exception::Base::catch::Test18a->throw; };
@@ -840,29 +891,6 @@ sub test__collect_system_data {
     Exception::BaseTest::_collect_system_data::Test3::sub3($obj1);
     $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj1->{caller_stack}->[0]->[0]);
     $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj1->{caller_stack}->[0]->[3]);
-
-    my $obj2 = Exception::Base->new;
-    Exception::BaseTest::_collect_system_data::Test3::sub3($obj2);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj2->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj2->{caller_stack}->[0]->[3]);
-
-    my $obj3 = Exception::Base->new;
-    $obj3->{ignore_package} = 'Exception::BaseTest::_collect_system_data::Test2';
-    Exception::BaseTest::_collect_system_data::Test3::sub3($obj3);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test3', $obj3->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2::sub1', $obj3->{caller_stack}->[0]->[3]);
-
-    my $obj4 = Exception::Base->new;
-    $obj4->{ignore_package} = ['Exception::BaseTest::_collect_system_data::Test2'];
-    Exception::BaseTest::_collect_system_data::Test3::sub3($obj4);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test3', $obj4->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2::sub1', $obj4->{caller_stack}->[0]->[3]);
-
-    my $obj5 = Exception::Base->new;
-    $obj5->{ignore_package} = ['Non::Existant'];
-    Exception::BaseTest::_collect_system_data::Test3::sub3($obj5);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test2', $obj1->{caller_stack}->[0]->[0]);
-    $self->assert_equals('Exception::BaseTest::_collect_system_data::Test1::sub1', $obj1->{caller_stack}->[0]->[3]);
 }
 
 sub test__caller_info {
@@ -897,17 +925,17 @@ sub test__caller_info {
 sub test__get_subname {
     my $self = shift;
     my $obj = Exception::Base->new;
-    $self->assert_equals('sub', $obj->_get_subname({sub=>'sub'}));
-    $self->assert_equals('eval {...}', $obj->_get_subname({sub=>'(eval)'}));
-    $self->assert_equals("eval 'evaltext'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
-    $self->assert_equals("require evaltext", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext', is_require=>1}));
-    $self->assert_equals("eval 'eval\\\\\\\'text'", $obj->_get_subname({sub=>'sub', evaltext=>'eval\\\'text'}));
+    $self->assert_equals('sub', $obj->_get_subname({subroutine=>'sub'}));
+    $self->assert_equals('eval {...}', $obj->_get_subname({subroutine=>'(eval)'}));
+    $self->assert_equals("eval 'evaltext'", $obj->_get_subname({subroutine=>'sub', evaltext=>'evaltext'}));
+    $self->assert_equals("require evaltext", $obj->_get_subname({subroutine=>'sub', evaltext=>'evaltext', is_require=>1}));
+    $self->assert_equals("eval 'eval\\\\\\\'text'", $obj->_get_subname({subroutine=>'sub', evaltext=>'eval\\\'text'}));
     $obj->{defaults}->{max_eval_len} = 5;
-    $self->assert_equals("eval 'ev...'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
+    $self->assert_equals("eval 'ev...'", $obj->_get_subname({subroutine=>'sub', evaltext=>'evaltext'}));
     $obj->{max_eval_len} = 10;
-    $self->assert_equals("eval 'evaltext'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
+    $self->assert_equals("eval 'evaltext'", $obj->_get_subname({subroutine=>'sub', evaltext=>'evaltext'}));
     $obj->{max_eval_len} = 0;
-    $self->assert_equals("eval 'evaltext'", $obj->_get_subname({sub=>'sub', evaltext=>'evaltext'}));
+    $self->assert_equals("eval 'evaltext'", $obj->_get_subname({subroutine=>'sub', evaltext=>'evaltext'}));
     $self->assert_not_null($obj->FIELDS->{max_eval_len}->{default});
     $self->assert_equals($obj->FIELDS->{max_eval_len}->{default}, $obj->{defaults}->{max_eval_len} = $obj->FIELDS->{max_eval_len}->{default});
 }

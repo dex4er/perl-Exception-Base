@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.11_00_01;
+our $VERSION = 0.11_00_02;
 
 =head1 NAME
 
@@ -165,10 +165,6 @@ use constant FIELDS => {
     tid            => { is => 'ro' },
     time           => { is => 'ro' },
     uid            => { is => 'ro' },
-    package        => { is => 'ro' },
-    file           => { is => 'ro' },
-    subroutine     => { is => 'ro' },
-    line           => { is => 'ro' },
     verbosity      => { is => 'rw', default => 3 },
     ignore_package => { is => 'rw' },
     ignore_level   => { is => 'rw' },
@@ -464,17 +460,18 @@ sub stringify {
         $string = $message . "\n";
     }
     elsif ($verbosity == 2) {
+        my $file = $self->file;
         $string = sprintf "%s at %s line %d.\n",
             $message,
-            defined $self->{file} ? $self->{file} : 'unknown',
-            defined $self->{line} ? $self->{line} : 0;
+            defined $file && $file ne '' ? $file : 'unknown',
+            $self->line || 0;
     }
     elsif ($verbosity >= 3) {
         $string .= sprintf "%s: %s", ref $self, $message;
         $string .= $self->_caller_backtrace;
     }
     else {
-        $string = "";
+        $string = q{};
     }
 
     return $string;
@@ -483,7 +480,7 @@ sub stringify {
 
 # Stringify for overloaded operator
 sub _stringify {
-    return $_[0]->stringify();
+    return $_[0]->stringify;
 }
 
 
@@ -633,39 +630,16 @@ sub _collect_system_data {
 
         # Collect stack info
         my @caller_stack;
-        my $ignore_level = defined $self->{ignore_level}
-                         ? $self->{ignore_level}
-                         : defined $self->{defaults}->{ignore_level}
-                           ? $self->{defaults}->{ignore_level}
-                           : 0;
-        my $ignore_package = defined $self->{ignore_package}
-                         ? $self->{ignore_package}
-                         : $self->{defaults}->{ignore_package};
         my $level = 1;
         while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
-            # Skip packages to ignore
-            if (defined $ignore_package) {
-                if (ref $ignore_package eq 'ARRAY') {
-                    next if grep { $_ eq $c[0] } @{ $ignore_package };
-                }
-                else {
-                    next if $c[0] eq $ignore_package;
-                }
-            }
-            # Skip ignored levels
-            if ($ignore_level > 0) {
-                $ignore_level --;
-                next;
-            }
             # Collect the caller stack
             push @caller_stack, [ @c[0 .. 7], @DB::args ];
             # Collect only one entry if verbosity is lower than 3
             last if $verbosity < 3;
         }
         $self->{caller_stack} = \@caller_stack;
-        @{$self}{qw< package file line subroutine >} = @{$caller_stack[0]}[0..3];
     }
 
     return $self;
@@ -675,21 +649,46 @@ sub _collect_system_data {
 # Stringify caller backtrace. Stolen from Carp
 sub _caller_backtrace {
     my ($self) = @_;
-    my $i = 0;
     my $message;
 
     my $tid_msg = '';
     $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
 
-    $self->{file} = 'unknown' unless $self->{file};
-    $self->{line} = 0 unless $self->{line};
-    $message = " at $self->{file} line $self->{line}$tid_msg\n";
+    my $ignore_level = defined $self->{ignore_level}
+                     ? $self->{ignore_level}
+                     : defined $self->{defaults}->{ignore_level}
+                       ? $self->{defaults}->{ignore_level}
+                       : 0;
+    my $ignore_package = defined $self->{ignore_package}
+                     ? $self->{ignore_package}
+                     : $self->{defaults}->{ignore_package};
 
-    while (my %i = $self->_caller_info(++$i)) {
-        $message .= "\t$i{wantarray}$i{sub_name} called at $i{file} line $i{line}$tid_msg\n";
+    my $level = 0;
+    while (my %c = $self->_caller_info($level++)) {
+        if (defined $ignore_package) {
+            if (ref $ignore_package eq 'ARRAY') {
+                next if grep { $_ eq $c{package} } @{ $ignore_package };
+            }
+            else {
+                next if $c{package} eq $ignore_package;
+            }
+        }
+        # Skip ignored levels
+        if ($ignore_level > 0) {
+            $ignore_level --;
+            next;
+        }
+        if (not defined $message) {
+            $message = sprintf " at %s line %s$tid_msg\n",
+                       defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
+                       $c{line} || 0;
+        }
+        else {
+            $message .= "\t$c{wantarray}$c{sub_name} called at $c{file} line $c{line}$tid_msg\n";
+        }
     }
 
-    return $message;
+    return $message || " at unknown line 0$tid_msg\n";
 }
 
 
@@ -703,10 +702,10 @@ sub _caller_info {
         if defined $self->{caller_stack} and defined $self->{caller_stack}->[$i];
 
     @call_info{
-        qw< pack file line sub has_args wantarray evaltext is_require >
+        qw< package file line subroutine has_args wantarray evaltext is_require >
     } = @call_info[0..7];
 
-    unless (defined $call_info{pack}) {
+    unless (defined $call_info{package}) {
         return ();
     }
 
@@ -745,7 +744,7 @@ sub _get_subname {
                 "'";
         }
     }
-    return ($info->{sub} eq '(eval)') ? 'eval {...}' : $info->{sub};
+    return ($info->{subroutine} eq '(eval)') ? 'eval {...}' : $info->{subroutine};
 }
 
 
@@ -755,8 +754,9 @@ sub _format_arg {
 
     return 'undef' if not defined $arg;
 
-    # Be careful! Do not recurse with our stringify!
-    return '"' . overload::StrVal($arg) . '"' if ref $arg;
+    if (do { local $@; local $SIG{__DIE__}; eval { $arg->isa(__PACKAGE__) } } or ref $arg) {
+        return q{"} . overload::StrVal($arg) . q{"};
+    }
 
     $arg =~ s/\\/\\\\/g;
     $arg =~ s/"/\\"/g;
@@ -801,7 +801,7 @@ sub _make_accessors {
     no warnings 'uninitialized';
     my $fields = $class->FIELDS;
     foreach my $key (keys %{ $fields }) {
-        if (not defined *{Symbol::fetch_glob($class . '::' . $key)}{CODE}) {
+        if (not $class->can($key)) {
             if ($fields->{$key}->{is} eq 'rw') {
                 *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
@@ -818,7 +818,49 @@ sub _make_accessors {
 }
 
 
-__PACKAGE__->_make_accessors;
+sub _make_caller_info_accessors {
+    my ($class) = @_;
+    $class = ref $class if ref $class;
+
+    foreach my $key (qw< package file line subroutine >) {
+        if (not $class->can($key)) {
+            *{Symbol::fetch_glob($class . '::' . $key)} = sub {
+                my $self = shift;
+                my $ignore_level = defined $self->{ignore_level}
+                                 ? $self->{ignore_level}
+                                 : defined $self->{defaults}->{ignore_level}
+                                   ? $self->{defaults}->{ignore_level}
+                                   : 0;
+                my $ignore_package = defined $self->{ignore_package}
+                                 ? $self->{ignore_package}
+                                 : $self->{defaults}->{ignore_package};
+                my $level = 0;
+                while (my %c = $self->_caller_info($level++)) {
+                    if (defined $ignore_package) {
+                        if (ref $ignore_package eq 'ARRAY') {
+                            next if grep { $_ eq $c{package} } @{ $ignore_package };
+                        }
+                        else {
+                            next if $c{package} eq $ignore_package;
+                        }
+                    }
+                    # Skip ignored levels
+                    if ($ignore_level > 0) {
+                        $ignore_level --;
+                        next;
+                    }
+                    return $c{$key};
+                }
+            };
+        }
+    }
+}
+
+
+INIT: {
+    __PACKAGE__->_make_accessors;
+    __PACKAGE__->_make_caller_info_accessors;
+}
 
 
 1;

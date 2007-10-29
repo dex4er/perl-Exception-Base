@@ -1,10 +1,17 @@
 ------------------------------------------------------------------------
-0.11_00_01 | Piotr Roszatycki <dexter@debian.org> | 2007-10-14
+0.11_00_02 | Piotr Roszatycki <dexter@debian.org> | 2007-10-29
 
 Fixes:
 
 * ignore_level has meaning only for non-skipped levels.
 * Changed $SIG{__DIE__} does not interfere with evals used internally.
+
+Changes:
+
+* ignore_level and ignore_package does not change caller_info. This attributes
+  have meaning only for stringify output. 
+* package, file, line, subroutine are now methods, not attributes anymore.
+* The attributes does not override base class methods if are existing.
 * Minor refactoring.
 
 ------------------------------------------------------------------------
