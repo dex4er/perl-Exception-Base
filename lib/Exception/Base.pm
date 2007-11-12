@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.12;
+our $VERSION = 0.12_00_01;
 
 =head1 NAME
 
@@ -578,7 +578,7 @@ sub catch {
     my $want_object = 1;
 
     my $e;
-    my $e_from_stack = @Exception_Stack ? pop @Exception_Stack : $@;
+    my $e_from_stack = @Exception_Stack ? pop @Exception_Stack : '';
     if (ref $e_from_stack and do { local $@; local $SIG{__DIE__}; eval { $e_from_stack->isa(__PACKAGE__) } }) {
         # Caught exception
         $e = $e_from_stack;
