@@ -1313,39 +1313,49 @@ The "try" can be used as method or function.
 
 =item I<CLASS>->catch([$I<variable>])
 
-The exception is popped from error stack (or B<$@> variable is used if stack
-is empty) and the exception is written into the method argument.  If the
-exception is not based on the I<CLASS>, the exception is thrown immediately.
+The exception is popped from error stack written into the method argument.  If
+the exception is not based on the I<CLASS>, the exception is thrown
+immediately.
 
-  eval { throw Exception; };
+  try eval { throw Exception; };
   catch Exception::Base my $e;
   print $e->stringify(1);
+
+If the error stack is empty, the B<catch> method returns undefined value.  It
+can be used in loop to clean up all unhandled exceptions.
+
+  try eval { -f 'file1' or throw Exception::FileNotFound };
+  try eval { -f 'file2' or throw Exception::FileNotFound };
+  try eval { -f 'file3' or throw Exception::FileNotFound };
+  while (catch my $e) {
+      warn "$e" if not $e->isa('Exception::FileNotFound');
+  }
 
 If the B<$@> variable does not contain the exception object but string, new
 exception object is created with message from B<$@> variable with removed
 C<" at file line 123."> string and the last end of line (LF).
 
-  eval { die "Died\n"; };
+  try eval { die "Died\n"; };
   catch Exception::Base my $e;
   print $e->stringify;
 
 The method returns B<1>, if the exception object is caught, and returns B<0>
 otherwise.
 
-  eval { throw Exception; };
+  try eval { throw Exception; };
   if (catch Exception::Base my $e) {
     warn "Exception caught: " . ref $e;
   }
 
 If the method argument is missing, the method returns the exception object.
 
-  eval { throw Exception; };
+  try eval { throw Exception; };
   my $e = catch Exception::Base;
 
-The "catch" can be used as method or function.  If it is used as function,
+The B<catch> can be used as method or function.  If it is used as function,
 then the I<CLASS> is Exception::Base by default.
 
-  eval { throw Exception::Base "method"; };
+  try eval { throw Exception::Base "method"; };
   Exception::Base->import('catch');
   catch my $e;  # the same as catch Exception::Base my $e;
   print $e->stringify;

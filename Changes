@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+0.13 | Piotr Roszatycki <dexter@debian.org> | 2007-11-19
+
+Changes:
+
+* If the error stack is empty, the catch method returns undefined value.
+
+------------------------------------------------------------------------
 0.12 | Piotr Roszatycki <dexter@debian.org> | 2007-10-29
 
 Fixes:
