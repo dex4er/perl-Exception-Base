@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.12;
+our $VERSION = 0.13;
 
 =head1 NAME
 
@@ -578,7 +578,7 @@ sub catch {
     my $want_object = 1;
 
     my $e;
-    my $e_from_stack = @Exception_Stack ? pop @Exception_Stack : $@;
+    my $e_from_stack = @Exception_Stack ? pop @Exception_Stack : '';
     if (ref $e_from_stack and do { local $@; local $SIG{__DIE__}; eval { $e_from_stack->isa(__PACKAGE__) } }) {
         # Caught exception
         $e = $e_from_stack;
@@ -1289,22 +1289,22 @@ reference or regexp.
 
 =item try(I<eval>)
 
-The "try" method or function can be used with eval block as argument.  Then
-the eval's error is pushed into error stack and can be used with "catch"
+The B<try> method or function can be used with eval block as argument.  Then
+the eval's error is pushed into error stack and can be used with B<catch>
 later.
 
   try Exception::Base eval { throw Exception; };
   eval { die "another error messing with \$@ variable"; };
   catch Exception::Base my $e;
 
-The "try" returns the value of the argument in scalar context.  If the
-argument is array reference, the "try" returns the value of the argument in
+The B<try> returns the value of the argument in scalar context.  If the
+argument is array reference, the B<try> returns the value of the argument in
 array context.
 
   $v = try Exception::Base eval { 2 + 2; }; # $v == 4
   @v = try Exception::Base [ eval { (1,2,3); }; ]; # @v = (1,2,3)
 
-The "try" can be used as method or function.
+The B<try> can be used as method or function.
 
   try Exception::Base eval { throw Exception::Base "method"; };
   Exception::Base::try eval { throw Exception::Base "function"; };
@@ -1313,50 +1313,60 @@ The "try" can be used as method or function.
 
 =item I<CLASS>->catch([$I<variable>])
 
-The exception is popped from error stack (or B<$@> variable is used if stack
-is empty) and the exception is written into the method argument.  If the
-exception is not based on the I<CLASS>, the exception is thrown immediately.
+The exception is popped from error stack written into the method argument.  If
+the exception is not based on the I<CLASS>, the exception is thrown
+immediately.
 
-  eval { throw Exception; };
+  try eval { throw Exception; };
   catch Exception::Base my $e;
   print $e->stringify(1);
+
+If the error stack is empty, the B<catch> method returns undefined value.  It
+can be used in loop to clean up all unhandled exceptions.
+
+  try eval { -f 'file1' or throw Exception::FileNotFound };
+  try eval { -f 'file2' or throw Exception::FileNotFound };
+  try eval { -f 'file3' or throw Exception::FileNotFound };
+  while (catch my $e) {
+      warn "$e" if not $e->isa('Exception::FileNotFound');
+  }
 
 If the B<$@> variable does not contain the exception object but string, new
 exception object is created with message from B<$@> variable with removed
 C<" at file line 123."> string and the last end of line (LF).
 
-  eval { die "Died\n"; };
+  try eval { die "Died\n"; };
   catch Exception::Base my $e;
   print $e->stringify;
 
 The method returns B<1>, if the exception object is caught, and returns B<0>
 otherwise.
 
-  eval { throw Exception; };
+  try eval { throw Exception; };
   if (catch Exception::Base my $e) {
     warn "Exception caught: " . ref $e;
   }
 
 If the method argument is missing, the method returns the exception object.
 
-  eval { throw Exception; };
+  try eval { throw Exception; };
   my $e = catch Exception::Base;
 
-The "catch" can be used as method or function.  If it is used as function,
+The B<catch> can be used as method or function.  If it is used as function,
 then the I<CLASS> is Exception::Base by default.
 
-  eval { throw Exception::Base "method"; };
+  try eval { throw Exception::Base "method"; };
   Exception::Base->import('catch');
   catch my $e;  # the same as catch Exception::Base my $e;
   print $e->stringify;
 
 =item I<CLASS>->catch([$I<variable>,] \@I<ExceptionClasses>)
 
-The exception is popped from error stack (or $@ variable is used if stack is
-empty).  If the exception is not based on the I<CLASS> and is not based on
-one of the class from argument, the exception is thrown immediately.
+The exception is popped from error stack or returns undefined value if error
+stack is empty.  If the exception is not based on the I<CLASS> and is not
+based on one of the class from argument, the exception is thrown immediately.
 
-  eval { throw Exception::IO; }
+  try eval { throw Exception::IO; }
   catch Exception::Base my $e, ['Exception::IO'];
   print "Only IO exception was caught: " . $e->stringify(1);
 
@@ -1463,35 +1473,35 @@ i486-linux-gnu-thread-multi) are following:
 
 =item pure eval/die with string
 
-526091/s
+381868/s
 
 =item pure eval/die with object
 
-162293/s
+137700/s
 
 =item L<Exception::Base> module with default options
 
-5337/s
+5070/s
 
 =item L<Exception::Base> module with verbosity = 1
 
-20285/s
+18979/s
 
 =item L<Error> module
 
-18618/s
+17300/s
 
 =item L<Exception::Class> module
 
-1643/s
+1540/s
 
 =item L<Exception::Class::TryCatch> module
 
-1583/s
+1491/s
 
 =item L<Class::Throwable> module
 
-8072/s
+7383/s
 
 =back
 

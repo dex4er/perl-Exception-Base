@@ -1,4 +1,12 @@
 ------------------------------------------------------------------------
+0.13 | Piotr Roszatycki <dexter@debian.org> | 2007-11-19
+
+Changes:
+
+* If the error stack is empty, the catch method returns undefined value.
+* Updated bundled Test::Unit::Lite to 0.0701.
+
+------------------------------------------------------------------------
 0.12 | Piotr Roszatycki <dexter@debian.org> | 2007-10-29
 
 Fixes:
