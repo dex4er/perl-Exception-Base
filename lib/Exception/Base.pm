@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.13;
+our $VERSION = 0.14;
 
 =head1 NAME
 
@@ -683,9 +683,10 @@ sub _caller_backtrace {
                        defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
                        $c{line} || 0;
         }
-        else {
-            $message .= "\t$c{wantarray}$c{sub_name} called at $c{file} line $c{line}$tid_msg\n";
-        }
+    }
+    $level = 0;
+    while (my %c = $self->_caller_info($level++)) {
+        $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}$tid_msg\n";
     }
 
     return $message || " at unknown line 0$tid_msg\n";
