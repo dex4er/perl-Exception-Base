@@ -2,7 +2,7 @@
 
 package Test::Unit::Lite;
 use 5.006;
-our $VERSION = 0.07_01;
+our $VERSION = 0.09_01;
 
 =head1 NAME
 
@@ -497,6 +497,9 @@ sub new {
     };
 
     if (defined $test and not ref $test) {
+	# untaint $test
+	$test =~ /([A-Za-z0-9:-]*)/;
+	$test = $1;
         eval "use $test;";
         die $@ if $@;
     }
@@ -511,7 +514,7 @@ sub new {
     }
     elsif (defined $test and $test->isa('Test::Unit::TestCase')) {
         $class = ref $test ? ref $test : $test;
-        $self->{units} = [ $test->list_tests ];
+        $self->{units} = [ $test ];
     }
     else {
         require Carp;
@@ -533,6 +536,9 @@ sub add_test {
     my ($self, $unit) = @_;
 
     if (not ref $unit) {
+	# untaint $unit
+	$unit =~ /([A-Za-z0-9:-]*)/;
+	$unit = $1;
         eval "use $unit;";
         die $@ if $@;
         return unless $unit->isa('Test::Unit::TestCase');
@@ -558,9 +564,9 @@ sub run {
     die "Undefined result object" unless defined $result;
 
     foreach my $unit (@{ $self->units }) {
-        $unit->set_up;
         foreach my $test (@{ $unit->list_tests }) {
             my $unit_test = (ref $unit ? ref $unit : $unit) . '::' . $test;
+    	    $unit->set_up;
             eval {
                 $unit->$test;
             };
@@ -570,8 +576,8 @@ sub run {
             else {
                 $result->add_error($unit_test, "$@", $runner);
             }
+    	    $unit->tear_down;
         }
-        $unit->tear_down;
     }
     return;
 }
@@ -665,6 +671,9 @@ sub start {
 
     my $result = Test::Unit::Result->new;
 
+    # untaint $test
+    $test =~ /([A-Za-z0-9:-]*)/;
+    $test = $1;
     eval "use $test;";
     die $@ if $@;
 
@@ -735,6 +744,7 @@ our $VERSION = $Test::Unit::Lite::VERSION;
 
 use base 'Test::Unit::TestSuite';
 
+use Cwd ();
 use File::Find ();
 use File::Basename ();
 use File::Spec ();
@@ -743,10 +753,11 @@ sub suite {
     my $class = shift;
     my $suite = Test::Unit::TestSuite->empty_new('All Tests');
 
-    my $dir = File::Spec->catdir('t', 'tlib');
+    my $cwd = ${^TAINT} ? do { local $_=Cwd::getcwd; /(.*)/; $1 } : '.';
+    my $dir = File::Spec->catdir($cwd, 't', 'tlib');
     my $depth = scalar File::Spec->splitdir($dir);
 
-    push @INC, 't/tlib';
+    push @INC, $dir;
 
     File::Find::find({
         wanted => sub {
@@ -811,13 +822,13 @@ The default constructor which just bless an empty anonymous hash reference.
 
 =item set_up
 
-This method is called at the start of test unit processing.  It is empty
+This method is called at the start of each test unit processing.  It is empty
 method and can be overrided in derived class.
 
 =item tear_down
 
-This method is called at the end of test unit processing.  It is empty method
-and can be overrided in derived class.
+This method is called at the end of each test unit processing.  It is empty
+method and can be overrided in derived class.
 
 =item list_tests
 
@@ -1073,11 +1084,20 @@ This is the test script for L<Test::Harness> called with "make test".
   use strict;
   use warnings;
   
-  use lib 'inc', 'lib';
+  use File::Spec;
+  use Cwd;
+  
+  BEGIN {
+      unshift @INC, map { /(.*)/; $1 } split(/:/, $ENV{PERL5LIB}) if ${^TAINT};
+  
+      my $cwd = ${^TAINT} ? do { local $_=getcwd; /(.*)/; $1 } : '.';
+      unshift @INC, File::Spec->catdir($cwd, 'inc');
+      unshift @INC, File::Spec->catdir($cwd, 'lib');
+  }
   
   use Test::Unit::Lite;
   
-  local $SIG{__WARN__} = sub { require Carp; Carp::confess "Warning: $_[0]" };
+  local $SIG{__WARN__} = sub { require Carp; Carp::confess("Warning: $_[0]") };
   
   Test::Unit::HarnessUnit->new->start('Test::Unit::Lite::AllTests');
 
@@ -1090,18 +1110,24 @@ This is the optional script for calling test suite directly.
   use strict;
   use warnings;
   
-  use File::Basename ();
+  use File::Basename;
+  use File::Spec;
+  use Cwd;
   
   BEGIN {
-      chdir File::Basename::dirname(__FILE__) or die "$!";
+      chdir dirname(__FILE__) or die "$!";
       chdir '..' or die "$!";
-  }
   
-  use lib 'inc', 'lib';
+      unshift @INC, map { /(.*)/; $1 } split(/:/, $ENV{PERL5LIB}) if ${^TAINT};
+  
+      my $cwd = ${^TAINT} ? do { local $_=getcwd; /(.*)/; $1 } : '.';
+      unshift @INC, File::Spec->catdir($cwd, 'inc');
+      unshift @INC, File::Spec->catdir($cwd, 'lib');
+  }
   
   use Test::Unit::Lite;
   
-  local $SIG{__WARN__} = sub { require Carp; Carp::confess "Warning: $_[0]" };
+  local $SIG{__WARN__} = sub { require Carp; Carp::confess("Warning: $_[0]") };
   
   all_tests;
 
@@ -1131,7 +1157,7 @@ Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright (C) 2007 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright (C) 2007, 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.

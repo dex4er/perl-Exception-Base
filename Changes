@@ -1,4 +1,13 @@
 ------------------------------------------------------------------------
+0.14 | Piotr Roszatycki <dexter@debian.org> | 2008-04-11
+
+Changes:
+
+* Always dumps full trace stack. The ignore_package and ignore_level has
+  meaning only for first line of message.
+* Updated bundled Test::Unit::Lite to 0.0901.
+
+------------------------------------------------------------------------
 0.13 | Piotr Roszatycki <dexter@debian.org> | 2007-11-19
 
 Changes:
