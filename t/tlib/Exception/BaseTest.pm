@@ -217,14 +217,16 @@ sub test_stringify {
 
         my $s1 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t$_ = Package1::func1 called at Package1.pm line 1
-\t@_ = Package2::func2(1, "ARRAY(0x1234567)", "HASH(0x1234567)", "CODE(0x1234567)", "Exception::BaseTest=HASH(0x1234567)", "Exception::Base=HASH(0x1234567)") called at Package2.pm line 2
-\t$_ = eval '1' called at Package3.pm line 3
-\t$_ = require Require called at Package4.pm line 4
-\t$_ = Package5::func5("\x{00}", "'\"\\\`\x{0d}\x{c3}", "\x{09}\x{263a}", undef, 123, -123.56, 1, ...) called at Package5.pm line 5
-\t$_ = Package6::func6 called at -e line 6
-\t$_ = Package7::func7 called at unknown line 0
+\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
+\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
+\t@_ = Package2::func2(1, "ARRAY(0x1234567)", "HASH(0x1234567)", "CODE(0x1234567)", "Exception::BaseTest=HASH(0x1234567)", "Exception::Base=HASH(0x1234567)") called in package Package2 at Package2.pm line 2
+\t$_ = eval '1' called in package Package3 at Package3.pm line 3
+\t$_ = require Require called in package Package4 at Package4.pm line 4
+\t$_ = Package5::func5("\x{00}", "'\"\\\`\x{0d}\x{c3}", "\x{09}\x{263a}", undef, 123, -123.56, 1, ...) called in package Package5 at Package5.pm line 5
+\t$_ = Package6::func6 called in package Package6 at -e line 6
+\t$_ = Package7::func7 called in package Package7 at unknown line 0
 END
+
         $s1 =~ s/\\t/\t/g;
 
         my $s2 = $obj->stringify(3);
@@ -247,9 +249,10 @@ END
 
         my $s4 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t@_ = Package1::func1(1, ...) called at Package1.pm line 1
-\t@_ = Package2::func2(12..., 12...) called at Package2.pm line 2
-\t$_ = eval '12...' called at Package3.pm line 3
+\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
+\t@_ = Package1::func1(1, ...) called in package Package1 at Package1.pm line 1
+\t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
 END
         $s4 =~ s/\\t/\t/g;
 
@@ -260,8 +263,10 @@ END
 
         my $s6 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t@_ = Package2::func2(12..., 12...) called at Package2.pm line 2
-\t$_ = eval '12...' called at Package3.pm line 3
+\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
+\t@_ = Package1::func1(1, ...) called in package Package1 at Package1.pm line 1
+\t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
 END
         $s6 =~ s/\\t/\t/g;
 
@@ -272,7 +277,13 @@ END
 
         my $s8 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
+\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
+\t@_ = Package1::func1(1, ...) called in package Package1 at Package1.pm line 1
+\t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
 END
+
+        $s8 =~ s/\\t/\t/g;
 
         my $s9 = $obj->stringify;
         $self->assert_equals($s8, $s9);
