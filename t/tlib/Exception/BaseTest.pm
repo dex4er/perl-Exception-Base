@@ -283,16 +283,97 @@ END
 
         my $s8 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
+END
+
+        $s8 =~ s/\\t/\t/g;
+
+        my $s9 = $obj->stringify(3);
+        $self->assert_equals($s8, $s9);
+
+        my $s10 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
 \t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
 \t@_ = Package1::func1(1, ...) called in package Package1 at Package1.pm line 1
 \t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
 \t$_ = eval '12...' called in package Package3 at Package3.pm line 3
 END
 
-        $s8 =~ s/\\t/\t/g;
+        $s10 =~ s/\\t/\t/g;
 
-        my $s9 = $obj->stringify(4);
-        $self->assert_equals($s8, $s9);
+        my $s11 = $obj->stringify(4);
+        $self->assert_equals($s10, $s11);
+
+        $obj->{ignore_level} = 0;
+
+        my $s12 = << 'END';
+Exception::Base: Stringify at Package2.pm line 2
+\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
+END
+
+        $s12 =~ s/\\t/\t/g;
+
+        my $s13 = $obj->stringify(3);
+        $self->assert_equals($s12, $s13);
+
+        $obj->{ignore_package} = [ 'Package1', 'Package2' ];
+
+        my $s14 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+END
+
+        $s14 =~ s/\\t/\t/g;
+
+        my $s15 = $obj->stringify(3);
+        $self->assert_equals($s14, $s15);
+
+        $obj->{ignore_package} = qr/^Package/;
+
+        my $s16 = << 'END';
+Exception::Base: Stringify at unknown line 0
+END
+
+        $s16 =~ s/\\t/\t/g;
+
+        my $s17 = $obj->stringify(3);
+        $self->assert_equals($s16, $s17);
+
+        $obj->{ignore_package} = [ qr/^Package1/, qr/^Package2/ ];
+
+        my $s18 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+END
+
+        $s18 =~ s/\\t/\t/g;
+
+        my $s19 = $obj->stringify(3);
+        $self->assert_equals($s18, $s19);
+
+        $obj->{ignore_package} = [ ];
+        $obj->{ignore_class} = 'Package1';
+
+        { package Package1; }
+        { package Package2; }
+
+        my $s20 = << 'END';
+Exception::Base: Stringify at Package2.pm line 2
+\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
+END
+
+        $s20 =~ s/\\t/\t/g;
+
+        my $s21 = $obj->stringify(3);
+        $self->assert_equals($s20, $s21);
+
+        $obj->{ignore_class} = [ 'Package1', 'Package2' ];
+
+        my $s22 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+END
+
+        $s22 =~ s/\\t/\t/g;
+
+        my $s23 = $obj->stringify(3);
+        $self->assert_equals($s22, $s23);
 
         $obj->{verbosity} = undef;
 
