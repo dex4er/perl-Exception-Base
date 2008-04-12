@@ -478,7 +478,7 @@ sub stringify {
     }
     elsif ($verbosity >= 3) {
         $string .= sprintf "%s: %s", ref $self, $message;
-        $string .= $self->_caller_backtrace;
+        $string .= $self->_caller_backtrace($verbosity);
     }
     else {
         $string = q{};
@@ -658,15 +658,16 @@ sub _collect_system_data {
 
 # Stringify caller backtrace. Stolen from Carp
 sub _caller_backtrace {
-    my ($self) = @_;
+    my ($self, $verbosity) = @_;
     my $message;
 
     my $tid_msg = '';
     $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
 
-    my $verbosity = defined $self->{verbosity}
+    $verbosity = defined $self->{verbosity}
                   ? $self->{verbosity}
-                  : $self->{defaults}->{verbosity};
+                  : $self->{defaults}->{verbosity}
+        if not defined $verbosity;
 
     my $ignore_level = defined $self->{ignore_level}
                      ? $self->{ignore_level}
@@ -687,7 +688,9 @@ sub _caller_backtrace {
     while (my %c = $self->_caller_info($level++)) {
         if (defined $ignore_package) {
             if (ref $ignore_package eq 'ARRAY') {
-                next if grep { ref $_ eq 'Regexp' ? $c{package} =~ $_ : $c{package} eq $_ } @{ $ignore_package };
+                if (@{ $ignore_class }) {
+                    next if grep { ref $_ eq 'Regexp' ? $c{package} =~ $_ : $c{package} eq $_ } @{ $ignore_package };
+                }
             }
             else {
                 next if $ignore_package eq 'Regexp' ? $c{package} =~ $ignore_package : $c{package} eq $ignore_package;
@@ -695,7 +698,9 @@ sub _caller_backtrace {
         }
         if (defined $ignore_class) {
             if (ref $ignore_class eq 'ARRAY') {
-                next if grep { do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($_) } } } @{ $ignore_package };
+                if (@{ $ignore_class }) {
+                    next if grep { do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($_) } } } @{ $ignore_package };
+                }
             }
             else {
                 next if do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($ignore_package) } };
@@ -711,6 +716,7 @@ sub _caller_backtrace {
                        defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
                        $c{line} || 0;
         }
+        last;
     }
     # Reset the stack trace level only if needed
     if ($verbosity > 3) {

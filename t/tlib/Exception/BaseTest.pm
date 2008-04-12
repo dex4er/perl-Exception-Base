@@ -200,6 +200,14 @@ sub test_stringify {
         $self->assert_matches(qr/Stringify at .* line \d+.\n/s, $obj->stringify(2));
         $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->stringify(3));
 
+        $obj->{verbosity} = 2;
+        $obj->{ignore_packages} = [ ];
+        $obj->{ignore_class} = [ ];
+        $obj->{ignore_level} = 0;
+        $obj->{max_arg_len} = 64;
+        $obj->{max_arg_nums} = 8;
+        $obj->{max_eval_len} = 0;
+
         $obj->{caller_stack} = [
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
@@ -229,13 +237,13 @@ END
 
         $s1 =~ s/\\t/\t/g;
 
-        my $s2 = $obj->stringify(3);
+        my $s2 = $obj->stringify(4);
         $s2 =~ s/(ARRAY|HASH|CODE)\(0x\w+\)/$1(0x1234567)/g;
         $self->assert_equals($s1, $s2);
 
         my $s3 = $obj->stringify;
         $s3 =~ s/(ARRAY|HASH|CODE)\(0x\w+\)/$1(0x1234567)/g;
-        $self->assert_equals($s1, $s3);
+        $self->assert_equals("Stringify at Package1.pm line 1.\n", $s3);
 
         $obj->{caller_stack} = [
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
@@ -256,21 +264,19 @@ Exception::Base: Stringify at Package1.pm line 1
 END
         $s4 =~ s/\\t/\t/g;
 
-        my $s5 = $obj->stringify;
+        my $s5 = $obj->stringify(4);
         $self->assert_equals($s4, $s5);
 
         $obj->{ignore_level} = 1;
 
         my $s6 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
-\t@_ = Package1::func1(1, ...) called in package Package1 at Package1.pm line 1
 \t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
 \t$_ = eval '12...' called in package Package3 at Package3.pm line 3
 END
         $s6 =~ s/\\t/\t/g;
 
-        my $s7 = $obj->stringify;
+        my $s7 = $obj->stringify(3);
         $self->assert_equals($s6, $s7);
 
         $obj->{ignore_package} = 'Package1';
@@ -285,15 +291,16 @@ END
 
         $s8 =~ s/\\t/\t/g;
 
-        my $s9 = $obj->stringify;
+        my $s9 = $obj->stringify(4);
         $self->assert_equals($s8, $s9);
 
-        $self->assert_equals(3, $obj->{defaults}->{verbosity});
+        $obj->{verbosity} = undef;
+
         $self->assert_equals(1, $obj->{defaults}->{verbosity} = 1);
         $self->assert_equals(1, $obj->{defaults}->{verbosity});
         $self->assert_equals("Stringify\n", $obj->stringify);
         $self->assert_not_null(Exception::Base->FIELDS->{verbosity}->{default});
-        $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception::Base->FIELDS->{verbosity}->{default});
+        $obj->{defaults}->{verbosity} = Exception::Base->FIELDS->{verbosity}->{default};
         $self->assert_equals(1, $obj->{verbosity} = 1);
         $self->assert_equals("Stringify\n", $obj->stringify);
 
