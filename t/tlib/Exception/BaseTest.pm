@@ -246,10 +246,10 @@ END
         $self->assert_equals("Stringify at Package1.pm line 1.\n", $s3);
 
         $obj->{caller_stack} = [
-            ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
-            ['Package1', 'Package1.pm', 1, 'Package1::func1', 6, 1, undef, undef, 1, 2, 3, 4, 5, 6 ],
-            ['Package2', 'Package2.pm', 2, 'Package2::func2', 2, 1, undef, undef, "123456789", "123456789" ],
-            ['Package3', 'Package3.pm', 3, '(eval)', 0, undef, "123456789", undef ],
+            ['Exception::BaseTest::Package1', 'Package1.pm', 1, 'Exception::BaseTest::Package1::func1', 0, undef, undef, undef ],
+            ['Exception::BaseTest::Package1', 'Package1.pm', 1, 'Exception::BaseTest::Package1::func1', 6, 1, undef, undef, 1, 2, 3, 4, 5, 6 ],
+            ['Exception::BaseTest::Package2', 'Package2.pm', 2, 'Exception::BaseTest::Package2::func2', 2, 1, undef, undef, "123456789", "123456789" ],
+            ['Exception::BaseTest::Package3', 'Package3.pm', 3, '(eval)', 0, undef, "123456789", undef ],
         ];
         $obj->{max_arg_nums} = 2;
         $obj->{max_arg_len} = 5;
@@ -257,10 +257,10 @@ END
 
         my $s4 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
-\t@_ = Package1::func1(1, ...) called in package Package1 at Package1.pm line 1
-\t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
-\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
+\t$_ = Exception::BaseTest::Package1::func1 called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package1::func1(1, ...) called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package2::func2(12..., 12...) called in package Exception::BaseTest::Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
 END
         $s4 =~ s/\\t/\t/g;
 
@@ -271,15 +271,15 @@ END
 
         my $s6 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
-\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
+\t@_ = Exception::BaseTest::Package2::func2(12..., 12...) called in package Exception::BaseTest::Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
 END
         $s6 =~ s/\\t/\t/g;
 
         my $s7 = $obj->stringify(3);
         $self->assert_equals($s6, $s7);
 
-        $obj->{ignore_package} = 'Package1';
+        $obj->{ignore_package} = 'Exception::BaseTest::Package1';
 
         my $s8 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
@@ -290,12 +290,16 @@ END
         my $s9 = $obj->stringify(3);
         $self->assert_equals($s8, $s9);
 
+        { package Exception::BaseTest::Package1; }
+        { package Exception::BaseTest::Package2; }
+        { package Exception::BaseTest::Package3; }
+
         my $s10 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
-\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
-\t@_ = Package1::func1(1, ...) called in package Package1 at Package1.pm line 1
-\t@_ = Package2::func2(12..., 12...) called in package Package2 at Package2.pm line 2
-\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
+\t$_ = Exception::BaseTest::Package1::func1 called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package1::func1(1, ...) called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package2::func2(12..., 12...) called in package Exception::BaseTest::Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
 END
 
         $s10 =~ s/\\t/\t/g;
@@ -307,7 +311,7 @@ END
 
         my $s12 = << 'END';
 Exception::Base: Stringify at Package2.pm line 2
-\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
 END
 
         $s12 =~ s/\\t/\t/g;
@@ -315,7 +319,7 @@ END
         my $s13 = $obj->stringify(3);
         $self->assert_equals($s12, $s13);
 
-        $obj->{ignore_package} = [ 'Package1', 'Package2' ];
+        $obj->{ignore_package} = [ 'Exception::BaseTest::Package1', 'Exception::BaseTest::Package2' ];
 
         my $s14 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
@@ -326,7 +330,7 @@ END
         my $s15 = $obj->stringify(3);
         $self->assert_equals($s14, $s15);
 
-        $obj->{ignore_package} = qr/^Package/;
+        $obj->{ignore_package} = qr/^Exception::BaseTest::Package/;
 
         my $s16 = << 'END';
 Exception::Base: Stringify at unknown line 0
@@ -337,7 +341,7 @@ END
         my $s17 = $obj->stringify(3);
         $self->assert_equals($s16, $s17);
 
-        $obj->{ignore_package} = [ qr/^Package1/, qr/^Package2/ ];
+        $obj->{ignore_package} = [ qr/^Exception::BaseTest::Package1/, qr/^Exception::BaseTest::Package2/ ];
 
         my $s18 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
@@ -349,14 +353,11 @@ END
         $self->assert_equals($s18, $s19);
 
         $obj->{ignore_package} = [ ];
-        $obj->{ignore_class} = 'Package1';
-
-        { package Package1; }
-        { package Package2; }
+        $obj->{ignore_class} = 'Exception::BaseTest::Package1';
 
         my $s20 = << 'END';
 Exception::Base: Stringify at Package2.pm line 2
-\t$_ = eval '12...' called in package Package3 at Package3.pm line 3
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
 END
 
         $s20 =~ s/\\t/\t/g;
@@ -364,7 +365,7 @@ END
         my $s21 = $obj->stringify(3);
         $self->assert_equals($s20, $s21);
 
-        $obj->{ignore_class} = [ 'Package1', 'Package2' ];
+        $obj->{ignore_class} = [ 'Exception::BaseTest::Package1', 'Exception::BaseTest::Package2' ];
 
         my $s22 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
