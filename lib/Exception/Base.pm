@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.13;
+our $VERSION = 0.14;
 
 =head1 NAME
 
@@ -63,6 +63,9 @@ Exception::Base - Lightweight exceptions
   catch Exception::Base my $e;  # catch Exception::Base and derived
   # or
   catch Exception::IO my $e;    # catch IO errors and rethrow others
+
+  # run Perl with changed verbosity
+  sh$ perl -MException::Base=verbosity,4 script.pl
 
 =head1 DESCRIPTION
 
@@ -137,7 +140,7 @@ use warnings;
 use utf8;
 
 
-# Compatibility with Kurila
+# Safe operations on symbol stash
 BEGIN { *Symbol::fetch_glob = sub ($) { no strict 'refs'; \*{$_[0]} } unless defined &Symbol::fetch_glob; }
 
 
@@ -165,9 +168,10 @@ use constant FIELDS => {
     tid            => { is => 'ro' },
     time           => { is => 'ro' },
     uid            => { is => 'ro' },
-    verbosity      => { is => 'rw', default => 3 },
-    ignore_package => { is => 'rw' },
-    ignore_level   => { is => 'rw' },
+    verbosity      => { is => 'rw', default => 2 },
+    ignore_package => { is => 'rw', default => [ ] },
+    ignore_class   => { is => 'rw', default => [ ] },
+    ignore_level   => { is => 'rw', default => 0 },
     max_arg_len    => { is => 'rw', default => 64 },
     max_arg_nums   => { is => 'rw', default => 8 },
     max_eval_len   => { is => 'rw', default => 0 },
@@ -200,6 +204,12 @@ sub import {
         my $name = shift @_;
         if ($name =~ /^(try|catch|:all)$/) {
             push @export, $name;
+        }
+        elsif ($name =~ /^([+-]?)([a-z0-9_]+)$/) {
+            # Lower case: change default
+            my ($modifier, $key) = ($1, $2);
+            my $value = shift;
+            $pkg->_modify_default_value($key, $value, $modifier);
         }
         else {
             # Try to use external module
@@ -262,7 +272,7 @@ sub import {
                     my %overriden_fields;
                     foreach my $field (keys %{ $param }) {
                         next if $field =~ /^(isa|version)$/;
-                        if (not defined $fields->{$field}->{default}) {
+                        if (not exists $fields->{$field}->{default}) {
                             Exception::Base->throw(
                                   message => "$isa class does not implement default value for $field field",
                                   verbosity => 1
@@ -468,7 +478,7 @@ sub stringify {
     }
     elsif ($verbosity >= 3) {
         $string .= sprintf "%s: %s", ref $self, $message;
-        $string .= $self->_caller_backtrace;
+        $string .= $self->_caller_backtrace($verbosity);
     }
     else {
         $string = q{};
@@ -648,29 +658,52 @@ sub _collect_system_data {
 
 # Stringify caller backtrace. Stolen from Carp
 sub _caller_backtrace {
-    my ($self) = @_;
+    my ($self, $verbosity) = @_;
     my $message;
 
     my $tid_msg = '';
     $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
+
+    $verbosity = defined $self->{verbosity}
+                  ? $self->{verbosity}
+                  : $self->{defaults}->{verbosity}
+        if not defined $verbosity;
 
     my $ignore_level = defined $self->{ignore_level}
                      ? $self->{ignore_level}
                      : defined $self->{defaults}->{ignore_level}
                        ? $self->{defaults}->{ignore_level}
                        : 0;
+
     my $ignore_package = defined $self->{ignore_package}
                      ? $self->{ignore_package}
                      : $self->{defaults}->{ignore_package};
 
+    my $ignore_class = defined $self->{ignore_class}
+                     ? $self->{ignore_class}
+                     : $self->{defaults}->{ignore_class};
+
+    # Skip some packages for first line
     my $level = 0;
     while (my %c = $self->_caller_info($level++)) {
         if (defined $ignore_package) {
             if (ref $ignore_package eq 'ARRAY') {
-                next if grep { $_ eq $c{package} } @{ $ignore_package };
+                if (@{ $ignore_package }) {
+                    next if grep { ref $_ eq 'Regexp' ? $c{package} =~ $_ : $c{package} eq $_ } @{ $ignore_package };
+                }
             }
             else {
-                next if $c{package} eq $ignore_package;
+                next if ref $ignore_package eq 'Regexp' ? $c{package} =~ $ignore_package : $c{package} eq $ignore_package;
+            }
+        }
+        if (defined $ignore_class) {
+            if (ref $ignore_class eq 'ARRAY') {
+                if (@{ $ignore_class }) {
+                    next if grep { do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($_) } } } @{ $ignore_class };
+                }
+            }
+            else {
+                next if do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($ignore_class) } };
             }
         }
         # Skip ignored levels
@@ -683,9 +716,15 @@ sub _caller_backtrace {
                        defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
                        $c{line} || 0;
         }
-        else {
-            $message .= "\t$c{wantarray}$c{sub_name} called at $c{file} line $c{line}$tid_msg\n";
-        }
+        last;
+    }
+    # Reset the stack trace level only if needed
+    if ($verbosity > 3) {
+        $level = 0;
+    }
+    # Dump the stack
+    while (my %c = $self->_caller_info($level++)) {
+        $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}$tid_msg\n";
     }
 
     return $message || " at unknown line 0$tid_msg\n";
@@ -793,6 +832,65 @@ sub _str_len_trim {
 }
 
 
+# Modify default values for FIELDS
+sub _modify_default_value {
+    my ($self, $key, $value, $modifier) = @_;
+    my $class = ref $self ? ref $self : $self;
+
+    # Modify entry in FIELDS constant. Its elements are not constant.
+    my $fields = $class->FIELDS;
+
+    if (not exists $fields->{$key}->{default}) {
+        Exception::Base->throw(
+              message => "$class class does not implement default value for $key field",
+              verbosity => 1
+        );
+    }
+
+    if ($modifier eq '+') {
+        my $old = $fields->{$key}->{default};
+        if (ref $old eq 'ARRAY') {
+            my %new = map { $_ => 1 } @{ $old }, ref $value eq 'ARRAY' ? @{ $value } : $value;
+            $fields->{$key}->{default} = [ keys %new ];
+        }
+        elsif ($old =~ /^\d+$/) {
+            $fields->{$key}->{default} += $value;
+        }
+        else {
+            $fields->{$key}->{default} .= $value;
+        }
+    }
+    elsif ($modifier eq '-') {
+        my $old = $fields->{$key}->{default};
+        if (ref $old eq 'ARRAY') {
+            if (ref $value eq 'ARRAY') {
+                my %new = map { $_ => 1 } @{ $old };
+                foreach (@{ $value }) { delete $new{$_} };
+                $fields->{$key}->{default} = [ keys %new ];
+            }
+            else {
+                $fields->{$key}->{default} = [ grep { $_ ne $value } @{ $old } ];
+            }
+        }
+        elsif ($old =~ /^\d+$/) {
+            $fields->{$key}->{default} -= $value;
+        }
+        else {
+            $fields->{$key}->{default} = $value;
+        }
+    }
+    else {
+        $fields->{$key}->{default} = $value;
+    }
+
+    if (exists $Class_Defaults{$class}) {
+        $Class_Fields{$class}->{$key}->{default}
+        = $Class_Defaults{$class}->{$key}
+        = $fields->{$key}->{default};
+    }
+}
+
+
 # Create accessors for this class
 sub _make_accessors {
     my ($class) = @_;
@@ -818,6 +916,7 @@ sub _make_accessors {
 }
 
 
+# Create caller_info() accessors for this class
 sub _make_caller_info_accessors {
     my ($class) = @_;
     $class = ref $class if ref $class;
@@ -885,6 +984,43 @@ Exports the B<catch> and B<try> functions to the caller namespace.
 =item use Exception::Base ':all';
 
 Exports all available symbols to the caller namespace.
+
+=item use Exception::Base 'I<field>' => I<value>;
+
+Changes the default value for I<field>.  If the I<field> name has no
+special prefix, its default value is replaced with a new I<value>.
+
+  use Exception::Base verbosity => 4;
+
+If the I<field> name starts with "B<+>" or "B<->" then the new I<value>
+is based on previous value:
+
+=over
+
+=item *
+
+If the original I<value> was a reference to array, the new I<value> can
+be included or removed from original array.  Use array reference if you
+need to add or remove more than one element.
+
+  use Exception::Base "+ignore_packages" => [ __PACKAGE__, qr/^Moose::/ ];
+  use Exception::Base "-ignore_class" => "My::Good::Class";
+
+=item *
+
+If the original I<value> was a number, it will be incremeted or
+decremented by the new I<value>.
+
+  use Exception::Base "+ignore_level" => 1;
+
+=item *
+
+If the original I<value> was a string, the new I<value> will be
+included.
+
+  use Exception::Base "+message" => ": The incuded message";
+
+=back
 
 =item use Exception::Base 'I<Exception>', ...;
 
@@ -1034,7 +1170,7 @@ with "with" method.
   eval { throw Exception message=>"Message", tag=>"TAG"; };
   print $@->{properties}->{tag} if $@;
 
-=item verbosity (rw, default: 3)
+=item verbosity (rw, default: 2)
 
 Contains the verbosity level of the exception object.  It allows to change
 the string representing the exception object.  There are following levels of
@@ -1054,15 +1190,23 @@ Empty string
 
  Message at %s line %d.
 
-The same as the standard output of die() function.
+The same as the standard output of die() function.  This is the default option.
 
 =item 3
 
  Class: Message at %s line %d
-         %c_ = %s::%s() called at %s line %d
+         %c_ = %s::%s() called in package %s at %s line %d
  ...
 
-The output contains full trace of error stack.  This is the default option.
+The output contains full trace of error stack without first
+B<ignore_level> lines and those packages which are listed in
+B<ignore_package> and B<ignore_class> settings.
+
+=item 3
+
+The output contains full trace of error stack. In this case the
+B<ignore_level>, B<ignore_package> and B<ignore_class> settings are
+meaning only for first line of exception's message.  The 
 
 =back
 
@@ -1075,17 +1219,47 @@ the full stack trace won't be collected.
 If the verbosity is lower than 2, the full system data (time, pid, tid, uid,
 euid, gid, egid) won't be collected.
 
+This setting can be changed with import interface.
+
+  use Exception::Base verbosity => 4;
+
+It can be also changed for Perl interpreter instance, i.e. for debugging
+purposes.
+
+  sh$ perl -MException::Base=verbosity,4 script.pl
+
 =item ignore_package (rw)
 
-Contains the name (scalar) or names (as references array) of packages which
-are ignored in error stack trace.  It is useful if some package throws an
-exception but this module shouldn't be listed in stack trace.
+Contains the name (scalar or regexp) or names (as references array) of
+packages which are ignored in error stack trace.  It is useful if some
+package throws an exception but this module shouldn't be listed in stack
+trace.
 
   package My::Package;
   use Exception::Base;
   sub my_function {
     do_something() or throw Exception::Base ignore_package=>__PACKAGE__;
+    throw Exception::Base ignore_package => [ "My", qr/^My::Modules::/ ];
   }
+
+This setting can be changed with import interface.
+
+  use Exception::Base ignore_package => __PACKAGE__;
+
+=item ignore_class (rw)
+
+Contains the name (scalar) or names (as references array) of packages
+which are base classes for ignored packages in error stack trace.  It
+means that some packages will be ignored even the derived class was
+called.
+
+  package My::Package;
+  use Exception::Base;
+  throw Exception::Base ignore_class => "My::Base";
+
+This setting can be changed with import interface.
+
+  use Exception::Base ignore_class => "My::Base";
 
 =item ignore_level (rw)
 
@@ -1259,7 +1433,7 @@ can be used explicity and then the verbosity level can be used.
   eval { throw Exception; };
   $@->{verbosity} = 1;
   print "$@";
-  print $@->stringify(3) if $VERY_VERBOSE;
+  print $@->stringify(4) if $VERY_VERBOSE;
 
 It also replaces any message stored in object with the I<message> argument if
 it exists.  This feature can be used by derived class overwriting
@@ -1530,7 +1704,7 @@ Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright (C) 2007 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright (C) 2007, 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -56,6 +56,9 @@ SYNOPSIS
       # or
       catch Exception::IO my $e;    # catch IO errors and rethrow others
 
+      # run Perl with changed verbosity
+      sh$ perl -MException::Base=verbosity,4 script.pl
+
 DESCRIPTION
     This class implements a fully OO exception mechanism similar to
     Exception::Class or Class::Throwable. It does not depend on other
@@ -95,7 +98,7 @@ AUTHOR
     Piotr Roszatycki <dexter@debian.org>
 
 LICENSE
-    Copyright (C) 2007 by Piotr Roszatycki <dexter@debian.org>.
+    Copyright (C) 2007, 2008 by Piotr Roszatycki <dexter@debian.org>.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

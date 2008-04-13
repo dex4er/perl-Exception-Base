@@ -1,4 +1,20 @@
 ------------------------------------------------------------------------
+0.14 | Piotr Roszatycki <dexter@debian.org> | 2008-04-13
+
+New:
+
+* New verbosity level 4. Always dumps full stack trace. The ignore_package and
+  ignore_level has meaning only for first line of the error message.
+* New field ignore_class which filters stack trace.
+* New syntax for import. The default values (verbosity, message, ignore_*,
+  ...) can be replaced or changed based on previous value.
+* Show package in stack trace.
+
+Changes:
+
+* Updated bundled Test::Unit::Lite to 0.0903.
+
+------------------------------------------------------------------------
 0.13 | Piotr Roszatycki <dexter@debian.org> | 2007-11-19
 
 Changes:

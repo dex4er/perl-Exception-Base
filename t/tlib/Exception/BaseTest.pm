@@ -200,6 +200,14 @@ sub test_stringify {
         $self->assert_matches(qr/Stringify at .* line \d+.\n/s, $obj->stringify(2));
         $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->stringify(3));
 
+        $obj->{verbosity} = 2;
+        $obj->{ignore_packages} = [ ];
+        $obj->{ignore_class} = [ ];
+        $obj->{ignore_level} = 0;
+        $obj->{max_arg_len} = 64;
+        $obj->{max_arg_nums} = 8;
+        $obj->{max_eval_len} = 0;
+
         $obj->{caller_stack} = [
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
@@ -217,29 +225,31 @@ sub test_stringify {
 
         my $s1 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t$_ = Package1::func1 called at Package1.pm line 1
-\t@_ = Package2::func2(1, "ARRAY(0x1234567)", "HASH(0x1234567)", "CODE(0x1234567)", "Exception::BaseTest=HASH(0x1234567)", "Exception::Base=HASH(0x1234567)") called at Package2.pm line 2
-\t$_ = eval '1' called at Package3.pm line 3
-\t$_ = require Require called at Package4.pm line 4
-\t$_ = Package5::func5("\x{00}", "'\"\\\`\x{0d}\x{c3}", "\x{09}\x{263a}", undef, 123, -123.56, 1, ...) called at Package5.pm line 5
-\t$_ = Package6::func6 called at -e line 6
-\t$_ = Package7::func7 called at unknown line 0
+\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
+\t$_ = Package1::func1 called in package Package1 at Package1.pm line 1
+\t@_ = Package2::func2(1, "ARRAY(0x1234567)", "HASH(0x1234567)", "CODE(0x1234567)", "Exception::BaseTest=HASH(0x1234567)", "Exception::Base=HASH(0x1234567)") called in package Package2 at Package2.pm line 2
+\t$_ = eval '1' called in package Package3 at Package3.pm line 3
+\t$_ = require Require called in package Package4 at Package4.pm line 4
+\t$_ = Package5::func5("\x{00}", "'\"\\\`\x{0d}\x{c3}", "\x{09}\x{263a}", undef, 123, -123.56, 1, ...) called in package Package5 at Package5.pm line 5
+\t$_ = Package6::func6 called in package Package6 at -e line 6
+\t$_ = Package7::func7 called in package Package7 at unknown line 0
 END
+
         $s1 =~ s/\\t/\t/g;
 
-        my $s2 = $obj->stringify(3);
+        my $s2 = $obj->stringify(4);
         $s2 =~ s/(ARRAY|HASH|CODE)\(0x\w+\)/$1(0x1234567)/g;
         $self->assert_equals($s1, $s2);
 
         my $s3 = $obj->stringify;
         $s3 =~ s/(ARRAY|HASH|CODE)\(0x\w+\)/$1(0x1234567)/g;
-        $self->assert_equals($s1, $s3);
+        $self->assert_equals("Stringify at Package1.pm line 1.\n", $s3);
 
         $obj->{caller_stack} = [
-            ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
-            ['Package1', 'Package1.pm', 1, 'Package1::func1', 6, 1, undef, undef, 1, 2, 3, 4, 5, 6 ],
-            ['Package2', 'Package2.pm', 2, 'Package2::func2', 2, 1, undef, undef, "123456789", "123456789" ],
-            ['Package3', 'Package3.pm', 3, '(eval)', 0, undef, "123456789", undef ],
+            ['Exception::BaseTest::Package1', 'Package1.pm', 1, 'Exception::BaseTest::Package1::func1', 0, undef, undef, undef ],
+            ['Exception::BaseTest::Package1', 'Package1.pm', 1, 'Exception::BaseTest::Package1::func1', 6, 1, undef, undef, 1, 2, 3, 4, 5, 6 ],
+            ['Exception::BaseTest::Package2', 'Package2.pm', 2, 'Exception::BaseTest::Package2::func2', 2, 1, undef, undef, "123456789", "123456789" ],
+            ['Exception::BaseTest::Package3', 'Package3.pm', 3, '(eval)', 0, undef, "123456789", undef ],
         ];
         $obj->{max_arg_nums} = 2;
         $obj->{max_arg_len} = 5;
@@ -247,42 +257,132 @@ END
 
         my $s4 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t@_ = Package1::func1(1, ...) called at Package1.pm line 1
-\t@_ = Package2::func2(12..., 12...) called at Package2.pm line 2
-\t$_ = eval '12...' called at Package3.pm line 3
+\t$_ = Exception::BaseTest::Package1::func1 called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package1::func1(1, ...) called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package2::func2(12..., 12...) called in package Exception::BaseTest::Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
 END
         $s4 =~ s/\\t/\t/g;
 
-        my $s5 = $obj->stringify;
+        my $s5 = $obj->stringify(4);
         $self->assert_equals($s4, $s5);
 
         $obj->{ignore_level} = 1;
 
         my $s6 = << 'END';
 Exception::Base: Stringify at Package1.pm line 1
-\t@_ = Package2::func2(12..., 12...) called at Package2.pm line 2
-\t$_ = eval '12...' called at Package3.pm line 3
+\t@_ = Exception::BaseTest::Package2::func2(12..., 12...) called in package Exception::BaseTest::Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
 END
         $s6 =~ s/\\t/\t/g;
 
-        my $s7 = $obj->stringify;
+        my $s7 = $obj->stringify(3);
         $self->assert_equals($s6, $s7);
 
-        $obj->{ignore_package} = 'Package1';
+        $obj->{ignore_package} = 'Exception::BaseTest::Package1';
 
         my $s8 = << 'END';
 Exception::Base: Stringify at Package3.pm line 3
 END
 
-        my $s9 = $obj->stringify;
+        $s8 =~ s/\\t/\t/g;
+
+        my $s9 = $obj->stringify(3);
         $self->assert_equals($s8, $s9);
 
-        $self->assert_equals(3, $obj->{defaults}->{verbosity});
+        { package Exception::BaseTest::Package1; }
+        { package Exception::BaseTest::Package2; }
+        { package Exception::BaseTest::Package3; }
+
+        my $s10 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+\t$_ = Exception::BaseTest::Package1::func1 called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package1::func1(1, ...) called in package Exception::BaseTest::Package1 at Package1.pm line 1
+\t@_ = Exception::BaseTest::Package2::func2(12..., 12...) called in package Exception::BaseTest::Package2 at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
+END
+
+        $s10 =~ s/\\t/\t/g;
+
+        my $s11 = $obj->stringify(4);
+        $self->assert_equals($s10, $s11);
+
+        $obj->{ignore_level} = 0;
+
+        my $s12 = << 'END';
+Exception::Base: Stringify at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
+END
+
+        $s12 =~ s/\\t/\t/g;
+
+        my $s13 = $obj->stringify(3);
+        $self->assert_equals($s12, $s13);
+
+        $obj->{ignore_package} = [ 'Exception::BaseTest::Package1', 'Exception::BaseTest::Package2' ];
+
+        my $s14 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+END
+
+        $s14 =~ s/\\t/\t/g;
+
+        my $s15 = $obj->stringify(3);
+        $self->assert_equals($s14, $s15);
+
+        $obj->{ignore_package} = qr/^Exception::BaseTest::Package/;
+
+        my $s16 = << 'END';
+Exception::Base: Stringify at unknown line 0
+END
+
+        $s16 =~ s/\\t/\t/g;
+
+        my $s17 = $obj->stringify(3);
+        $self->assert_equals($s16, $s17);
+
+        $obj->{ignore_package} = [ qr/^Exception::BaseTest::Package1/, qr/^Exception::BaseTest::Package2/ ];
+
+        my $s18 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+END
+
+        $s18 =~ s/\\t/\t/g;
+
+        my $s19 = $obj->stringify(3);
+        $self->assert_equals($s18, $s19);
+
+        $obj->{ignore_package} = [ ];
+        $obj->{ignore_class} = 'Exception::BaseTest::Package1';
+
+        my $s20 = << 'END';
+Exception::Base: Stringify at Package2.pm line 2
+\t$_ = eval '12...' called in package Exception::BaseTest::Package3 at Package3.pm line 3
+END
+
+        $s20 =~ s/\\t/\t/g;
+
+        my $s21 = $obj->stringify(3);
+        $self->assert_equals($s20, $s21);
+
+        $obj->{ignore_class} = [ 'Exception::BaseTest::Package1', 'Exception::BaseTest::Package2' ];
+
+        my $s22 = << 'END';
+Exception::Base: Stringify at Package3.pm line 3
+END
+
+        $s22 =~ s/\\t/\t/g;
+
+        my $s23 = $obj->stringify(3);
+        $self->assert_equals($s22, $s23);
+
+        $obj->{verbosity} = undef;
+
         $self->assert_equals(1, $obj->{defaults}->{verbosity} = 1);
         $self->assert_equals(1, $obj->{defaults}->{verbosity});
         $self->assert_equals("Stringify\n", $obj->stringify);
         $self->assert_not_null(Exception::Base->FIELDS->{verbosity}->{default});
-        $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception::Base->FIELDS->{verbosity}->{default});
+        $obj->{defaults}->{verbosity} = Exception::Base->FIELDS->{verbosity}->{default};
         $self->assert_equals(1, $obj->{verbosity} = 1);
         $self->assert_equals("Stringify\n", $obj->stringify);
 
@@ -544,6 +644,7 @@ sub test_catch_non_exception {
         while (Exception::Base->catch(my $obj0)) { };
 
         my $file = __FILE__;
+	$file =~ s/\W/./g;
         my $regexp = qr/Exception::Base: Unknown message at $file line \d+( thread \d+)?\n/s;
 
         eval { 1; };
@@ -697,7 +798,7 @@ sub test_try {
     die "$@" if $@;
 }
 
-sub test_import {
+sub test_import_keywords {
     my $self = shift;
 
     eval {
@@ -744,6 +845,20 @@ sub test_import {
 
         eval 'Exception::Base::import::Test1->throw;';
         $self->assert_matches(qr/^Can.t locate object method/, "$@");
+
+        eval 'Exception::Base->throw;';
+        my $obj1 = $@;
+        $self->assert_not_null($obj1);
+        $self->assert($obj1->isa('Exception::Base'));
+    };
+    die "$@" if $@;
+}
+
+sub test_import_class {
+    my $self = shift;
+
+    eval {
+        no warnings 'reserved';
 
         eval 'Exception::Base->throw;';
         my $obj1 = $@;
@@ -845,6 +960,114 @@ sub test_import {
         $self->assert_matches(qr/Can not load/, "$@");
     };
     die "$@" if $@;
+}
+
+sub test_import_defaults {
+    my $self = shift;
+
+    # set up
+    my $fields = Exception::Base->FIELDS;
+    my %defaults_orig = map { $_ => $fields->{$_}->{default} }
+                            grep { exists $fields->{$_}->{default} }
+                            keys %{ $fields };
+
+    eval {
+        no warnings 'reserved';
+
+        eval 'Exception::Base->import("message" => "New message");';
+        $self->assert_equals('', "$@");
+        $self->assert_equals('New message', $fields->{message}->{default});
+
+        eval 'Exception::Base->import("+message" => " with suffix");';
+        $self->assert_equals('', "$@");
+        $self->assert_equals('New message with suffix', $fields->{message}->{default});
+
+        eval 'Exception::Base->import("-message" => "Another new message");';
+        $self->assert_equals('', "$@");
+        $self->assert_equals('Another new message', $fields->{message}->{default});
+
+        eval 'Exception::Base->import("ignore_package" => [ "1" ]);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<1>], $fields->{ignore_package}->{default});
+
+        eval 'Exception::Base->import("+ignore_package" => "2");';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<1 2>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("+ignore_package" => [ "3" ]);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<1 2 3>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("+ignore_package" => [ "3", "4", "5" ]);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("+ignore_package" => [ "1", "2", "3" ]);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("-ignore_package" => [ "1" ]);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("-ignore_package" => "2");';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("-ignore_package" => [ "2", "3", "4" ]);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<5>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("+ignore_package" => qr/6/);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([qw<(?-xism:6) 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("-ignore_package" => [ "5", qr/6/ ]);';
+        $self->assert_equals('', "$@");
+        $self->assert_deep_equals([ ], [sort @{ $fields->{ignore_package}->{default} }]);
+
+        eval 'Exception::Base->import("ignore_level" => 5);';
+        $self->assert_equals('', "$@");
+        $self->assert_equals(5, $fields->{ignore_level}->{default});
+
+        eval 'Exception::Base->import("+ignore_level" => 1);';
+        $self->assert_equals('', "$@");
+        $self->assert_equals(6, $fields->{ignore_level}->{default});
+
+        eval 'Exception::Base->import("-ignore_level" => 2);';
+        $self->assert_equals('', "$@");
+        $self->assert_equals(4, $fields->{ignore_level}->{default});
+
+        eval 'Exception::Base->import("ignore_class" => undef);';
+        $self->assert_equals('', "$@");
+        $self->assert_null($fields->{ignore_class}->{default});
+
+        eval 'Exception::Base->import("exception_basetest_no_such_field" => undef);';
+        $self->assert_matches(qr/class does not implement/, "$@");
+    };
+    my $e = $@;
+
+    # tear down
+    foreach (keys %defaults_orig) {
+        if (not defined $defaults_orig{$_}) {
+            eval sprintf 'Exception::Base->import("%s" => undef);', $_;
+        }
+        elsif (ref $defaults_orig{$_} eq 'ARRAY') {
+            eval sprintf 'Exception::Base->import("%s" => [ ]);', $_;
+        }
+        elsif ($defaults_orig{$_} =~ /^\d+$/) {
+            eval sprintf 'Exception::Base->import("%s" => %s);', $_, $defaults_orig{$_};
+        }
+        else {
+            eval sprintf 'Exception::Base->import("%s" => "%s");', $_, $defaults_orig{$_};
+        }
+    }
+
+    $self->assert_equals('Unknown exception', $fields->{message}->{default});
+    $self->assert_deep_equals([ ], $fields->{ignore_package}->{default});
+    $self->assert_equals(0, $fields->{ignore_level}->{default});
+
+    die "$e" if $e;
 }
 
 sub test__collect_system_data {
