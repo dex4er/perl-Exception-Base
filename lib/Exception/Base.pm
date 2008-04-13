@@ -272,7 +272,7 @@ sub import {
                     my %overriden_fields;
                     foreach my $field (keys %{ $param }) {
                         next if $field =~ /^(isa|version)$/;
-                        if (not defined $fields->{$field}->{default}) {
+                        if (not exists $fields->{$field}->{default}) {
                             Exception::Base->throw(
                                   message => "$isa class does not implement default value for $field field",
                                   verbosity => 1
@@ -688,22 +688,22 @@ sub _caller_backtrace {
     while (my %c = $self->_caller_info($level++)) {
         if (defined $ignore_package) {
             if (ref $ignore_package eq 'ARRAY') {
-                if (@{ $ignore_class }) {
+                if (@{ $ignore_package }) {
                     next if grep { ref $_ eq 'Regexp' ? $c{package} =~ $_ : $c{package} eq $_ } @{ $ignore_package };
                 }
             }
             else {
-                next if $ignore_package eq 'Regexp' ? $c{package} =~ $ignore_package : $c{package} eq $ignore_package;
+                next if ref $ignore_package eq 'Regexp' ? $c{package} =~ $ignore_package : $c{package} eq $ignore_package;
             }
         }
         if (defined $ignore_class) {
             if (ref $ignore_class eq 'ARRAY') {
                 if (@{ $ignore_class }) {
-                    next if grep { do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($_) } } } @{ $ignore_package };
+                    next if grep { do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($_) } } } @{ $ignore_class };
                 }
             }
             else {
-                next if do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($ignore_package) } };
+                next if do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($ignore_class) } };
             }
         }
         # Skip ignored levels
@@ -839,6 +839,13 @@ sub _modify_default_value {
 
     # Modify entry in FIELDS constant. Its elements are not constant.
     my $fields = $class->FIELDS;
+
+    if (not exists $fields->{$key}->{default}) {
+        Exception::Base->throw(
+              message => "$class class does not implement default value for $key field",
+              verbosity => 1
+        );
+    }
 
     if ($modifier eq '+') {
         my $old = $fields->{$key}->{default};
