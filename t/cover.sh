@@ -1,6 +1,6 @@
 cd $(dirname $0)
 cd ..
-perl Makefile.PL
-cover -delete
-HARNESS_PERL_SWITCHES=-MDevel::Cover make test
-cover
+${PERL:-perl} Build.PL
+${COVER:-cover} -delete
+HARNESS_PERL_SWITCHES=-MDevel::Cover ./Build test
+${COVER:-cover}

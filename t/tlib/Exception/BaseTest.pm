@@ -1040,6 +1040,9 @@ sub test_import_defaults {
         eval 'Exception::Base->import("ignore_class" => undef);';
         $self->assert_equals('', "$@");
         $self->assert_null($fields->{ignore_class}->{default});
+
+        eval 'Exception::Base->import("exception_basetest_no_such_field" => undef);';
+        $self->assert_matches(qr/class does not implement/, "$@");
     };
     my $e = $@;
 
