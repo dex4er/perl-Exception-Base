@@ -644,6 +644,7 @@ sub test_catch_non_exception {
         while (Exception::Base->catch(my $obj0)) { };
 
         my $file = __FILE__;
+	$file =~ s/\W/./g;
         my $regexp = qr/Exception::Base: Unknown message at $file line \d+( thread \d+)?\n/s;
 
         eval { 1; };
