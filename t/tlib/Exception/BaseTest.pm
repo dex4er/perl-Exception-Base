@@ -797,7 +797,7 @@ sub test_try {
     die "$@" if $@;
 }
 
-sub test_import {
+sub test_import_keywords {
     my $self = shift;
 
     eval {
@@ -844,6 +844,20 @@ sub test_import {
 
         eval 'Exception::Base::import::Test1->throw;';
         $self->assert_matches(qr/^Can.t locate object method/, "$@");
+
+        eval 'Exception::Base->throw;';
+        my $obj1 = $@;
+        $self->assert_not_null($obj1);
+        $self->assert($obj1->isa('Exception::Base'));
+    };
+    die "$@" if $@;
+}
+
+sub test_import_class {
+    my $self = shift;
+
+    eval {
+        no warnings 'reserved';
 
         eval 'Exception::Base->throw;';
         my $obj1 = $@;
