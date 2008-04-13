@@ -916,6 +916,7 @@ sub _make_accessors {
 }
 
 
+# Create caller_info() accessors for this class
 sub _make_caller_info_accessors {
     my ($class) = @_;
     $class = ref $class if ref $class;
