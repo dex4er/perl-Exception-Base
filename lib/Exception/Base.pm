@@ -24,9 +24,10 @@ Exception::Base - Lightweight exceptions
 
   # try / catch
   try eval {
-    do_something() or throw Exception::FileNotFound
+    do_something() or Exception::FileNotFound->throw(
                                 message=>'Something wrong',
-                                tag=>'something';
+                                tag=>'something',
+		      );
   };
   # Catch the Exception::Base and derived, rethrow immediately others
   if (catch my $e) {
@@ -40,7 +41,7 @@ Exception::Base - Lightweight exceptions
   }
 
   # the exception can be thrown later
-  $e = new Exception::Base;
+  $e = Exception::Base->new;
   # (...)
   $e->throw;
 
@@ -57,12 +58,12 @@ Exception::Base - Lightweight exceptions
 
   # don't use syntactic sugar
   use Exception::Base;          # does not import ':all' tag
-  try Exception::Base eval {
+  Exception::Base->try(eval {
     throw Exception::IO;
-  };
-  catch Exception::Base my $e;  # catch Exception::Base and derived
+  });
+  Exception::Base->catch(my $e);  # catch Exception::Base and derived
   # or
-  catch Exception::IO my $e;    # catch IO errors and rethrow others
+  Exception::IO->catch(my $e);    # catch IO errors and rethrow others
 
   # run Perl with changed verbosity
   sh$ perl -MException::Base=verbosity,4 script.pl
@@ -978,7 +979,7 @@ __END__
 Exports the B<catch> and B<try> functions to the caller namespace.
 
   use Exception::Base qw< catch try >;
-  try eval { throw Exception::Base; };
+  try eval { Exception::Base->throw; };
   if (catch my $e) { warn "$e"; }
 
 =item use Exception::Base ':all';
@@ -1029,7 +1030,7 @@ creates the exception class automatically at compile time.  The newly created
 class will be based on L<Exception::Base> class.
 
   use Exception::Base qw< Exception::Custom Exception::SomethingWrong >;
-  throw Exception::Custom;
+  Exception::Custom->throw;
 
 =item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };
 
@@ -1071,7 +1072,7 @@ The class will have the default property for the given field.
     'Exception::FileNotFound' => { isa => 'Exception::IO' },
     'Exception::My' => { version => 0.2 },
     'Exception::WithDefault' => { message => 'Default message' };
-  try eval { throw Exception::FileNotFound; };
+  try eval { Exception::FileNotFound->throw; };
   if (catch my $e) {
     if ($e->isa('Exception::IO')) { warn "can be also FileNotFound"; }
     if ($e->isa('Exception::My')) { print $e->VERSION; }
@@ -1086,9 +1087,9 @@ The class will have the default property for the given field.
 Unexports the B<catch> and B<try> functions from the caller namespace.
 
   use Exception::Base ':all', 'Exception::FileNotFound';
-  try eval { throw Exception::FileNotFound; };  # ok
+  try eval { Exception::FileNotFound->throw; };  # ok
   no Exception::Base;
-  try eval { throw Exception::FileNotFound; };  # syntax error
+  try eval { Exception::FileNotFound->throw; };  # syntax error
 
 =back
 
@@ -1137,7 +1138,7 @@ fields.
   package main;
   use Exception::Base ':all';
   try eval {
-    throw Exception::My readonly=>1, readwrite=>2;
+    Exception::My->throw(readonly=>1, readwrite=>2);
   };
   if (catch my $e) {
     print $e->{readwrite};                # = 2
@@ -1159,7 +1160,7 @@ available as accessors methods.
 Contains the message of the exception.  It is the part of the string
 representing the exception object.
 
-  eval { throw Exception message=>"Message", tag=>"TAG"; };
+  eval { Exception::Base->throw(message=>"Message", tag=>"TAG"); };
   print $@->{message} if $@;
 
 =item properties (ro)
@@ -1167,7 +1168,7 @@ representing the exception object.
 Contains the additional properies of the exception.  They can be later used
 with "with" method.
 
-  eval { throw Exception message=>"Message", tag=>"TAG"; };
+  eval { Exception::Base->throw(message=>"Message", tag=>"TAG"); };
   print $@->{properties}->{tag} if $@;
 
 =item verbosity (rw, default: 2)
@@ -1255,7 +1256,7 @@ called.
 
   package My::Package;
   use Exception::Base;
-  throw Exception::Base ignore_class => "My::Base";
+  Exception::Base->throw(ignore_class => "My::Base");
 
 This setting can be changed with import interface.
 
@@ -1282,7 +1283,7 @@ line-feed (\n) removed from its message.
 
   try eval {
     eval { $a = $b = 0; $c = $a / $b };
-    throw Exception::Base;
+    Exception::Base->throw;
   };
   catch my $e;
   print $e->eval_error;
@@ -1292,7 +1293,7 @@ line-feed (\n) removed from its message.
 Contains the timestamp of the thrown exception.  Collected if the verbosity
 on throwing exception was greater than 1.
 
-  eval { throw Exception message=>"Message"; };
+  eval { Exception::Base->throw(message=>"Message"); };
   print scalar localtime $@->{time};
 
 =item pid (ro)
@@ -1300,7 +1301,7 @@ on throwing exception was greater than 1.
 Contains the PID of the Perl process at time of thrown exception.  Collected
 if the verbosity on throwing exception was greater than 1.
 
-  eval { throw Exception message=>"Message"; };
+  eval { Exception::Base->throw(message=>"Message"); };
   kill 10, $@->{pid};
 
 =item tid (ro)
@@ -1329,7 +1330,7 @@ and are the arguments of called function.  Collected if the verbosity on
 throwing exception was greater than 1.  Contains only the first element of
 caller stack if the verbosity was lower than 3.
 
-  eval { throw Exception message=>"Message"; };
+  eval { Exception::Base->throw(message=>"Message"); };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
   $evaltext, $is_require, @args) = $@->{caller_stack}->[0];
 
@@ -1338,7 +1339,7 @@ caller stack if the verbosity was lower than 3.
 Contains the maximal length of argument for functions in backtrace output.
 Zero means no limit for length.
 
-  sub a { throw Exception max_arg_len=>5 }
+  sub a { Exception::Base->throw(max_arg_len=>5) }
   a("123456789");
 
 =item max_arg_nums (rw, default: 8)
@@ -1346,7 +1347,7 @@ Zero means no limit for length.
 Contains the maximal number of arguments for functions in backtrace output.
 Zero means no limit for arguments.
 
-  sub a { throw Exception max_arg_nums=>1 }
+  sub a { Exception::Base->throw(max_arg_nums=>1) }
   a(1,2,3);
 
 =item max_eval_len (rw, default: 0)
@@ -1354,7 +1355,7 @@ Zero means no limit for arguments.
 Contains the maximal length of eval strings in backtrace output.  Zero means
 no limit for length.
 
-  eval "throw Exception max_eval_len=>10";
+  eval "Exception->throw(max_eval_len=>10)";
   print "$@";
 
 =item defaults (rw)
@@ -1394,7 +1395,7 @@ values for the class are also stored in internal cache.
 Creates the exception object and immediately throws it with die() function.
 
   open FILE, $file
-    or throw Exception message=>"Can not open file: $file";
+    or Exception::Base->throw(message=>"Can not open file: $file");
 
 =back
 
@@ -1408,11 +1409,11 @@ Immediately throws exception object.  It can be used for rethrowing existing
 exception object.  Additional arguments will override the fields in existing
 exception object.
 
-  $e = new Exception::Base;
+  $e = Exception::Base->new;
   # (...)
   $e->throw(message=>"thrown exception with overriden message");
 
-  eval { throw Exception::Base message=>"Problem", fatal=>1 };
+  eval { Exception::Base->throw(message=>"Problem", fatal=>1) };
   $@->throw if $@->properties->{fatal};
 
 =item throw($I<exception>, [%I<args>])
@@ -1420,9 +1421,9 @@ exception object.
 Immediately rethrows an existing exception object as an other exception
 class.
 
-  eval { open $f, "w", "/etc/passwd" or throw Exception::System };
+  eval { open $f, "w", "/etc/passwd" or Exception::System->throw };
   # convert Exception::System into Exception::Base
-  throw Exception::Base $@;
+  Exception::Base->throw($@);
 
 =item stringify([$I<verbosity>[, $I<message>]])
 
@@ -1430,7 +1431,7 @@ Returns the string representation of exception object.  It is called
 automatically if the exception object is used in scalar context.  The method
 can be used explicity and then the verbosity level can be used.
 
-  eval { throw Exception; };
+  eval { Exception::Base->throw; };
   $@->{verbosity} = 1;
   print "$@";
   print $@->stringify(4) if $VERY_VERBOSE;
@@ -1467,16 +1468,16 @@ The B<try> method or function can be used with eval block as argument.  Then
 the eval's error is pushed into error stack and can be used with B<catch>
 later.
 
-  try Exception::Base eval { throw Exception; };
+  Exception::Base->try(eval { Exception::Base->throw; });
   eval { die "another error messing with \$@ variable"; };
-  catch Exception::Base my $e;
+  Exception::Base->catch(my $e);
 
 The B<try> returns the value of the argument in scalar context.  If the
 argument is array reference, the B<try> returns the value of the argument in
 array context.
 
-  $v = try Exception::Base eval { 2 + 2; }; # $v == 4
-  @v = try Exception::Base [ eval { (1,2,3); }; ]; # @v = (1,2,3)
+  $v = Exception::Base->try( eval { 2 + 2; } ); # $v == 4
+  @v = Exception::Base->try( [ eval { (1,2,3); }; ] ); # @v = (1,2,3)
 
 The B<try> can be used as method or function.
 
