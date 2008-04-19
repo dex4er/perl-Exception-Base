@@ -811,22 +811,22 @@ sub test_import_keywords {
         eval '$try = "SCALAR";';
         $self->assert_equals('SCALAR', $try);
 
-        eval 'Exception::Base->import(qw<try catch>);';
-        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
+        eval 'Exception::Base->import(qw<try catch throw>);';
+        eval 'try eval { throw "Exception::Base"; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->unimport(qw<notsuchfunction>);';
-        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { throw "Exception::Base"; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport(qw<try>);';
-        eval 'try eval { Exception::Base->throw; };';
+        eval 'try eval { throw "Exception::Base"; };';
         $self->assert_matches(qr/^syntax error/, "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->import(qw<:all>);';
-        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { throw "Exception::Base"; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport(qw<:all>);';
@@ -835,12 +835,17 @@ sub test_import_keywords {
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->import(qw<:all>);';
-        eval 'try eval { Exception::Base->throw; }; catch my $e, ["Exception::Base"];';
+        eval 'try eval { throw "Exception::Base"; }; catch my $e, ["Exception::Base"];';
         $self->assert_equals('', "$@");
 
         eval 'Exception::Base->unimport();';
         eval 'catch my $e, ["Exception"];';
         $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_equals('SCALAR', $try);
+
+        eval 'Exception::Base->unimport();';
+        eval 'throw "Exception::Base";';
+        $self->assert_matches(qr/String found/, "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base::import::Test1->throw;';

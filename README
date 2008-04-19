@@ -4,7 +4,7 @@ NAME
 SYNOPSIS
       # Use module and create needed exceptions
       use Exception::Base (
-        ':all',                            # import try/catch functions
+        ':all',                            # import try/catch/throw
         'Exception::Runtime',              # create new module
         'Exception::System',               # load existing module
         'Exception::IO',          => {
@@ -16,9 +16,9 @@ SYNOPSIS
 
       # try / catch
       try eval {
-        do_something() or throw Exception::FileNotFound
-                                    message=>'Something wrong',
-                                    tag=>'something';
+        do_something() or throw 'Exception::FileNotFound' =>
+                                message=>'Something wrong',
+                                tag=>'something';
       };
       # Catch the Exception::Base and derived, rethrow immediately others
       if (catch my $e) {
@@ -32,7 +32,7 @@ SYNOPSIS
       }
 
       # the exception can be thrown later
-      $e = new Exception::Base;
+      $e = Exception::Base->new;
       # (...)
       $e->throw;
 
@@ -49,12 +49,12 @@ SYNOPSIS
 
       # don't use syntactic sugar
       use Exception::Base;          # does not import ':all' tag
-      try Exception::Base eval {
-        throw Exception::IO;
-      };
-      catch Exception::Base my $e;  # catch Exception::Base and derived
+      Exception::Base->try(eval {
+        Exception::IO->throw;
+      });
+      Exception::Base->catch(my $e);  # catch Exception::Base and derived
       # or
-      catch Exception::IO my $e;    # catch IO errors and rethrow others
+      Exception::IO->catch(my $e);    # catch IO errors and rethrow others
 
       # run Perl with changed verbosity
       sh$ perl -MException::Base=verbosity,4 script.pl
@@ -78,8 +78,6 @@ DESCRIPTION
     * no external modules dependencies, requires core Perl modules only
 
     * implements error stack, the try/catch blocks can be nested
-
-    * shows full backtrace stack on die by default
 
     * the default behaviour of exception class can be changed globally or
       just for the thrown exception

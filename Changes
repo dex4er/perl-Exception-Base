@@ -1,4 +1,16 @@
 ------------------------------------------------------------------------
+0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
+
+New:
+
+* throw() method is exported with ":all" tag.  It can break the code which
+  uses indirect notation.
+
+Changes:
+
+* Drop indirect notation is POD and code.
+
+------------------------------------------------------------------------
 0.14 | Piotr Roszatycki <dexter@debian.org> | 2008-04-13
 
 New:
