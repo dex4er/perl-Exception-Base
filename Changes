@@ -1,4 +1,15 @@
 ------------------------------------------------------------------------
+0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
+
+New:
+
+* throw() can be exported to caller namespace.
+
+Changes:
+
+* Drop indirect notation is POD and code.
+
+------------------------------------------------------------------------
 0.14 | Piotr Roszatycki <dexter@debian.org> | 2008-04-13
 
 New:
