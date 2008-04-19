@@ -3,7 +3,8 @@
 
 New:
 
-* throw() can be exported to caller namespace.
+* throw() method is exported with ":all" tag.  It can break the code which
+  uses indirect notation.
 
 Changes:
 
