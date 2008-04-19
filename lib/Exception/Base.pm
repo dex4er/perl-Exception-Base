@@ -1073,7 +1073,7 @@ The class will have the default property for the given field.
     if ($e->isa('Exception::My')) { print $e->VERSION; }
   }
 
-=item no Exception::Base qw< catch try >;
+=item no Exception::Base qw< catch try throw >;
 
 =item no Exception::Base ':all';
 
