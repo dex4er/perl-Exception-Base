@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.15;
+our $VERSION = 0.16;
 
 =head1 NAME
 
@@ -387,6 +387,9 @@ sub throw (;$@) {
     my $self = shift;
 
     my $old;
+
+    $self = __PACKAGE__ if not defined $self;
+
     my $class = ref $self;
     if (not ref $self) {
         # throw new exception
@@ -446,6 +449,8 @@ sub stringify {
                : $self->{defaults}->{verbosity}
         if not defined $verbosity;
 
+    return ref $self if $verbosity == 0;
+
     my $string;
 
     $message = $self->{message} if not defined $message;
@@ -486,7 +491,7 @@ sub stringify {
 
 # Stringify for overloaded operator
 sub _stringify {
-    return $_[0]->stringify;
+    return $_[0]->stringify(0);
 }
 
 

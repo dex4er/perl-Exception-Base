@@ -1,4 +1,12 @@
 ------------------------------------------------------------------------
+0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
+
+Changes:
+
+* Verbosity 0 means exception's class name.
+* The default verbosity for stringification of exception object is 0.
+
+------------------------------------------------------------------------
 0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
 
 New:
