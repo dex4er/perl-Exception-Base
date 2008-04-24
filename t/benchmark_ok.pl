@@ -6,7 +6,7 @@ BEGIN {
         our $n = 0;
         sub test {
             eval { $n; };
-            $n++;
+            if ($@ eq "Message\n") { $n++; }
         }
     }    
 
@@ -14,8 +14,15 @@ BEGIN {
         package My::EvalDieObjectOK;
         our $n = 0;
         sub test {
-            eval { $n; };
-            $n++;
+            eval { $n };
+            if (ref $@) {
+		my $e = $@;
+		if ($e->isa('My::EvalDieObjectOK')) { $n++; }
+	    }
+        }
+        sub throw {
+            my %args = @_;
+            die bless {%args}, shift;
         }
     }    
 
@@ -26,7 +33,8 @@ BEGIN {
         our $n = 0;
         sub test {
             eval { $n; };
-            if (my $e = $@) {
+            if (ref $@) {
+		my $e = $@;
                 if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
             }
         }
@@ -48,7 +56,21 @@ BEGIN {
     }    
 
     {    
-        package My::Exception1OK;
+        package My::Exception1EvalOK;
+        use lib 'lib', '../lib';
+        use Exception::Base ':all', 'Exception::My';
+        our $n = 0;
+        sub test {
+            eval { $n; };
+            if (ref $@) {
+		my $e = $@;
+                if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
+            }
+        }
+    }    
+    
+    {    
+        package My::Exception1TryOK;
         use lib 'lib', '../lib';
         use Exception::Base ':all', 'Exception::My';
         our $n = 0;
@@ -130,12 +152,13 @@ my %tests = (
     '02_EvalDieObjectOK'             => sub { My::EvalDieObjectOK->test },
     '03_ExceptionEvalOK'             => sub { My::ExceptionEvalOK->test },
     '04_ExceptionTryOK'              => sub { My::ExceptionTryOK->test },
-    '05_Exception1OK'                => sub { My::Exception1OK->test },
+    '05_Exception1EvalOK'            => sub { My::Exception1EvalOK->test },
+    '06_Exception1TryOK'             => sub { My::Exception1TryOK->test },
 );
-$tests{'06_ErrorOK'}                  = sub { My::ErrorOK->test }                if eval { Error->VERSION };
-$tests{'07_ExceptionClassOK'}         = sub { My::ExceptionClassOK->test }       if eval { Exception::Class->VERSION };
-$tests{'08_ExceptionClassTCOK'}       = sub { My::ExceptionClassTCOK->test }     if eval { Exception::Class::TryCatch->VERSION };
-$tests{'09_ClassThrowableOK'}         = sub { My::ClassThrowableOK->test }       if eval { Class::Throwable->VERSION };
+$tests{'07_ErrorOK'}                  = sub { My::ErrorOK->test }                if eval { Error->VERSION };
+$tests{'08_ExceptionClassOK'}         = sub { My::ExceptionClassOK->test }       if eval { Exception::Class->VERSION };
+$tests{'09_ExceptionClassTCOK'}       = sub { My::ExceptionClassTCOK->test }     if eval { Exception::Class::TryCatch->VERSION };
+$tests{'10_ClassThrowableOK'}         = sub { My::ClassThrowableOK->test }       if eval { Class::Throwable->VERSION };
 
 my $result = timethese(-1, { %tests });
 cmpthese($result);

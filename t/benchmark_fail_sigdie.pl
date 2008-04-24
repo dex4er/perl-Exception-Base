@@ -1,22 +1,24 @@
 #!/usr/bin/perl -I../lib -al
 
+
 BEGIN {
     {    
         package My::EvalDieScalarFail;
+	use Exception::Died;
         our $n = 0;
         sub test {
             eval { die "Message\n"; };
-            if ($@ eq "Message\n") { $n++; }
+            if (ref $@) { $n++; }
         }
     }    
 
     {    
         package My::EvalDieObjectFail;
+	use Exception::Died;
         our $n = 0;
         sub test {
             eval { My::EvalDieObjectFail->throw };
-            if (ref $@) {
-		my $e = $@;
+            if (my $e = $@) {
 		if ($e->isa('My::EvalDieObjectFail')) { $n++; }
 	    }
         }
@@ -29,22 +31,22 @@ BEGIN {
     {    
         package My::ExceptionEvalFail;
         use lib 'lib', '../lib';	
+	use Exception::Died;
         use Exception::Base ':all', 'Exception::My';
         our $n = 0;
         sub test {
             eval {
 		Exception::My->throw(message=>'Message');
 	    };
-            if (ref $@) {
-		my $e = $@;
-                if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
-            }
+            my $e = $@;
+            if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
         }
     }    
 
     {    
         package My::ExceptionTryFail;
         use lib 'lib', '../lib';	
+	use Exception::Died;
         use Exception::Base ':all', 'Exception::My';
         our $n = 0;
         sub test {
@@ -60,22 +62,22 @@ BEGIN {
     {    
         package My::Exception1EvalFail;
         use lib 'lib', '../lib';	
+	use Exception::Died;
         use Exception::Base ':all', 'Exception::My';
         our $n = 0;
         sub test {
             eval {
 		Exception::My->throw(message=>'Message', verbosity=>1);
 	    };
-            if (ref $@) {
-		my $e = $@;
-                if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
-            }
+            my $e = $@;
+            if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
         }
     }    
 
     {    
         package My::Exception1TryFail;
         use lib 'lib', '../lib';
+	use Exception::Died;
         use Exception::Base ':all', 'Exception::My';
         our $n = 0;
         sub test {
@@ -90,6 +92,7 @@ BEGIN {
     
     eval q{
         package My::ErrorFail;
+	use Exception::Died;
         use Error qw(:try);
         our $n = 0;
         sub test {
@@ -105,6 +108,7 @@ BEGIN {
 
     eval q{    
         package My::ClassThrowableFail;
+	use Exception::Died;
         use Class::Throwable;
         our $n = 0;
         sub test {
@@ -119,6 +123,7 @@ BEGIN {
 
     eval q{    
         package My::ExceptionClassFail;
+	use Exception::Died;
         use Exception::Class 'MyException';
         our $n = 0;
         sub test {
@@ -132,6 +137,7 @@ BEGIN {
 
     eval q{    
         package My::ExceptionClassTCFail;
+	use Exception::Died;
         use Exception::Class 'MyException';
         use Exception::Class::TryCatch;
         our $n = 0;
@@ -159,8 +165,8 @@ my %tests = (
     '05_Exception1EvalFail'          => sub { My::Exception1EvalFail->test },
     '06_Exception1TryFail'           => sub { My::Exception1TryFail->test },
 );
-$tests{'08_ErrorFail'}                = sub { My::ErrorFail->test }              if eval { Error->VERSION };
-$tests{'09_ExceptionClassFail'}       = sub { My::ExceptionClassFail->test }     if eval { Exception::Class->VERSION };
+$tests{'07_ErrorFail'}                = sub { My::ErrorFail->test }              if eval { Error->VERSION };
+$tests{'08_ExceptionClassFail'}       = sub { My::ExceptionClassFail->test }     if eval { Exception::Class->VERSION };
 $tests{'09_ExceptionClassTCFail'}     = sub { My::ExceptionClassTCFail->test }   if eval { Exception::Class::TryCatch->VERSION };
 $tests{'10_ClassThrowableFail'}       = sub { My::ClassThrowableFail->test }     if eval { Class::Throwable->VERSION };
 

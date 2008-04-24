@@ -152,25 +152,26 @@ use overload q|""| => "_stringify", fallback => 1;
 
 # List of class fields (name => {is=>ro|rw, default=>value})
 use constant FIELDS => {
-    properties     => { },
-    defaults       => { },
-    message        => { is => 'rw', default => 'Unknown exception' },
-    eval_error     => { is => 'ro' },
-    caller_stack   => { is => 'ro' },
-    egid           => { is => 'ro' },
-    euid           => { is => 'ro' },
-    gid            => { is => 'ro' },
-    pid            => { is => 'ro' },
-    tid            => { is => 'ro' },
-    time           => { is => 'ro' },
-    uid            => { is => 'ro' },
-    verbosity      => { is => 'rw', default => 2 },
-    ignore_package => { is => 'rw', default => [ ] },
-    ignore_class   => { is => 'rw', default => [ ] },
-    ignore_level   => { is => 'rw', default => 0 },
-    max_arg_len    => { is => 'rw', default => 64 },
-    max_arg_nums   => { is => 'rw', default => 8 },
-    max_eval_len   => { is => 'rw', default => 0 },
+    properties       => { },
+    defaults         => { },
+    message          => { is => 'rw', default => 'Unknown exception' },
+    eval_error       => { is => 'ro' },
+    caller_stack     => { is => 'ro' },
+    propagated_stack => { is => 'ro' },
+    egid             => { is => 'ro' },
+    euid             => { is => 'ro' },
+    gid              => { is => 'ro' },
+    pid              => { is => 'ro' },
+    tid              => { is => 'ro' },
+    time             => { is => 'ro' },
+    uid              => { is => 'ro' },
+    verbosity        => { is => 'rw', default => 2 },
+    ignore_package   => { is => 'rw', default => [ ] },
+    ignore_class     => { is => 'rw', default => [ ] },
+    ignore_level     => { is => 'rw', default => 0 },
+    max_arg_len      => { is => 'rw', default => 64 },
+    max_arg_nums     => { is => 'rw', default => 8 },
+    max_eval_len     => { is => 'rw', default => 0 },
 };
 
 
@@ -376,6 +377,8 @@ sub new {
     $self->{defaults} = { %$defaults };
 
     bless $self => $class;
+
+    # Collect system data and eval error
     $self->_collect_system_data;
 
     return $self;
@@ -476,10 +479,12 @@ sub stringify {
             $message,
             defined $file && $file ne '' ? $file : 'unknown',
             $self->line || 0;
+        $string .= $self->_propagated_backtrace($verbosity);
     }
     elsif ($verbosity >= 3) {
         $string .= sprintf "%s: %s", ref $self, $message;
         $string .= $self->_caller_backtrace($verbosity);
+        $string .= $self->_propagated_backtrace;
     }
     else {
         $string = q{};
@@ -491,7 +496,9 @@ sub stringify {
 
 # Stringify for overloaded operator
 sub _stringify {
-    return $_[0]->stringify(0);
+    # exception's class only if die signal was modified
+    return ref $_[0] if $SIG{__DIE__};
+    return $_[0]->stringify;
 }
 
 
@@ -653,6 +660,13 @@ sub _collect_system_data {
         $self->{caller_stack} = \@caller_stack;
     }
 
+    # Collect eval error string
+    if (not ref $@) {
+        my $e = $@;
+        $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
+        $self->{eval_error} = $e;
+    }
+    
     return $self;
 }
 
@@ -731,6 +745,20 @@ sub _caller_backtrace {
     return $message || " at unknown line 0$tid_msg\n";
 }
 
+
+sub _propagated_backtrace {
+    my ($self) = @_;
+    my $message = "";
+    
+    foreach (@{ $self->{propagated_stack} }) {
+        my ($file, $line) = @$_;
+        $message .= sprintf "\t...propagated at %s line %d.\n",
+            defined $file && $file ne '' ? $file : 'unknown',
+            $line || 0;
+    }
+    
+    return $message;
+}
 
 # Return info about caller. Stolen from Carp
 sub _caller_info {
@@ -954,6 +982,13 @@ sub _make_caller_info_accessors {
             };
         }
     }
+}
+
+
+sub PROPAGATE {
+    my ($self, $line, $file) = @_;
+    push @{ $self->{propagated_stack} }, [ $line, $file ];
+    return $self;
 }
 
 
