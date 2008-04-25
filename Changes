@@ -1,10 +1,19 @@
 ------------------------------------------------------------------------
 0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
 
+New:
+
+* New attribute value which can contain numeric value.
+* The exception object can be used in bool, numeric or string context.  The
+  bool value is always true.
+
 Changes:
 
 * Verbosity 0 means exception's class name.
+* The exception object returns 
 * The default verbosity for stringification of exception object is 0.
+* The FIELD constant renamed to ATTRS as far as every OO language calls it
+  attributes.
 
 ------------------------------------------------------------------------
 0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19

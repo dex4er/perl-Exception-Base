@@ -1,0 +1,40 @@
+------------------------------------------------------------------------
+0.15 -> 0.16
+
+* All derived classes should use ATTRS constant instead of FIELD constant:
+
+  Was:
+
+  use constant FIELDS => {
+    %{ Exception::Base->FIELDS },
+    message  => { is => 'rw', default => 'Extended exception' },
+    myattr   => { is => 'rw' },
+  };
+
+  Should be:
+
+  use constant ATTRS => {
+    %{ Exception::Base->ATTRS },
+    message  => { is => 'rw', default => 'Extended exception' },
+    myattr   => { is => 'rw' },
+  };
+
+------------------------------------------------------------------------
+0.14 -> 0.15
+
+* throw() method is exported with ":all" tag.  It can break the code which
+  uses indirect notation.
+
+  Was:
+
+  throw Exception::Base message => 'Something happened';
+
+  Should be:
+
+  Exception::Base->throw( message => 'Something happened' );
+
+  or:
+
+  throw 'Exception::Base' => message => 'Something happened';
+
+------------------------------------------------------------------------

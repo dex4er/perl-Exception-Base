@@ -127,6 +127,8 @@ easly expendable, see L<Exception::System> class for example
 
 =back
 
+=for readme stop
+
 =cut
 
 
@@ -147,14 +149,18 @@ our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
 
 # Overload the stringify operation
-use overload q|""| => "_stringify", fallback => 1;
+use overload 'bool'   => sub () { 1; },
+             '0+'     => '_numerify',
+             q{""}    => '_stringify',
+             fallback => 1;
 
 
-# List of class fields (name => {is=>ro|rw, default=>value})
-use constant FIELDS => {
+# List of class attributes (name => {is=>ro|rw, default=>value})
+use constant ATTRS => {
     properties       => { },
     defaults         => { },
     message          => { is => 'rw', default => 'Unknown exception' },
+    value            => { is => 'rw', default => 0 },
     eval_error       => { is => 'ro' },
     caller_stack     => { is => 'ro' },
     propagated_stack => { is => 'ro' },
@@ -175,8 +181,8 @@ use constant FIELDS => {
 };
 
 
-# Cache for class' FIELDS
-my %Class_Fields;
+# Cache for class' ATTRS
+my %Class_Attributes;
 
 
 # Cache for class' defaults
@@ -255,39 +261,39 @@ sub import {
                         }
                     }
 
-                    # Handle defaults for fields
-                    my $fields;
-                    eval { $fields = $isa->FIELDS };
+                    # Handle defaults for object attributes
+                    my $attributes;
+                    eval { $attributes = $isa->ATTRS };
                     if ($@) {
                         Exception::Base->throw(
-                              message => "$name class is based on $isa class which does not implement FIELDS",
+                              message => "$name class is based on $isa class which does not implement ATTRS",
                               verbosity => 1
                         );
                     }
 
-                    # Create the hash with overriden fields
-                    my %overriden_fields;
-                    foreach my $field (keys %{ $param }) {
-                        next if $field =~ /^(isa|version)$/;
-                        if (not exists $fields->{$field}->{default}) {
+                    # Create the hash with overriden attributes
+                    my %overriden_attributes;
+                    foreach my $attribute (keys %{ $param }) {
+                        next if $attribute =~ /^(isa|version)$/;
+                        if (not exists $attributes->{$attribute}->{default}) {
                             Exception::Base->throw(
-                                  message => "$isa class does not implement default value for $field field",
+                                  message => "$isa class does not implement default value for $attribute attribute",
                                   verbosity => 1
                             );
                         }
-                        $overriden_fields{$field} = {};
-                        $overriden_fields{$field}->{default} = $param->{$field};
-                        foreach my $property (keys %{ $fields->{$field} }) {
+                        $overriden_attributes{$attribute} = {};
+                        $overriden_attributes{$attribute}->{default} = $param->{$attribute};
+                        foreach my $property (keys %{ $attributes->{$attribute} }) {
                             next if $property eq 'default';
-                            $overriden_fields{$field}->{$property} = $fields->{$field}->{$property};
+                            $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
                         }
                     }
 
                     # Create the new package
                     ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
                     @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
-                    *{Symbol::fetch_glob($name . '::FIELDS')} = sub {
-                        return { %{ $isa->FIELDS }, %overriden_fields };
+                    *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
+                        return { %{ $isa->ATTRS }, %overriden_attributes };
                     };
                 }
             }
@@ -341,20 +347,20 @@ sub new {
     my $class = shift;
     $class = ref $class if ref $class;
 
-    my $fields;
+    my $attributes;
     my $defaults;
 
     # Use cached value if available
-    if (not defined $Class_Fields{$class}) {
-        $fields = $Class_Fields{$class} = $class->FIELDS;
+    if (not defined $Class_Attributes{$class}) {
+        $attributes = $Class_Attributes{$class} = $class->ATTRS;
         $defaults = $Class_Defaults{$class} = {
-            map { $_ => $fields->{$_}->{default} }
-                grep { defined $fields->{$_}->{default} }
-                    (keys %$fields)
+            map { $_ => $attributes->{$_}->{default} }
+                grep { defined $attributes->{$_}->{default} }
+                    (keys %$attributes)
         };
     }
     else {
-        $fields = $Class_Fields{$class};
+        $attributes = $Class_Attributes{$class};
         $defaults = $Class_Defaults{$class};
     }
 
@@ -365,7 +371,7 @@ sub new {
     my %args = @_;
     $self->{properties} = {};
     foreach my $key (keys %args) {
-        if ($fields->{$key}->{is} eq 'rw') {
+        if ($attributes->{$key}->{is} eq 'rw') {
             $self->{$key} = $args{$key};
         }
         else {
@@ -419,9 +425,9 @@ sub throw (;$@) {
     if (ref $old and do { local $@; local $SIG{__DIE__}; eval { $old->isa(__PACKAGE__) } }) {
         no warnings 'uninitialized';
         my %args = @_;
-        my $fields = $self->FIELDS;
+        my $attributes = $self->ATTRS;
         foreach my $key (keys %args) {
-            if ($fields->{$key}->{is} eq 'rw') {
+            if ($attributes->{$key}->{is} eq 'rw') {
                 $old->{$key} = $args{$key};
             }
             else {
@@ -495,9 +501,16 @@ sub stringify {
 
 
 # Stringify for overloaded operator
+sub _numerify {
+    return + $_[0]->{value};
+}
+
+
+# Stringify for overloaded operator
 sub _stringify {
-    # exception's class only if die signal was modified
-    return ref $_[0] if $SIG{__DIE__};
+    # return simple message if die signal was modified
+    return $_[0]->{message} eq "" ? 'Died' : $_[0]->{message} if $SIG{__DIE__};
+    # otherwise return standard stringify
     return $_[0]->stringify;
 }
 
@@ -666,7 +679,7 @@ sub _collect_system_data {
         $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $self->{eval_error} = $e;
     }
-    
+
     return $self;
 }
 
@@ -749,14 +762,14 @@ sub _caller_backtrace {
 sub _propagated_backtrace {
     my ($self) = @_;
     my $message = "";
-    
+
     foreach (@{ $self->{propagated_stack} }) {
         my ($file, $line) = @$_;
         $message .= sprintf "\t...propagated at %s line %d.\n",
             defined $file && $file ne '' ? $file : 'unknown',
             $line || 0;
     }
-    
+
     return $message;
 }
 
@@ -861,61 +874,61 @@ sub _str_len_trim {
 }
 
 
-# Modify default values for FIELDS
+# Modify default values for ATTRS
 sub _modify_default_value {
     my ($self, $key, $value, $modifier) = @_;
     my $class = ref $self ? ref $self : $self;
 
-    # Modify entry in FIELDS constant. Its elements are not constant.
-    my $fields = $class->FIELDS;
+    # Modify entry in ATTRS constant. Its elements are not constant.
+    my $attributes = $class->ATTRS;
 
-    if (not exists $fields->{$key}->{default}) {
+    if (not exists $attributes->{$key}->{default}) {
         Exception::Base->throw(
-              message => "$class class does not implement default value for $key field",
+              message => "$class class does not implement default value for $key attribute",
               verbosity => 1
         );
     }
 
     if ($modifier eq '+') {
-        my $old = $fields->{$key}->{default};
+        my $old = $attributes->{$key}->{default};
         if (ref $old eq 'ARRAY') {
             my %new = map { $_ => 1 } @{ $old }, ref $value eq 'ARRAY' ? @{ $value } : $value;
-            $fields->{$key}->{default} = [ keys %new ];
+            $attributes->{$key}->{default} = [ keys %new ];
         }
         elsif ($old =~ /^\d+$/) {
-            $fields->{$key}->{default} += $value;
+            $attributes->{$key}->{default} += $value;
         }
         else {
-            $fields->{$key}->{default} .= $value;
+            $attributes->{$key}->{default} .= $value;
         }
     }
     elsif ($modifier eq '-') {
-        my $old = $fields->{$key}->{default};
+        my $old = $attributes->{$key}->{default};
         if (ref $old eq 'ARRAY') {
             if (ref $value eq 'ARRAY') {
                 my %new = map { $_ => 1 } @{ $old };
                 foreach (@{ $value }) { delete $new{$_} };
-                $fields->{$key}->{default} = [ keys %new ];
+                $attributes->{$key}->{default} = [ keys %new ];
             }
             else {
-                $fields->{$key}->{default} = [ grep { $_ ne $value } @{ $old } ];
+                $attributes->{$key}->{default} = [ grep { $_ ne $value } @{ $old } ];
             }
         }
         elsif ($old =~ /^\d+$/) {
-            $fields->{$key}->{default} -= $value;
+            $attributes->{$key}->{default} -= $value;
         }
         else {
-            $fields->{$key}->{default} = $value;
+            $attributes->{$key}->{default} = $value;
         }
     }
     else {
-        $fields->{$key}->{default} = $value;
+        $attributes->{$key}->{default} = $value;
     }
 
     if (exists $Class_Defaults{$class}) {
-        $Class_Fields{$class}->{$key}->{default}
+        $Class_Attributes{$class}->{$key}->{default}
         = $Class_Defaults{$class}->{$key}
-        = $fields->{$key}->{default};
+        = $attributes->{$key}->{default};
     }
 }
 
@@ -926,10 +939,10 @@ sub _make_accessors {
     $class = ref $class if ref $class;
 
     no warnings 'uninitialized';
-    my $fields = $class->FIELDS;
-    foreach my $key (keys %{ $fields }) {
+    my $attributes = $class->ATTRS;
+    foreach my $key (keys %{ $attributes }) {
         if (not $class->can($key)) {
-            if ($fields->{$key}->{is} eq 'rw') {
+            if ($attributes->{$key}->{is} eq 'rw') {
                 *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
                            : $_[0]->{$key};
@@ -1003,8 +1016,6 @@ INIT: {
 
 __END__
 
-=for readme stop
-
 =head1 IMPORTS
 
 =over
@@ -1021,14 +1032,14 @@ Exports the B<catch>, B<try> and B<throw> functions to the caller namespace.
 
 Exports all available symbols to the caller namespace.
 
-=item use Exception::Base 'I<field>' => I<value>;
+=item use Exception::Base 'I<attribute>' => I<value>;
 
-Changes the default value for I<field>.  If the I<field> name has no
+Changes the default value for I<attribute>.  If the I<attribute> name has no
 special prefix, its default value is replaced with a new I<value>.
 
   use Exception::Base verbosity => 4;
 
-If the I<field> name starts with "B<+>" or "B<->" then the new I<value>
+If the I<attribute> name starts with "B<+>" or "B<->" then the new I<value>
 is based on previous value:
 
 =over
@@ -1071,8 +1082,8 @@ class will be based on L<Exception::Base> class.
 
 Loads additional exception class module.  If the module's version is lower
 than given parameter or the module can't be loaded, creates the exception
-class automatically at compile time.  The newly created class will be based
-on given class and has the given $VERSION variable.
+class automatically at compile time.  The newly created class will be based on
+given class and has the given $VERSION variable.
 
 =over
 
@@ -1095,9 +1106,9 @@ parameter and will have the version given in the argument.
 
 =item max_eval_len
 
-=item I<other field having default property>
+=item I<other attribute having default property>
 
-The class will have the default property for the given field.
+The class will have the default property for the given attribute.
 
 =back
 
@@ -1132,42 +1143,44 @@ Unexports the B<catch> and B<try> functions from the caller namespace.
 
 =over
 
-=item FIELDS
+=item ATTRS
 
-Declaration of class fields as reference to hash.
+Declaration of class attributes as reference to hash.
 
-The fields are listed as I<name> => {I<properties>}, where I<properties> is a
-list of field properties:
+The attributes are listed as I<name> => {I<properties>}, where I<properties> is a
+list of attribute properties:
 
 =over
 
 =item is
 
-Can be 'rw' for read-write fields or 'ro' for read-only fields.  The field is
-read-only and does not have an accessor created if 'is' property is missed.
+Can be 'rw' for read-write attributes or 'ro' for read-only attributes.  The
+attribute is read-only and does not have an accessor created if 'is' property
+is missed.
 
 =item default
 
-Optional property with the default value if the field value is not defined.
+Optional property with the default value if the attribute value is not
+defined.
 
 =back
 
-The read-write fields can be set with B<new> constructor.  Read-only fields
-are modified by L<Exception::Base> class itself and arguments for B<new>
-constructor will be stored in B<properties> field.
+The read-write attributes can be set with B<new> constructor.  Read-only
+attributes are modified by L<Exception::Base> class itself and arguments for
+B<new> constructor will be stored in B<properties> attribute.
 
 The constant have to be defined in derivered class if it brings additional
-fields.
+attributes.
 
   package Exception::My;
   our $VERSION = 0.01;
   use base 'Exception::Base';
 
-  # Define new class fields
-  use constant FIELDS => {
-    %{Exception::Base->FIELDS},       # base's fields have to be first
-    readonly  => { is=>'ro', default=>'value' },  # new ro field
-    readwrite => { is=>'rw' },                    # new rw field
+  # Define new class attributes
+  use constant ATTRS => {
+    %{Exception::Base->ATTRS},       # base's attributes have to be first
+    readonly  => { is=>'ro', default=>'value' },  # new ro attribute
+    readwrite => { is=>'rw' },                    # new rw attribute
   };
 
   package main;
@@ -1183,10 +1196,10 @@ fields.
 
 =back
 
-=head1 FIELDS
+=head1 ATTRIBUTES
 
-Class fields are implemented as values of blessed hash.  The fields are also
-available as accessors methods.
+Class attributes are implemented as values of blessed hash.  The attributes
+are also available as accessors methods.
 
 =over
 
@@ -1208,8 +1221,8 @@ with "with" method.
 
 =item verbosity (rw, default: 2)
 
-Contains the verbosity level of the exception object.  It allows to change
-the string representing the exception object.  There are following levels of
+Contains the verbosity level of the exception object.  It allows to change the
+string representing the exception object.  There are following levels of
 verbosity:
 
 =over 2
@@ -1226,7 +1239,8 @@ Empty string
 
  Message at %s line %d.
 
-The same as the standard output of die() function.  This is the default option.
+The same as the standard output of die() function.  This is the default
+option.
 
 =item 3
 
@@ -1234,20 +1248,20 @@ The same as the standard output of die() function.  This is the default option.
          %c_ = %s::%s() called in package %s at %s line %d
  ...
 
-The output contains full trace of error stack without first
-B<ignore_level> lines and those packages which are listed in
-B<ignore_package> and B<ignore_class> settings.
+The output contains full trace of error stack without first B<ignore_level>
+lines and those packages which are listed in B<ignore_package> and
+B<ignore_class> settings.
 
 =item 3
 
 The output contains full trace of error stack. In this case the
-B<ignore_level>, B<ignore_package> and B<ignore_class> settings are
-meaning only for first line of exception's message.  The 
+B<ignore_level>, B<ignore_package> and B<ignore_class> settings are meaning
+only for first line of exception's message.  The
 
 =back
 
-If the verbosity is undef, then the default verbosity for exception objects
-is used.
+If the verbosity is undef, then the default verbosity for exception objects is
+used.
 
 If the verbosity set with constructor (B<new> or B<throw>) is lower than 3,
 the full stack trace won't be collected.
@@ -1267,9 +1281,8 @@ purposes.
 =item ignore_package (rw)
 
 Contains the name (scalar or regexp) or names (as references array) of
-packages which are ignored in error stack trace.  It is useful if some
-package throws an exception but this module shouldn't be listed in stack
-trace.
+packages which are ignored in error stack trace.  It is useful if some package
+throws an exception but this module shouldn't be listed in stack trace.
 
   package My::Package;
   use Exception::Base;
@@ -1284,10 +1297,9 @@ This setting can be changed with import interface.
 
 =item ignore_class (rw)
 
-Contains the name (scalar) or names (as references array) of packages
-which are base classes for ignored packages in error stack trace.  It
-means that some packages will be ignored even the derived class was
-called.
+Contains the name (scalar) or names (as references array) of packages which
+are base classes for ignored packages in error stack trace.  It means that
+some packages will be ignored even the derived class was called.
 
   package My::Package;
   use Exception::Base;
@@ -1301,7 +1313,7 @@ This setting can be changed with import interface.
 
 Contains the number of level on stack trace to ignore.  It is useful if some
 package throws an exception but this module shouldn't be listed in stack
-trace.  It can be used with or without I<ignore_package> field.
+trace.  It can be used with or without I<ignore_package> attribute.
 
   # Convert warning into exception. The signal handler ignores itself.
   use Exception::Base 'Exception::Warning';
@@ -1325,8 +1337,8 @@ line-feed (\n) removed from its message.
 
 =item time (ro)
 
-Contains the timestamp of the thrown exception.  Collected if the verbosity
-on throwing exception was greater than 1.
+Contains the timestamp of the thrown exception.  Collected if the verbosity on
+throwing exception was greater than 1.
 
   eval { Exception::Base->throw(message=>"Message"); };
   print scalar localtime $@->{time};
@@ -1395,7 +1407,7 @@ no limit for length.
 
 =item defaults (rw)
 
-Meta-field contains the list of default values.
+Meta-attribute contains the list of default values.
 
   my $e = Exception::Base->new;
   print defined $e->{verbosity}
@@ -1411,10 +1423,11 @@ Meta-field contains the list of default values.
 =item new([%I<args>])
 
 Creates the exception object, which can be thrown later.  The system data
-fields like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not filled.
+attributes like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not
+filled.
 
-If the key of the argument is read-write field, this field will be filled.
-Otherwise, the properties field will be used.
+If the key of the argument is read-write attribute, this attribute will be
+filled. Otherwise, the properties attribute will be used.
 
   $e = Exception::Base->new(
            message=>"Houston, we have a problem",
@@ -1423,9 +1436,9 @@ Otherwise, the properties field will be used.
   print $e->{message};
   print $e->{properties}->{tag};
 
-The constructor reads the list of class fields from FIELDS constant function
-and stores it in the internal cache for performance reason.  The defaults
-values for the class are also stored in internal cache.
+The constructor reads the list of class attributes from ATTRS constant
+function and stores it in the internal cache for performance reason.  The
+defaults values for the class are also stored in internal cache.
 
 =item throw([%I<args>]])
 
@@ -1448,8 +1461,8 @@ This method is also exported as a function.
 =item throw([%I<args>])
 
 Immediately throws exception object.  It can be used for rethrowing existing
-exception object.  Additional arguments will override the fields in existing
-exception object.
+exception object.  Additional arguments will override the attributes in
+existing exception object.
 
   $e = Exception::Base->new;
   # (...)
@@ -1460,8 +1473,7 @@ exception object.
 
 =item throw($I<exception>, [%I<args>])
 
-Immediately rethrows an existing exception object as an other exception
-class.
+Immediately rethrows an existing exception object as an other exception class.
 
   eval { open $f, "w", "/etc/passwd" or Exception::System->throw };
   # convert Exception::System into Exception::Base
@@ -1479,15 +1491,15 @@ can be used explicity and then the verbosity level can be used.
   print $@->stringify(4) if $VERY_VERBOSE;
 
 It also replaces any message stored in object with the I<message> argument if
-it exists.  This feature can be used by derived class overwriting
-B<stringify> method.
+it exists.  This feature can be used by derived class overwriting B<stringify>
+method.
 
 =item with(I<condition>)
 
 Checks if the exception object matches the given condition.  If the first
 argument is single value, the B<message> attribute will be matched.  If the
-argument is a part of hash, the B<properties> attribute will be matched or
-the attribute of the exception object if the B<properties> attribute is not
+argument is a part of hash, the B<properties> attribute will be matched or the
+attribute of the exception object if the B<properties> attribute is not
 defined.
 
   $e->with("message");
@@ -1524,7 +1536,7 @@ array context.
 The B<try> can be used as method or function.
 
   try 'Exception::Base' => eval {
-    Exception::Base->throw(message=>"method"); 
+    Exception::Base->throw(message=>"method");
   };
   Exception::Base::try eval {
     Exception::Base->throw(message=>"function");
@@ -1555,8 +1567,8 @@ can be used in loop to clean up all unhandled exceptions.
   }
 
 If the B<$@> variable does not contain the exception object but string, new
-exception object is created with message from B<$@> variable with removed
-C<" at file line 123."> string and the last end of line (LF).
+exception object is created with message from B<$@> variable with removed C<"
+at file line 123."> string and the last end of line (LF).
 
   try eval { die "Died\n"; };
   catch 'Exception::Base', my $e;
@@ -1622,8 +1634,8 @@ class.
 
   package Exception::Special;
   use base 'Exception::Base';
-  use constant FIELDS => {
-    %{Exception::Base->FIELDS},
+  use constant ATTRS => {
+    %{Exception::Base->ATTRS},
     'special' => { is => 'ro' },
   };
   sub _collect_system_data {
@@ -1639,8 +1651,8 @@ Method returns the reference to the self object.
 
 =item _make_accessors
 
-Create accessors for each field.  This static method should be called in each
-derived class which defines new fields.
+Create accessors for each attribute.  This static method should be called in each
+derived class which defines new attributes.
 
   package Exception::My;
   # (...)
@@ -1656,8 +1668,8 @@ There are more implementation of exception objects available on CPAN:
 
 =item L<Error>
 
-Complete implementation of try/catch/finally/otherwise mechanism.  Uses
-nested closures with a lot of syntactic sugar.  It is slightly faster than
+Complete implementation of try/catch/finally/otherwise mechanism.  Uses nested
+closures with a lot of syntactic sugar.  It is slightly faster than
 L<Exception::Base> module.  It doesn't provide a simple way to create user
 defined exceptions.  It doesn't collect system data and stack trace on error.
 
@@ -1729,10 +1741,10 @@ i486-linux-gnu-thread-multi) are following:
 
 The L<Exception::Base> module is 80 times slower than pure eval/die.  This
 module was written to be as fast as it is possible.  It does not use i.e.
-accessor functions which are slower about 6 times than standard variables.
-It is slower than pure die/eval because it is uses OO mechanism which are
-slow in Perl.  It can be a litte faster if some features are disables, i.e.
-the stack trace and higher verbosity.
+accessor functions which are slower about 6 times than standard variables. It
+is slower than pure die/eval because it is uses OO mechanism which are slow in
+Perl.  It can be a litte faster if some features are disables, i.e. the stack
+trace and higher verbosity.
 
 You can find the benchmark script in this package distribution.
 
