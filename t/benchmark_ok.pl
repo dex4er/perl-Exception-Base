@@ -1,146 +1,166 @@
-#!/usr/bin/perl -I../lib -al
+#!/usr/bin/perl -al
+
+use lib 'lib', '../lib';
 
 BEGIN {
-    {    
-        package My::EvalDieScalarOK;
-        our $n = 0;
-        sub test {
-            eval { $n; };
-            if ($@ eq "Message\n") { $n++; }
-        }
-    }    
-
-    {    
-        package My::EvalDieObjectOK;
-        our $n = 0;
-        sub test {
-            eval { $n };
-            if (ref $@) {
-		my $e = $@;
-		if ($e->isa('My::EvalDieObjectOK')) { $n++; }
-	    }
-        }
-        sub throw {
-            my %args = @_;
-            die bless {%args}, shift;
-        }
-    }    
-
-    {    
-        package My::ExceptionEvalOK;
-        use lib 'lib', '../lib';	
-        use Exception::Base ':all', 'Exception::My';
-        our $n = 0;
-        sub test {
-            eval { $n; };
-            if (ref $@) {
-		my $e = $@;
-                if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
-            }
-        }
-    }    
-
-    {    
-        package My::ExceptionTryOK;
-        use lib 'lib', '../lib';	
-        use Exception::Base ':all', 'Exception::My';
-        our $n = 0;
-        sub test {
-            try eval {
-		$n;
-	    };
-            if (catch my $e) {
-                if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
-            }
-        }
-    }    
-
-    {    
-        package My::Exception1EvalOK;
-        use lib 'lib', '../lib';
-        use Exception::Base ':all', 'Exception::My';
-        our $n = 0;
-        sub test {
-            eval { $n; };
-            if (ref $@) {
-		my $e = $@;
-                if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
-            }
-        }
-    }    
-    
-    {    
-        package My::Exception1TryOK;
-        use lib 'lib', '../lib';
-        use Exception::Base ':all', 'Exception::My';
-        our $n = 0;
-        sub test {
-            try eval {
-		$n;
-	    };
-            if (catch my $e) {
-                if ($e->isa('Exception::My') and $e->with('Message')) { $n++; }
-            }
-        }
-    }    
-    
-    eval q{
-        package My::ErrorOK;
-        use Error qw(:try);
-        our $n = 0;
-        sub test {
-            try {
-		$n;
-            }
-            Error->catch(with {
-                my $e = shift;
-                if ($e->text eq 'Message') { $n++; }
-            });
-        }
-    };
-
-    eval q{    
-        package My::ClassThrowableOK;
-        use Class::Throwable;
-        our $n = 0;
-        sub test {
-            eval {
-                $n;
-            };
-            if (my $e = $@ and $e->isa('Class::Throwable')) {
-                if ($e->getMessage eq 'Message') { $n++; }
-            };
-        }
-    };
-
-    eval q{    
-        package My::ExceptionClassOK;
-        use Exception::Class 'MyException';
-        our $n = 0;
-        sub test {
-            eval {
-		$n;
-	    };
-            my $e;
-            if ($e = Exception::Class->caught('MyException') and $e->error eq 'Message') { $n++; }
-        }
-    };    
-
-    eval q{    
-        package My::ExceptionClassTCOK;
-        use Exception::Class 'MyException';
-        use Exception::Class::TryCatch;
-        our $n = 0;
-        sub test {
-            try eval { 
-		$n;
-	    };
-            if (catch my $e) {
-                if ($e->isa('MyException') and $e->error eq 'Message') { $n++; }
-            }
-        }
-    };
+    package My::Common;
+    *throw_something = $0 =~ /_ok/ ? sub () { 0 } : sub () { 1 };
 }
+
+{
+    package My::EvalDieScalar;
+    sub test {
+        eval {
+            die 'Message' if My::Common::throw_something;
+        };
+        if ($@ =~ /^Message/) {
+            1;
+        }
+    }
+}
+
+{
+    package My::EvalDieObject;
+    sub test {
+        eval {
+             My::EvalDieObject->throw if My::Common::throw_something;
+        };
+        if ($@) {
+            my $e = $@;
+            if (ref $e and $e->isa('My::EvalDieObject')) {
+                1;
+            }
+        }
+    }
+    sub throw {
+        my %args = @_;
+        die bless {%args}, shift;
+    }
+}
+
+{
+    package My::ExceptionEval;
+    use Exception::Base ':all', 'Exception::My';
+    sub test {
+        eval {
+            Exception::My->throw(message=>'Message') if My::Common::throw_something;
+        };
+        if ($@) {
+            my $e = $@;
+            if (ref $e and $e->isa('Exception::My') and $e->with('Message')) {
+                1;
+            }
+        }
+    }
+}
+
+{
+    package My::ExceptionTry;
+    use Exception::Base ':all', 'Exception::My';
+    sub test {
+        try eval {
+            Exception::My->throw(message=>'Message') if My::Common::throw_something;
+        };
+        if (catch my $e) {
+            if ($e->isa('Exception::My') and $e->with('Message')) {
+                1;
+            }
+        }
+    }
+}
+
+{
+    package My::Exception1Eval;
+    use Exception::Base ':all', 'Exception::My';
+    sub test {
+        eval {
+            Exception::My->throw(message=>'Message', verbosity=>1) if My::Common::throw_something;
+        };
+        if ($@) {
+            my $e = $@;
+            if (ref $e and $e->isa('Exception::My') and $e->with('Message')) {
+                1;
+            }
+        }
+    }
+}
+
+{
+    package My::Exception1Try;
+    use Exception::Base ':all', 'Exception::My';
+    sub test {
+        try eval {
+            Exception::My->throw(message=>'Message', verbosity=>1) if My::Common::throw_something;
+        };
+        if (catch my $e) {
+            if ($e->isa('Exception::My') and $e->with('Message')) {
+                1;
+            }
+        }
+    }
+}
+
+eval q{
+    package My::Error;
+    use Error qw(:try);
+    sub test {
+        try {
+            Error::Simple->throw('Message') if My::Common::throw_something;
+        }
+        Error->catch(with {
+            my $e = $_[0];
+            if ($e->text eq 'Message') {
+                1;
+            }
+        });
+    }
+};
+
+eval q{
+    package My::ClassThrowable;
+    use Class::Throwable;
+    sub test {
+        eval {
+            Class::Throwable->throw('Message') if My::Common::throw_something;
+        };
+        if ($@) {
+            my $e = $@;
+            if (ref $e and $e->isa('Class::Throwable') and $e->getMessage eq 'Message') {
+                1;
+            }
+        }
+    }
+};
+
+eval q{
+    package My::ExceptionClass;
+    use Exception::Class 'MyException';
+    sub test {
+        eval {
+            MyException->throw(error=>'Message') if My::Common::throw_something;
+        };
+        my $e;
+        if ($e = Exception::Class->caught('MyException') and $e->error eq 'Message') {
+            1;
+        }
+    }
+};
+
+eval q{
+    package My::ExceptionClassTC;
+    use Exception::Class 'MyException';
+    use Exception::Class::TryCatch;
+    sub test {
+        try eval {
+            MyException->throw(error=>'Message') if My::Common::throw_something;
+        };
+        if (catch my $e) {
+            if ($e->isa('MyException') and $e->error eq 'Message') {
+                1;
+            }
+        }
+    }
+};
 
 
 package main;
@@ -148,17 +168,21 @@ package main;
 use Benchmark ':all';
 
 my %tests = (
-    '01_EvalDieScalarOK'             => sub { My::EvalDieScalarOK->test },
-    '02_EvalDieObjectOK'             => sub { My::EvalDieObjectOK->test },
-    '03_ExceptionEvalOK'             => sub { My::ExceptionEvalOK->test },
-    '04_ExceptionTryOK'              => sub { My::ExceptionTryOK->test },
-    '05_Exception1EvalOK'            => sub { My::Exception1EvalOK->test },
-    '06_Exception1TryOK'             => sub { My::Exception1TryOK->test },
+    '01_EvalDieScalar'             => sub { My::EvalDieScalar->test },
+    '02_EvalDieObject'             => sub { My::EvalDieObject->test },
+    '03_ExceptionEval'             => sub { My::ExceptionEval->test },
+    '04_ExceptionTry'              => sub { My::ExceptionTry->test },
+    '05_Exception1Eval'            => sub { My::Exception1Eval->test },
+    '06_Exception1Try'             => sub { My::Exception1Try->test },
 );
-$tests{'07_ErrorOK'}                  = sub { My::ErrorOK->test }                if eval { Error->VERSION };
-$tests{'08_ExceptionClassOK'}         = sub { My::ExceptionClassOK->test }       if eval { Exception::Class->VERSION };
-$tests{'09_ExceptionClassTCOK'}       = sub { My::ExceptionClassTCOK->test }     if eval { Exception::Class::TryCatch->VERSION };
-$tests{'10_ClassThrowableOK'}         = sub { My::ClassThrowableOK->test }       if eval { Class::Throwable->VERSION };
+$tests{'07_Error'}                  = sub { My::Error->test }                if eval { Error->VERSION };
+$tests{'08_ClassThrowable'}         = sub { My::ClassThrowable->test }       if eval { Class::Throwable->VERSION };
+$tests{'09_ExceptionClass'}         = sub { My::ExceptionClass->test }       if eval { Exception::Class->VERSION };
+$tests{'10_ExceptionClassTC'}       = sub { My::ExceptionClassTC->test }     if eval { Exception::Class::TryCatch->VERSION };
 
-my $result = timethese(-1, { %tests });
+print "Benchmark for ", (My::Common::throw_something ? "FAIL" : "OK"), "\n";
+#foreach (keys %tests) {
+#    printf "%s = %d\n", $_, $tests{$_}->();
+#}
+my $result = timethese($ARGV[0] || -1, { %tests });
 cmpthese($result);

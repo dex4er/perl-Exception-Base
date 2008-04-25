@@ -5,12 +5,11 @@ use Exception::Base ':all';
 
 use Exception::Died;
 
-my $n = 0;
-
 foreach (1..10000) {
     eval { Exception::Base->throw(message=>'Message') };
-    if (my $e = $@) {
-        if ($e->isa('Exception::Base') and $e->with('Message')) { $n++; }
+    if ($@) {
+	my $e = $@;
+        if ($e->isa('Exception::Base') and $e->with('Message')) { 1; }
     }
 }
 
