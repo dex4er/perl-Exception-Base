@@ -413,8 +413,8 @@ sub throw (;$@) {
 
     # propagate old exception
     if (ref $old and do { local $@; local $SIG{__DIE__}; eval { $old->isa(__PACKAGE__) } }) {
-        $@ = $old;
-        die;
+        $self->_propagate;
+        die $self;
     }
 
     # throw pure eval error
@@ -422,6 +422,37 @@ sub throw (;$@) {
     my $e = $class->new(@_);
     $e->{eval_error} = $old;
     die $e;
+}
+
+
+# Propagate exception if it is rethrown
+sub _propagate {
+    my ($self) = @_;
+
+    my $ignore_level = defined $self->{ignore_level}
+                     ? $self->{ignore_level}
+                     : defined $self->{defaults}->{ignore_level}
+                       ? $self->{defaults}->{ignore_level}
+                       : 0;
+
+    # Fill propagated stack
+    my $level = 1;
+    while (my @c = caller($level++)) {
+            # Skip own package
+            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
+            # Skip ignored package
+            next if $self->_skip_ignored_package($c[0]);
+            # Skip ignored levels
+            if ($ignore_level > 0) {
+                $ignore_level --;
+                next;
+            }
+            # Collect the caller stack
+            push @{ $self->{propagated_stack} }, [ $c[1], $c[2] ];
+            last;
+    }
+
+    return $self;
 }
 
 
@@ -667,37 +698,10 @@ sub _caller_backtrace {
                        ? $self->{defaults}->{ignore_level}
                        : 0;
 
-    my $ignore_package = defined $self->{ignore_package}
-                     ? $self->{ignore_package}
-                     : $self->{defaults}->{ignore_package};
-
-    my $ignore_class = defined $self->{ignore_class}
-                     ? $self->{ignore_class}
-                     : $self->{defaults}->{ignore_class};
-
     # Skip some packages for first line
     my $level = 0;
     while (my %c = $self->_caller_info($level++)) {
-        if (defined $ignore_package) {
-            if (ref $ignore_package eq 'ARRAY') {
-                if (@{ $ignore_package }) {
-                    next if grep { ref $_ eq 'Regexp' ? $c{package} =~ $_ : $c{package} eq $_ } @{ $ignore_package };
-                }
-            }
-            else {
-                next if ref $ignore_package eq 'Regexp' ? $c{package} =~ $ignore_package : $c{package} eq $ignore_package;
-            }
-        }
-        if (defined $ignore_class) {
-            if (ref $ignore_class eq 'ARRAY') {
-                if (@{ $ignore_class }) {
-                    next if grep { do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($_) } } } @{ $ignore_class };
-                }
-            }
-            else {
-                next if do { local $@; local $SIG{__DIE__}; eval { $c{package}->isa($ignore_class) } };
-            }
-        }
+        next if $self->_skip_ignored_package($c{package});
         # Skip ignored levels
         if ($ignore_level > 0) {
             $ignore_level --;
@@ -736,6 +740,43 @@ sub _propagated_backtrace {
 
     return $message;
 }
+
+# Check if package should be ignored
+sub _skip_ignored_package {
+    my ($self, $package) = @_;
+
+    my $ignore_package = defined $self->{ignore_package}
+                     ? $self->{ignore_package}
+                     : $self->{defaults}->{ignore_package};
+
+    my $ignore_class = defined $self->{ignore_class}
+                     ? $self->{ignore_class}
+                     : $self->{defaults}->{ignore_class};
+
+    if (defined $ignore_package) {
+        if (ref $ignore_package eq 'ARRAY') {
+            if (@{ $ignore_package }) {
+                return 1 if grep { ref $_ eq 'Regexp' ? $package =~ $_ : $package eq $_ } @{ $ignore_package };
+            }
+        }
+        else {
+            return 1 if ref $ignore_package eq 'Regexp' ? $package =~ $ignore_package : $package eq $ignore_package;
+        }
+    }
+    if (defined $ignore_class) {
+        if (ref $ignore_class eq 'ARRAY') {
+            if (@{ $ignore_class }) {
+                return 1 if grep { do { local $@; local $SIG{__DIE__}; eval { $package->isa($_) } } } @{ $ignore_class };
+            }
+        }
+        else {
+            return 1 if do { local $@; local $SIG{__DIE__}; eval { $package->isa($ignore_class) } };
+        }
+    }
+    
+    return 0;
+}
+
 
 # Return info about caller. Stolen from Carp
 sub _caller_info {
@@ -962,27 +1003,15 @@ sub _make_caller_info_accessors {
 }
 
 
-sub PROPAGATE {
-    my ($self) = @_;
-
-    # Fill propagated stack
-    my $level = 1;
-    while (my @c = caller($level++)) {
-            # Skip own package
-            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
-            # Collect the caller stack
-            push @{ $self->{propagated_stack} }, [ $c[1], $c[2] ];
-            last;
-    }
-
-    return $self;
-}
-
-
-INIT: {
+# Module initialization
+sub __init {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
+    *PROPAGATE = \&_propagate;
 }
+
+
+BEGIN { __init }
 
 
 1;
