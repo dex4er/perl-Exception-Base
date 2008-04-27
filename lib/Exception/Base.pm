@@ -25,8 +25,7 @@ Exception::Base - Lightweight exceptions
   # try / catch
   try eval {
     do_something() or throw 'Exception::FileNotFound' =>
-                            message=>'Something wrong',
-                            tag=>'something';
+                            message=>'Something wrong';
   };
   # Catch the Exception::Base and derived, rethrow immediately others
   if (catch my $e) {
@@ -34,7 +33,7 @@ Exception::Base - Lightweight exceptions
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->with(tag=>'something')) { warn "something happened"; }
+    elsif ($e->with(value=>9)) { warn "something happened"; }
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
@@ -107,11 +106,7 @@ the thrown exception
 
 =item *
 
-the exception can be created with defined custom properties
-
-=item *
-
-matching the exception by class, message or custom properties
+matching the exception by class, message or other attributes
 
 =item *
 
@@ -157,7 +152,6 @@ use overload 'bool'   => sub () { 1; },
 
 # List of class attributes (name => {is=>ro|rw, default=>value})
 use constant ATTRS => {
-    properties       => { },
     defaults         => { },
     message          => { is => 'rw', default => 'Unknown exception' },
     value            => { is => 'rw', default => 0 },
@@ -274,7 +268,7 @@ sub import {
                     # Create the hash with overriden attributes
                     my %overriden_attributes;
                     foreach my $attribute (keys %{ $param }) {
-                        next if $attribute =~ /^(isa|version)$/;
+                        next if $attribute =~ /^(isa|version|has)$/;
                         if (not exists $attributes->{$attribute}->{default}) {
                             Exception::Base->throw(
                                   message => "$isa class does not implement default value for $attribute attribute",
@@ -366,16 +360,12 @@ sub new {
 
     my $self = {};
 
-    # If the attribute is rw, initialize its value. Otherwise: properties.
+    # If the attribute is rw, initialize its value. Otherwise: ignore.
     no warnings 'uninitialized';
     my %args = @_;
-    $self->{properties} = {};
     foreach my $key (keys %args) {
         if ($attributes->{$key}->{is} eq 'rw') {
             $self->{$key} = $args{$key};
-        }
-        else {
-            $self->{properties}->{$key} = $args{$key};
         }
     }
 
@@ -421,27 +411,13 @@ sub throw (;$@) {
         $old = $self;
     }
 
-    # check if $old is an exception
+    # propagate old exception
     if (ref $old and do { local $@; local $SIG{__DIE__}; eval { $old->isa(__PACKAGE__) } }) {
-        no warnings 'uninitialized';
-        my %args = @_;
-        my $attributes = $self->ATTRS;
-        foreach my $key (keys %args) {
-            if ($attributes->{$key}->{is} eq 'rw') {
-                $old->{$key} = $args{$key};
-            }
-            else {
-                $old->{properties}->{$key} = $args{$key};
-            }
-        }
-        if (ref $old ne $class) {
-            # rebless if this is new class
-            bless $old => $class;
-        }
-        die $old;
+        $@ = $old;
+        die;
     }
 
-    # rethrow pure eval error
+    # throw pure eval error
     $old =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
     my $e = $class->new(@_);
     $e->{eval_error} = $old;
@@ -480,11 +456,10 @@ sub stringify {
         $string = $message . "\n";
     }
     elsif ($verbosity == 2) {
-        my $file = $self->file;
         $string = sprintf "%s at %s line %d.\n",
             $message,
-            defined $file && $file ne '' ? $file : 'unknown',
-            $self->line || 0;
+            defined $self->{file} && $self->{file} ne '' ? $self->{file} : 'unknown',
+            $self->{line} || 0;
         $string .= $self->_propagated_backtrace($verbosity);
     }
     elsif ($verbosity >= 3) {
@@ -501,17 +476,17 @@ sub stringify {
 
 
 # Stringify for overloaded operator
-sub _numerify {
-    return + $_[0]->{value};
-}
-
-
-# Stringify for overloaded operator
 sub _stringify {
     # return simple message if die signal was modified
     return $_[0]->{message} eq "" ? 'Died' : $_[0]->{message} if $SIG{__DIE__};
     # otherwise return standard stringify
     return $_[0]->stringify;
+}
+
+
+# Numerify for overloaded operator
+sub _numerify {
+    return + $_[0]->{value};
 }
 
 
@@ -547,34 +522,23 @@ sub with {
     my %args = @_;
     while (my($key,$val) = each %args) {
         return 0 if not defined $val and
-            defined $self->{properties}->{$key} || exists $self->{$key} && defined $self->{$key};
+            exists $self->{$key} && defined $self->{$key};
 
         return 0 if defined $val and not
-            defined $self->{properties}->{$key} || exists $self->{$key} && defined $self->{$key};
+            exists $self->{$key} && defined $self->{$key};
 
-        if (defined $val and
-            defined $self->{properties}->{$key} || exists $self->{$key} && defined $self->{$key})
-        {
+        if (defined $val and exists $self->{$key} && defined $self->{$key}) {
             if (ref $val eq 'CODE') {
-                if (defined $self->{properties}->{$key}) {
-                    $_ = $self->{properties}->{$key};
-                    next if &$val;
-                }
                 return 0 unless exists $self->{$key} and defined $self->{$key};
                 $_ = $self->{$key};
                 return 0 if not &$val;
             }
             elsif (ref $val eq 'Regexp') {
-                if (defined $self->{properties}->{$key}) {
-                    $_ = $self->{properties}->{$key};
-                    next if /$val/;
-                }
                 return 0 unless exists $self->{$key} and defined $self->{$key};
                 $_ = $self->{$key};
                 return 0 if not /$val/;
             }
             else {
-                next if defined $self->{properties}->{$key} and $self->{properties}->{$key} eq $val;
                 return 0 unless exists $self->{$key} and defined $self->{$key};
                 return 0 if $self->{$key} ne $val;
             }
@@ -999,8 +963,18 @@ sub _make_caller_info_accessors {
 
 
 sub PROPAGATE {
-    my ($self, $line, $file) = @_;
-    push @{ $self->{propagated_stack} }, [ $line, $file ];
+    my ($self) = @_;
+
+    # Fill propagated stack
+    my $level = 1;
+    while (my @c = caller($level++)) {
+            # Skip own package
+            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
+            # Collect the caller stack
+            push @{ $self->{propagated_stack} }, [ $c[1], $c[2] ];
+            last;
+    }
+
     return $self;
 }
 
@@ -1166,8 +1140,7 @@ defined.
 =back
 
 The read-write attributes can be set with B<new> constructor.  Read-only
-attributes are modified by L<Exception::Base> class itself and arguments for
-B<new> constructor will be stored in B<properties> attribute.
+attributes and unknown attributes are ignored.
 
 The constant have to be defined in derivered class if it brings additional
 attributes.
@@ -1179,19 +1152,18 @@ attributes.
   # Define new class attributes
   use constant ATTRS => {
     %{Exception::Base->ATTRS},       # base's attributes have to be first
-    readonly  => { is=>'ro', default=>'value' },  # new ro attribute
-    readwrite => { is=>'rw' },                    # new rw attribute
+    readonly  => { is=>'ro' },                   # new ro attribute
+    readwrite => { is=>'rw', default=>'blah' },  # new rw attribute
   };
 
   package main;
   use Exception::Base ':all';
   try eval {
-    throw 'Exception::My' => readonly=>1, readwrite=>2;
+    throw 'Exception::My' => readwrite=>2;
   };
   if (catch my $e) {
     print $e->{readwrite};                # = 2
-    print $e->{properties}->{readonly};   # = 1
-    print $e->{defaults}->{readwrite};    # = "value"
+    print $e->{defaults}->{readwrite};    # = "blah"
   }
 
 =back
@@ -1208,16 +1180,9 @@ are also available as accessors methods.
 Contains the message of the exception.  It is the part of the string
 representing the exception object.
 
-  eval { Exception::Base->throw(message=>"Message", tag=>"TAG"); };
+  eval { Exception::Base->throw(message=>"Message"); };
   print $@->{message} if $@;
 
-=item properties (ro)
-
-Contains the additional properies of the exception.  They can be later used
-with "with" method.
-
-  eval { Exception::Base->throw(message=>"Message", tag=>"TAG"); };
-  print $@->{properties}->{tag} if $@;
 
 =item verbosity (rw, default: 2)
 
@@ -1427,14 +1392,13 @@ attributes like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not
 filled.
 
 If the key of the argument is read-write attribute, this attribute will be
-filled. Otherwise, the properties attribute will be used.
+filled. Otherwise, the argument will be ignored.
 
   $e = Exception::Base->new(
            message=>"Houston, we have a problem",
-           tag => "BIG"
+           unknown_attr => "BIG"
        );
   print $e->{message};
-  print $e->{properties}->{tag};
 
 The constructor reads the list of class attributes from ATTRS constant
 function and stores it in the internal cache for performance reason.  The
@@ -1468,8 +1432,8 @@ existing exception object.
   # (...)
   $e->throw(message=>"thrown exception with overriden message");
 
-  eval { Exception::Base->throw(message=>"Problem", fatal=>1) };
-  $@->throw if $@->properties->{fatal};
+  eval { Exception::Base->throw(message=>"Problem", value=>1) };
+  $@->throw if $@->{value};
 
 =item throw($I<exception>, [%I<args>])
 
@@ -1498,18 +1462,16 @@ method.
 
 Checks if the exception object matches the given condition.  If the first
 argument is single value, the B<message> attribute will be matched.  If the
-argument is a part of hash, the B<properties> attribute will be matched or the
-attribute of the exception object if the B<properties> attribute is not
-defined.
+argument is a part of hash, an attribute of the exception object will be
+matched.
 
   $e->with("message");
-  $e->with(tag=>"property");
-  $e->with("message", tag=>"and the property");
-  $e->with(tag1=>"property", tag2=>"another property");
+  $e->with(value=>123);
+  $e->with("message", value=>45);
   $e->with(uid=>0);
-  $e->with(message=>'$e->{properties}->{message} or $e->{message}');
+  $e->with(message=>'$e->{message}');
 
-The argument (for message or properties) can be simple string or code
+The argument (for message or attributes) can be simple string or code
 reference or regexp.
 
   $e->with("message");

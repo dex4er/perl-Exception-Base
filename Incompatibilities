@@ -19,6 +19,21 @@
     myattr   => { is => 'rw' },
   };
 
+* An unknown attribute will be ignored instead to be part of properties
+  attribute.  You can create additional exception class which supports these
+  attributes.
+  
+  Was:
+  
+  Exception::Base->throw(tag => 1, myattr => 2);
+  $@->with(tag => 1);
+
+  Should be:
+  
+  use Exception::Base 'Exception::My' => { has => [ 'tag', 'myattr' ] };
+  Exception::My->throw(tag => 1, myattr => 2);
+  $@->with(tag => 1);
+
 ------------------------------------------------------------------------
 0.14 -> 0.15
 

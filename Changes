@@ -14,6 +14,8 @@ Changes:
 * The default verbosity for stringification of exception object is 0.
 * The FIELD constant renamed to ATTRS as far as every OO language calls it
   attributes.
+* An unknown attribute will be ignored instead to be part of properties
+  attribute.
 
 ------------------------------------------------------------------------
 0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
