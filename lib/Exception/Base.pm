@@ -155,7 +155,6 @@ use constant ATTRS => {
     defaults         => { },
     message          => { is => 'rw', default => 'Unknown exception' },
     value            => { is => 'rw', default => 0 },
-    eval_error       => { is => 'ro' },
     caller_stack     => { is => 'ro' },
     propagated_stack => { is => 'ro' },
     egid             => { is => 'ro' },
@@ -269,12 +268,12 @@ sub import {
 
                     # Create the hash with overriden attributes
                     my %overriden_attributes;
-		    # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
+                    # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
                     foreach my $attribute (@{ $has }) {
                         next if $attribute =~ /^(isa|version|has)$/;
                         $overriden_attributes{$attribute} = { is => 'rw' };
                     }
-		    # Class => { message => "overriden default", ... }
+                    # Class => { message => "overriden default", ... }
                     foreach my $attribute (keys %{ $param }) {
                         next if $attribute =~ /^(isa|version|has)$/;
                         if (not exists $attributes->{$attribute}->{default}) {
@@ -393,27 +392,46 @@ sub new {
 sub throw (;$@) {
     my $self = shift;
 
+    $self = __PACKAGE__ if not defined $self;
+    my $class = ref $self ? ref $self : $self;
     my $old;
 
-    $self = __PACKAGE__ if not defined $self;
-
-    my $class = ref $self;
     if (not ref $self) {
-        # throw new exception
-        if (scalar @_ % 2 == 0) {
-	    # throw normal error
-	    die $self->new(@_);
+        if (not ref $_[0]) {
+            # Throw new exception
+            if (scalar @_ % 2 == 0) {
+                # Throw normal error
+                die $self->new(@_);
+            }
+            else {
+                # First argument is a message
+                my $message = shift;
+                die $self->new(@_, message => $message);
+            }
         }
         else {
-	    # first argument is a message
-	    my $message = shift;
-	    die $self->new(@_, message => $message);
+            $old = shift;
         }
     }
+    else {
+        $old = $self;
+    }
 
-    # propagate old exception
-    $self->_propagate;
-    die $self;
+    # Rethrow old exception with replaced attributes
+    no warnings 'uninitialized';
+    my %args = @_;
+    my $attrs = $old->ATTRS;
+    foreach my $key (keys %args) {
+        if ($attrs->{$key}->{is} eq 'rw') {
+            $old->{$key} = $args{$key};
+        }
+    }
+    $old->_propagate;
+    if (ref $old ne $class) {
+        # Rebless for new class
+        bless $old => $class;
+    }
+    die $old;
 }
 
 
@@ -462,18 +480,7 @@ sub stringify {
     my $string;
 
     $message = $self->{message} if not defined $message;
-
-    my $is_message = defined $message && $message ne '';
-    my $is_eval_error = $self->{eval_error};
-
-    if ($is_message or $is_eval_error) {
-        $message = ($is_message ? $message : '')
-                . ($is_message && $is_eval_error ? ': ' : '')
-                . ($is_eval_error ? $self->{eval_error} : '');
-    }
-    else {
-        $message = $self->{defaults}->{message};
-    }
+    $message = $self->{defaults}->{message} if not defined $message or $message eq '';
 
     if ($verbosity == 1) {
         $string = $message . "\n";
@@ -607,9 +614,8 @@ sub catch (;$$) {
     }
     else {
         # New exception based on error from $@. Clean up the message.
-        $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-        $e = $class->new;
-        $e->{eval_error} = $e_from_stack;
+        $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)\n$//s;
+        $e = $class->new(message => $e_from_stack);
     }
 
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
@@ -658,13 +664,6 @@ sub _collect_system_data {
             last if $verbosity < 3;
         }
         $self->{caller_stack} = \@caller_stack;
-    }
-
-    # Collect eval error if it is a simple string
-    if (not ref $@) {
-        my $e = $@;
-        $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-        $self->{eval_error} = $e;
     }
 
     return $self;
@@ -765,7 +764,7 @@ sub _skip_ignored_package {
             return 1 if do { local $@; local $SIG{__DIE__}; eval { $package->isa($ignore_class) } };
         }
     }
-    
+
     return 0;
 }
 

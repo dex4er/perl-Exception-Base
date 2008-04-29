@@ -16,6 +16,8 @@ Changes:
   attributes.
 * An unknown attribute will be ignored instead to be part of properties
   attribute.
+* Removed eval_error attribute.  Only catch() converts "$@" string into message
+  attribute.
 
 ------------------------------------------------------------------------
 0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19

@@ -34,6 +34,9 @@
   Exception::My->throw(tag => 1, myattr => 2);
   $@->with(tag => 1);
 
+* Removed eval_error attribute.  Only catch() converts "$@" string into message
+  attribute.
+
 ------------------------------------------------------------------------
 0.14 -> 0.15
 
