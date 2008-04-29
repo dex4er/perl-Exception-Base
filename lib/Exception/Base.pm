@@ -401,35 +401,19 @@ sub throw (;$@) {
     if (not ref $self) {
         # throw new exception
         if (scalar @_ % 2 == 0) {
-            # throw new exception if there was no error
-            die $self->new(@_) if not $@;
-            # otherwise collect pure eval error message
-            $class = $self;
-            $old = $@;
+	    # throw normal error
+	    die $self->new(@_);
         }
         else {
-            # rethrow old exception
-            $class = $self;
-            $old = shift @_;
+	    # first argument is a message
+	    my $message = shift;
+	    die $self->new(@_, message => $message);
         }
-    }
-    else {
-        # rethrow old exception
-        $class = ref $self;
-        $old = $self;
     }
 
     # propagate old exception
-    if (ref $old and do { local $@; local $SIG{__DIE__}; eval { $old->isa(__PACKAGE__) } }) {
-        $self->_propagate;
-        die $self;
-    }
-
-    # throw pure eval error
-    $old =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-    my $e = $class->new(@_);
-    $e->{eval_error} = $old;
-    die $e;
+    $self->_propagate;
+    die $self;
 }
 
 
@@ -676,7 +660,7 @@ sub _collect_system_data {
         $self->{caller_stack} = \@caller_stack;
     }
 
-    # Collect eval error string
+    # Collect eval error if it is a simple string
     if (not ref $@) {
         my $e = $@;
         $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
