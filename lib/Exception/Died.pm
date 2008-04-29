@@ -9,14 +9,14 @@ sub __DIE__ {
 	else {
 	    my $old = $_[0];
 	    $old =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-	    my $e = Exception::Died->new();
-	    $e->{eval_error} = $old;
+	    my $e = Exception::Died->new(message => $old);
 	    die $e->stringify;
 	}
     }
     if (not ref $_[0]) {
-	$@ = $_[0];
-	Exception::Died->throw;
+        my $old = $_[0];
+        $old =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
+        Exception::Died->throw(message => $old);
     }
     die $_[0];
 }
