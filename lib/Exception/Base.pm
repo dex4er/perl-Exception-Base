@@ -241,6 +241,8 @@ sub import {
                     }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
                     $version = 0.01 if not $version;
+                    my $has = defined $param->{has} ? $param->{has} : [ ];
+                    $has = [ $has ] if ref $has ne 'ARRAY';
 
                     # Base class is needed
                     {
@@ -267,11 +269,17 @@ sub import {
 
                     # Create the hash with overriden attributes
                     my %overriden_attributes;
+		    # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
+                    foreach my $attribute (@{ $has }) {
+                        next if $attribute =~ /^(isa|version|has)$/;
+                        $overriden_attributes{$attribute} = { is => 'rw' };
+                    }
+		    # Class => { message => "overriden default", ... }
                     foreach my $attribute (keys %{ $param }) {
                         next if $attribute =~ /^(isa|version|has)$/;
                         if (not exists $attributes->{$attribute}->{default}) {
                             Exception::Base->throw(
-                                  message => "$isa class does not implement default value for $attribute attribute",
+                                  message => "$isa class does not implement default value for `$attribute' attribute",
                                   verbosity => 1
                             );
                         }
@@ -889,7 +897,7 @@ sub _modify_default_value {
 
     if (not exists $attributes->{$key}->{default}) {
         Exception::Base->throw(
-              message => "$class class does not implement default value for $key attribute",
+              message => "$class class does not implement default value for `$key' attribute",
               verbosity => 1
         );
     }
