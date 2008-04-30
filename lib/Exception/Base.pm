@@ -12,6 +12,7 @@ Exception::Base - Lightweight exceptions
 
   # Use module and create needed exceptions
   use Exception::Base
+     ':all',                            # import try/catch/throw
      'Exception::Runtime',              # create new module
      'Exception::System',               # load existing module
      'Exception::IO',          => {
@@ -21,17 +22,16 @@ Exception::Base - Lightweight exceptions
          message => 'File not found',   # override default message
          has => [ 'filename' ] };       # define new rw attribute
 
-  # eval / if (fastest method)
-  use Scalar::Util 'blessed';   # need blessed()
+  # eval/$@ (fastest method)
   eval {
     open my $file, '/etc/passwd'
       or Exception::FileNotFound->throw(
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
-  # Check if it is real exception
-  if ($@ and blessed $@ and $@->isa('Exception::Base')) {  
-    my $e = $@;             # must use temporary variable
+  if ($@) {  
+    catch my $e;   # catch returns an object because $@ is true
+    # $e is an exception object so no need to check if is blessed
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
@@ -40,7 +40,7 @@ Exception::Base - Lightweight exceptions
     else { $e->throw; } # rethrow the exception
   }
 
-  # try / catch (15x slower method)
+  # try/catch (15x slower method)
   use Exception::Base ':all';   # need try(), catch() and throw()
   try eval {
     open my $file, '/etc/passwd'
@@ -48,9 +48,8 @@ Exception::Base - Lightweight exceptions
                     message=>'Something wrong',
                     filename=>'/etc/passwd';
   };
-  # Catch the Exception::Base and derived, rethrow immediately others
   if (catch my $e) {
-    # $e is an exception object for sure, no need to check if is blessed
+    # $e is an exception object so no need to check if is blessed
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
@@ -58,6 +57,11 @@ Exception::Base - Lightweight exceptions
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
+
+  # try/catch can be separated with another eval
+  try eval { die "this die will be caught" };
+  eval { die "this die will be simply ignored" };
+  catch my $e;   # the first die is recovered
 
   # the exception can be thrown later
   my $e = Exception::Base->new;
@@ -89,7 +93,7 @@ L<Exception::Class> or L<Class::Throwable>.  It does not depend on other
 modules like L<Exception::Class> and it is more powerful than
 L<Class::Throwable>.  Also it does not use closures as L<Error> and does not
 polute namespace as L<Exception::Class::TryCatch>.  It is also much faster
-than L<Exception::Class>.
+than L<Exception::Class> and L<Error>.
 
 The features of L<Exception::Base>:
 
@@ -97,7 +101,7 @@ The features of L<Exception::Base>:
 
 =item *
 
-fast implementation of an exception object
+fast implementation of the exception class
 
 =item *
 
@@ -135,6 +139,14 @@ creating automatically the derived exception classes ("use" interface)
 =item *
 
 easly expendable, see L<Exception::System> class for example
+
+=item *
+
+prints just an error message or dumps full stack trace
+
+=item *
+
+can propagate (rethrow) an exception
 
 =back
 
@@ -338,7 +350,7 @@ sub unimport {
         if ($name eq ':all') {
             unshift @export, @EXPORT_OK;
         }
-        elsif ($name eq 'try' or $name eq 'catch' or $name eq 'throw') {
+        elsif ($name =~ /^(try|catch|throw)$/) {
             if (defined *{Symbol::fetch_glob($callpkg . '::' . $name)}{CODE}) {
                 # Store and restore other typeglobs than CODE
                 my %glob;
@@ -461,7 +473,7 @@ sub _propagate {
                        ? $self->{defaults}->{ignore_level}
                        : 0;
 
-    # Fill propagated stack
+    # Fill propagate stack
     my $level = 1;
     while (my @c = caller($level++)) {
             # Skip own package
@@ -514,7 +526,7 @@ sub stringify {
         $string .= $self->_propagated_backtrace;
     }
     else {
-        $string = q{};
+        $string = "";
     }
 
     return $string;
@@ -1030,7 +1042,7 @@ sub __init {
 }
 
 
-BEGIN { __init }
+__init;
 
 
 1;
@@ -1052,7 +1064,8 @@ Exports the B<catch>, B<try> and B<throw> functions to the caller namespace.
 
 =item use Exception::Base ':all';
 
-Exports all available symbols to the caller namespace.
+Exports all available symbols to the caller namespace (B<catch>, B<try> and
+B<throw>).
 
 =item use Exception::Base 'I<attribute>' => I<value>;
 
@@ -1118,6 +1131,11 @@ The newly created class will be based on given class.
 The class will be created only if the module's version is lower than given
 parameter and will have the version given in the argument.
 
+=item has
+
+The class will contain new rw attibute (if parameter is a string) or
+attributes (if parameter is a reference to array of strings).
+
 =item message
 
 =item verbosity
@@ -1137,10 +1155,11 @@ The class will have the default property for the given attribute.
   use Exception::Base
     'try', 'catch',
     'Exception::IO',
-    'Exception::FileNotFound' => { isa => 'Exception::IO' },
+    'Exception::FileNotFound' => { isa => 'Exception::IO',
+                                   has => [ 'filename' ] },
     'Exception::My' => { version => 0.2 },
     'Exception::WithDefault' => { message => 'Default message' };
-  try eval { Exception::FileNotFound->throw; };
+  try eval { Exception::FileNotFound->throw( filename=>"/foo/bar" ); };
   if (catch my $e) {
     if ($e->isa('Exception::IO')) { warn "can be also FileNotFound"; }
     if ($e->isa('Exception::My')) { print $e->VERSION; }
@@ -1231,6 +1250,13 @@ representing the exception object.
   eval { Exception::Base->throw(message=>"Message"); };
   print $@->{message} if $@;
 
+=item value (rw, default: 0)
+
+Contains the value which represents numeric value of the exception object in
+numeric context.
+
+  eval { Exception::Base->throw(value=>2); };
+  print "Error 2" if $@ == 2;
 
 =item verbosity (rw, default: 2)
 
@@ -1259,17 +1285,18 @@ option.
 
  Class: Message at %s line %d
          %c_ = %s::%s() called in package %s at %s line %d
+         ...propagated at %s line %d.
  ...
 
 The output contains full trace of error stack without first B<ignore_level>
 lines and those packages which are listed in B<ignore_package> and
 B<ignore_class> settings.
 
-=item 3
+=item 4
 
-The output contains full trace of error stack. In this case the
+The output contains full trace of error stack.  In this case the
 B<ignore_level>, B<ignore_package> and B<ignore_class> settings are meaning
-only for first line of exception's message.  The
+only for first line of exception's message.
 
 =back
 
@@ -1334,20 +1361,6 @@ trace.  It can be used with or without I<ignore_package> attribute.
     Exception::Warning->throw(message => $_[0], ignore_level => 1)
   };
 
-=item eval_error (ro)
-
-Contains the original eval error message if the exception was rethrown from
-B<$@> variable.  This message will be displayed as a part of
-L<Exception::Base> message.  The I<eval_error> has line number, file name and
-line-feed (\n) removed from its message.
-
-  try eval {
-    eval { $a = $b = 0; $c = $a / $b };
-    Exception::Base->throw;
-  };
-  catch my $e;
-  print $e->eval_error;
-
 =item time (ro)
 
 Contains the timestamp of the thrown exception.  Collected if the verbosity on
@@ -1394,6 +1407,11 @@ caller stack if the verbosity was lower than 3.
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
   $evaltext, $is_require, @args) = $@->{caller_stack}->[0];
 
+=item propagated_stack (ro)
+
+Contains the array of "file, line" pairs which are used for generating
+"...propagated at" message.
+
 =item max_arg_len (rw, default: 64)
 
 Contains the maximal length of argument for functions in backtrace output.
@@ -1429,6 +1447,25 @@ Meta-attribute contains the list of default values.
 
 =back
 
+=head1 OVERLOADS
+
+The object returns:
+
+=over
+
+=item Boolean context
+
+True value.
+
+=item Numeric context
+
+Content of B<value> attribute.
+
+=item String context
+
+The B<message> attribute if the B<$SIG{__DIE__}> handler is set or value
+returned from B<stringify> method if B<$SIG{__DIE__}> is unmodified.
+
 =head1 CONSTRUCTORS
 
 =over
@@ -1454,15 +1491,18 @@ defaults values for the class are also stored in internal cache.
 
 =item throw([%I<args>]])
 
-Creates the exception object and immediately throws it with die() function.
+Creates the exception object and immediately throws it with B<die> system
+function.
 
   open FILE, $file
     or Exception::Base->throw(message=>"Can not open file: $file");
 
-This method is also exported as a function.
+The B<throw> is also exported as a function.
 
   open FILE, $file
     or throw 'Exception::Base' => message=>"Can not open file: $file";
+
+The B<throw> can be also used as a method.
 
 =back
 
@@ -1483,7 +1523,14 @@ existing exception object.
   eval { Exception::Base->throw(message=>"Problem", value=>1) };
   $@->throw if $@->{value};
 
-=item throw($I<exception>, [%I<args>])
+=item throw(I<message>, [%I<args>])
+
+If the number of I<args> list for arguments is odd, the first argument is a
+message.  This message is more important than the attribute from I<args> list.
+
+  Exception::Base->throw("Problem", message=>"ignored message");
+
+=item I<CLASS>-E<gt>throw($I<exception>, [%I<args>])
 
 Immediately rethrows an existing exception object as an other exception class.
 
@@ -1530,11 +1577,11 @@ reference or regexp.
 
 The B<try> method or function can be used with eval block as argument.  Then
 the eval's error is pushed into error stack and can be used with B<catch>
-later.
+later.  Then the B<$@> variable is replaced with empty string.
 
-  Exception::Base->try(eval { Exception::Base->throw; });
+  try eval { Exception::Base->throw; };
   eval { die "another error messing with \$@ variable"; };
-  Exception::Base->catch(my $e);
+  catch my $e;
 
 The B<try> returns the value of the argument in scalar context.  If the
 argument is array reference, the B<try> returns the value of the argument in
@@ -1553,7 +1600,7 @@ The B<try> can be used as method or function.
   };
   Exception::Base->import('try');
   try eval {
-    Exception::Base->throw(message=>"exported function");
+    Exception::Base->throw(message=>"imported function");
   };
 
 =item I<CLASS>->catch([$I<variable>])
@@ -1604,15 +1651,21 @@ then the I<CLASS> is Exception::Base by default.
   catch my $e;  # the same as Exception::Base->catch(my $e);
   print $e->stringify;
 
-=item I<CLASS>->catch([$I<variable>,] \@I<ExceptionClasses>)
+=item I<CLASS>-E<gt>catch([$I<variable>,] \@I<ExceptionClasses>)
 
-The exception is popped from error stack or returns undefined value if error
-stack is empty.  If the exception is not based on the I<CLASS> and is not
-based on one of the class from argument, the exception is thrown immediately.
+The exception is popped from error stack.  If error stack is empty then
+returns B<$@> variable and replaces it with empty string.
 
-  try eval { throw Exception::IO; }
+  try eval { throw Exception::IO; };
   catch 'Exception::Base', my $e, ['Exception::IO'];
   print "Only IO exception was caught: " . $e->stringify(1);
+
+If the exception is not based on the I<CLASS> and is not based on one of the
+class from argument, the new exception is thrown immediately with message set.
+
+  try eval { die "simple die"; };
+  catch my $e;        # simple die converted to the exception object
+  print $e->message;  # message is "simple die"
 
 =item package
 
@@ -1630,6 +1683,11 @@ Returns the line number for file of the subroutine which thrown an exception.
 
 Returns the subroutine name which thrown an exception.
 
+=item PROPAGATE
+
+Special handler which is called if B<die> function was used without
+parameters.  It is an alias to B<_propagate> method.
+
 =back
 
 =head1 PRIVATE METHODS
@@ -1638,9 +1696,9 @@ Returns the subroutine name which thrown an exception.
 
 =item _collect_system_data
 
-Collect system data and fill the attributes of exception object.  This method
-is called automatically if exception if thrown.  It can be used by derived
-class.
+Collects system data and fills the attributes of exception object.  This
+method is called automatically if exception if thrown.  It can be used by
+derived class.
 
   package Exception::Special;
   use base 'Exception::Base';
@@ -1661,12 +1719,18 @@ Method returns the reference to the self object.
 
 =item _make_accessors
 
-Create accessors for each attribute.  This static method should be called in each
-derived class which defines new attributes.
+Creates accessors for each attribute.  This static method should be called in
+each derived class which defines new attributes.
 
   package Exception::My;
   # (...)
   __PACKAGE__->_make_accessors;
+
+=item _propagate
+
+Checks the caller stack and fills the B<propagated_stack> attribute.  It is
+usually called by B<PROPAGATE> handler if B<die> system function was called
+without any arguments.
 
 =back
 
