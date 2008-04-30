@@ -46,8 +46,8 @@ BEGIN {
             Exception::My->throw(message=>'Message') if My::Common::throw_something;
         };
         if ($@) {
-            my $e = $@;
-            if (ref $e and $e->isa('Exception::My') and $e->with('Message')) {
+            catch my $e;
+            if ($e->isa('Exception::My') and $e->with('Message')) {
                 1;
             }
         }
@@ -77,8 +77,8 @@ BEGIN {
             Exception::My->throw(message=>'Message', verbosity=>1) if My::Common::throw_something;
         };
         if ($@) {
-            my $e = $@;
-            if (ref $e and $e->isa('Exception::My') and $e->with('Message')) {
+            catch my $e;
+            if ($e->isa('Exception::My') and $e->with('Message')) {
                 1;
             }
         }

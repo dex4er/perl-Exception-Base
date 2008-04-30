@@ -22,20 +22,34 @@
 * An unknown attribute will be ignored instead to be part of properties
   attribute.  You can create additional exception class which supports these
   attributes.
-  
+
   Was:
-  
+
   Exception::Base->throw(tag => 1, myattr => 2);
   $@->with(tag => 1);
 
   Should be:
-  
+
   use Exception::Base 'Exception::My' => { has => [ 'tag', 'myattr' ] };
   Exception::My->throw(tag => 1, myattr => 2);
   $@->with(tag => 1);
 
-* Removed eval_error attribute.  Only catch() converts "$@" string into message
-  attribute.
+* Removed eval_error attribute.  The catch method converts "$@" string into
+  an exception object with message attribute filled.
+
+  Was:
+
+  try eval { die "Message" };
+  if (catch my $e) {
+      print $e->eval_error;
+  }
+
+  Should be:
+
+  try eval { die "Message" };
+  if (catch my $e) {
+      print $e->message;
+  }
 
 ------------------------------------------------------------------------
 0.14 -> 0.15

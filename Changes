@@ -18,6 +18,8 @@ Changes:
   attribute.
 * Removed eval_error attribute.  Only catch() converts "$@" string into message
   attribute.
+* If the error stack is empty, the catch method recover $@ variable.
+* The try method clears $@ variable.
 
 ------------------------------------------------------------------------
 0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19

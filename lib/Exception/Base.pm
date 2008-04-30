@@ -602,7 +602,10 @@ sub try ($;$) {
 
     my ($v) = @_;
 
+    # Store $@ on stack and clear it
     push @Exception_Stack, $@;
+    $@ = '';
+
     return wantarray && ref $v eq 'ARRAY' ? @$v : $v;
 }
 
@@ -619,7 +622,16 @@ sub catch (;$$) {
     my $want_object = 1;
 
     my $e;
-    my $e_from_stack = @Exception_Stack ? pop @Exception_Stack : '';
+    my $e_from_stack;
+    if (@Exception_Stack) {
+        # Recover exception from stack
+	$e_from_stack = pop @Exception_Stack;
+    }
+    else {
+        # Recover exception from $@ and clear it
+        $e_from_stack = $@;
+        $@ = '';
+    }
     if (ref $e_from_stack and do { local $@; local $SIG{__DIE__}; eval { $e_from_stack->isa(__PACKAGE__) } }) {
         # Caught exception
         $e = $e_from_stack;
