@@ -11,21 +11,41 @@ Exception::Base - Lightweight exceptions
 =head1 SYNOPSIS
 
   # Use module and create needed exceptions
-  use Exception::Base (
-    ':all',                            # import try/catch/throw
-    'Exception::Runtime',              # create new module
-    'Exception::System',               # load existing module
-    'Exception::IO',          => {
-        isa => 'Exception::System' },  # create new based on existing
-    'Exception::FileNotFound' => {
-        message => 'File not found',
-        isa => 'Exception::IO' },      # create new based on new
-  );
+  use Exception::Base
+     'Exception::Runtime',              # create new module
+     'Exception::System',               # load existing module
+     'Exception::IO',          => {
+         isa => 'Exception::System' },  # create new based on existing
+     'Exception::FileNotFound' => {
+         isa => 'Exception::IO',        # create new based on previous
+         message => 'File not found',   # override default message
+         has => [ 'filename' ] };       # define new rw attribute
 
-  # try / catch
+  # eval / if (fastest method)
+  use Scalar::Util 'blessed';   # need blessed()
+  eval {
+    open $file, '/etc/passwd'
+      or Exception::FileNotFound->throw(
+            message=>'Something wrong',
+            filename=>'/etc/passwd');
+  };
+  if ($@ and blessed $@) {  # check if it is real exception
+    my $e = $@;             # must use temporary variable
+    if ($e->isa('Exception::IO')) { warn "IO problem"; }
+    elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
+    elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
+    elsif ($e->with(value=>9)) { warn "something happened"; }
+    elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
+    else { $e->throw; } # rethrow the exception
+  }
+
+  # try / catch (slower method)
+  use Exception::Base ':all';   # need try(), catch() and throw()
   try eval {
-    do_something() or throw 'Exception::FileNotFound' =>
-                            message=>'Something wrong';
+    open $file, '/etc/passwd'
+      or throw 'Exception::FileNotFound' =>
+                    message=>'Something wrong',
+                    filename=>'/etc/passwd';
   };
   # Catch the Exception::Base and derived, rethrow immediately others
   if (catch my $e) {
@@ -42,6 +62,8 @@ Exception::Base - Lightweight exceptions
   $e = Exception::Base->new;
   # (...)
   $e->throw;
+
+  # try/catch can be nested
 
   # try with array context
   @v = try [eval { do_something_returning_array(); }];
