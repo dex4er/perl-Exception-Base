@@ -24,12 +24,13 @@ Exception::Base - Lightweight exceptions
   # eval / if (fastest method)
   use Scalar::Util 'blessed';   # need blessed()
   eval {
-    open $file, '/etc/passwd'
+    open my $file, '/etc/passwd'
       or Exception::FileNotFound->throw(
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
-  if ($@ and blessed $@) {  # check if it is real exception
+  # Check if it is real exception
+  if ($@ and blessed $@ and $@->isa('Exception::Base')) {  
     my $e = $@;             # must use temporary variable
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
@@ -39,10 +40,10 @@ Exception::Base - Lightweight exceptions
     else { $e->throw; } # rethrow the exception
   }
 
-  # try / catch (slower method)
+  # try / catch (15x slower method)
   use Exception::Base ':all';   # need try(), catch() and throw()
   try eval {
-    open $file, '/etc/passwd'
+    open my $file, '/etc/passwd'
       or throw 'Exception::FileNotFound' =>
                     message=>'Something wrong',
                     filename=>'/etc/passwd';
@@ -59,11 +60,9 @@ Exception::Base - Lightweight exceptions
   }
 
   # the exception can be thrown later
-  $e = Exception::Base->new;
+  my $e = Exception::Base->new;
   # (...)
   $e->throw;
-
-  # try/catch can be nested
 
   # try with array context
   @v = try [eval { do_something_returning_array(); }];
@@ -76,17 +75,12 @@ Exception::Base - Lightweight exceptions
   try eval { die "Bang!\n" };
   catch my $e, [];
 
-  # don't use syntactic sugar
-  use Exception::Base;          # does not import ':all' tag
-  Exception::Base->try(eval {
-    Exception::IO->throw;
-  });
-  Exception::Base->catch(my $e);  # catch Exception::Base and derived
-  # or
-  Exception::IO->catch(my $e);    # catch IO errors and rethrow others
+  # ignore our package in stack trace
+  package My::Package;
+  use Exception::Base '+ignore_package' => __PACKAGE__;
 
   # run Perl with changed verbosity
-  sh$ perl -MException::Base=verbosity,4 script.pl
+  $ perl -MException::Base=verbosity,4 script.pl
 
 =head1 DESCRIPTION
 
