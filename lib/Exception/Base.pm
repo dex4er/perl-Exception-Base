@@ -523,8 +523,12 @@ sub stringify {
 
 # Stringify for overloaded operator
 sub _stringify {
-    # return simple message if die signal was modified
-    return $_[0]->{message} eq "" ? 'Died' : $_[0]->{message} if $SIG{__DIE__};
+    if ($SIG{__DIE__}) {
+        # return simple message if die signal was modified
+        return ! defined $_[0]->{message} || $_[0]->{message} eq ""
+               ? ref $_[0]
+               : $_[0]->{message};
+    }
     # otherwise return standard stringify
     return $_[0]->stringify;
 }
@@ -1457,8 +1461,8 @@ Content of B<value> attribute.
 =item For string context
 
 If the B<$SIG{__DIE__}> handler is set, it returns the value of B<message>
-attribute.  If the B<$SIG{__DIE__}> handler is unmodified, it returns the
-output of B<stringify> method.
+attribute or class name if the B<message> is empty.  If the B<$SIG{__DIE__}>
+handler is unmodified, it returns the output of B<stringify> method.
 
 =head1 CONSTRUCTORS
 

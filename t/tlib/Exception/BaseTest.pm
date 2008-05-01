@@ -112,7 +112,7 @@ sub test_throw {
 
         # Rethrow with overriden message
         eval {
-            $obj1->throw(message=>'New throw');
+            $obj1->throw(message=>'New throw', pid=>'ignored');
         };
         my $obj3 = $@;
         $self->assert_not_null($obj3);
@@ -120,6 +120,7 @@ sub test_throw {
         $self->assert_equals('New throw', $obj3->{message});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj3->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj3->{caller_stack}->[3]->[8]);
+        $self->assert_not_equals('ignored', $obj3->{pid});
 
         # Rethrow with overriden class
         {
@@ -147,6 +148,29 @@ sub test_throw {
         $self->assert_equals('Throw', $obj7->{message});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj7->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj7->{caller_stack}->[3]->[8]);
+
+        # Message only
+        eval {
+            Exception::Base->throw('Throw');
+        };
+        my $obj8 = $@;
+        $self->assert_not_null($obj1);
+        $self->assert($obj8->isa("Exception::Base"));
+        $self->assert_equals('Throw', $obj8->{message});
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj8->{caller_stack}->[3]->[3]);
+        $self->assert_equals(ref $self, ref $obj8->{caller_stack}->[3]->[8]);
+
+        # Message and hash only
+        eval {
+            Exception::Base->throw('Throw', message=>'Hash');
+        };
+        my $obj9 = $@;
+        $self->assert_not_null($obj1);
+        $self->assert($obj9->isa("Exception::Base"));
+        $self->assert_equals('Throw', $obj9->{message});
+        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj9->{caller_stack}->[3]->[3]);
+        $self->assert_equals(ref $self, ref $obj9->{caller_stack}->[3]->[8]);
+
     };
     die "$@" if $@;
 }
@@ -383,6 +407,39 @@ END
         $self->assert_equals("Unknown exception\n", $obj->stringify(1, ''));
     };
     die "$@" if $@;
+}
+
+sub test_overload {
+    my $self = shift;
+
+    my $obj = Exception::Base->new(message=>'String', value=>123);
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("Exception::Base"));
+
+    # boolify
+    $self->assert($obj && 1, '$obj && 1');
+
+    # numerify
+    $self->assert_num_equals(123, $obj);
+    
+    # stringify without $SIG{__DIE__}
+    {
+        local $SIG{__DIE__};
+        $self->assert_matches(qr/^Exception::Base: String at /, $obj);
+    }
+
+    # stringify with $SIG{__DIE__}
+    {
+        local $SIG{__DIE__} = sub { die @_ };
+
+        $self->assert_str_equals('String', $obj);
+
+        $obj->{message} = "";
+        $self->assert_str_equals('Exception::Base', $obj);
+
+        undef $obj->{message};
+        $self->assert_str_equals('Exception::Base', $obj);
+    }
 }
 
 sub test_with {
