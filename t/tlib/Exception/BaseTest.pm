@@ -865,6 +865,37 @@ sub test_import_class {
             isa=>"Exception::Base::import::Test14::NotExists"});';
         $self->assert_matches(qr/can not be found/, "$@");
 
+        eval 'Exception::Base->import("Exception::Base::import::Test15" => {has => "attr1"});';
+        $self->assert_equals('', "$@");
+        eval 'Exception::Base::import::Test15->throw(attr1=>"attr1");';
+        my $obj15 = $@;
+        $self->assert($obj15->isa('Exception::Base::import::Test15'));
+        $self->assert($obj15->isa('Exception::Base'));
+        $self->assert_equals("attr1", $obj15->{attr1});
+        $self->assert_equals("attr1", $obj15->attr1);
+
+        eval 'Exception::Base->import("Exception::Base::import::Test16" => {isa => "Exception::Base::import::Test15", has => [ "attr2", "attr3" ]});';
+        $self->assert_equals('', "$@");
+        eval 'Exception::Base::import::Test16->throw(attr1=>"attr1", attr2=>"attr2", attr3=>"attr3");';
+        my $obj16 = $@;
+        $self->assert($obj16->isa('Exception::Base::import::Test16'));
+        $self->assert($obj16->isa('Exception::Base'));
+        $self->assert_equals("attr1", $obj16->{attr1});
+        $self->assert_equals("attr1", $obj16->attr1);
+        $self->assert_equals("attr2", $obj16->{attr2});
+        $self->assert_equals("attr2", $obj16->attr2);
+        $self->assert_equals("attr3", $obj16->{attr3});
+        $self->assert_equals("attr3", $obj16->attr3);
+
+        eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => "has"});';
+        $self->assert_matches(qr/can not be defined/, "$@");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => "message"});';
+        $self->assert_matches(qr/can not be defined/, "$@");
+
+        eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => "VERSION"});';
+        $self->assert_matches(qr/can not be defined/, "$@");
+
         eval 'Exception::Base->import("Exception::BaseTest::SyntaxError");';
         $self->assert_matches(qr/Can not load/, "$@");
 

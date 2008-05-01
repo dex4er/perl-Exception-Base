@@ -297,7 +297,11 @@ sub import {
                     my %overriden_attributes;
                     # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
                     foreach my $attribute (@{ $has }) {
-                        next if $attribute =~ /^(isa|version|has)$/;
+                        if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+                            Exception::Base->throw(
+                                message => "Attribute name `$attribute' can not be defined for $name class"
+                            );
+                        }
                         $overriden_attributes{$attribute} = { is => 'rw' };
                     }
                     # Class => { message => "overriden default", ... }
@@ -323,7 +327,7 @@ sub import {
                     *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
                         return { %{ $isa->ATTRS }, %overriden_attributes };
                     };
-		    $name->_make_accessors;
+                    $name->_make_accessors;
                 }
             }
         }
