@@ -21,6 +21,10 @@ Changes:
 * If the error stack is empty, the catch method recover $@ variable.
 * The try method clears $@ variable.
 
+Fixes:
+
+* Support for threads module.
+
 ------------------------------------------------------------------------
 0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
 

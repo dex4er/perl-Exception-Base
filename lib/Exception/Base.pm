@@ -678,7 +678,7 @@ sub _collect_system_data {
     my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
     if ($verbosity > 1) {
         $self->{time}  = CORE::time();
-        $self->{tid}   = Thread->self->tid if defined &Thread::tid;
+        $self->{tid}   = threads->tid if defined &threads::tid;
         @{$self}{qw < pid uid euid gid egid >}
               = (     $$, $<, $>,  $(, $)    );
 
