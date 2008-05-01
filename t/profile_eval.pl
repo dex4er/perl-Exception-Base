@@ -1,7 +1,7 @@
 #!/usr/bin/perl -d:DProf
 
 use lib 'lib', '../lib';	
-use Exception::Base ':all';
+use Exception::Base;
 
 foreach (1..10000) {
     eval { Exception::Base->throw(message=>'Message') };
