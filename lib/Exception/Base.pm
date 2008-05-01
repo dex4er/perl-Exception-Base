@@ -579,17 +579,14 @@ sub with {
 
         if (defined $val and exists $self->{$key} && defined $self->{$key}) {
             if (ref $val eq 'CODE') {
-                return 0 unless exists $self->{$key} and defined $self->{$key};
                 $_ = $self->{$key};
                 return 0 if not &$val;
             }
             elsif (ref $val eq 'Regexp') {
-                return 0 unless exists $self->{$key} and defined $self->{$key};
                 $_ = $self->{$key};
                 return 0 if not /$val/;
             }
             else {
-                return 0 unless exists $self->{$key} and defined $self->{$key};
                 return 0 if $self->{$key} ne $val;
             }
         }
