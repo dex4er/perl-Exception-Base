@@ -35,12 +35,24 @@ sub test_new {
     $self->assert_not_equals('Ignored', $obj4->{propagated_stack});
 }
 
-sub test_field_message {
+sub test_attribute {
     my $self = shift;
     my $obj = Exception::Base->new(message=>'Message');
     $self->assert_equals('Message', $obj->{message});
-    $self->assert_equals('New Message', $obj->{message} = 'New Message');
-    $self->assert_equals('New Message', $obj->{message});
+    $self->assert_equals($$, $obj->{pid});
+}
+
+sub test_accessor {
+    my $self = shift;
+    my $obj = Exception::Base->new(message=>'Message');
+    $self->assert_equals('Message', $obj->message);
+    $self->assert_equals('New Message', $obj->message('New Message'));
+    $self->assert_equals('New Message', $obj->message);
+    $self->assert_equals('Lvalue accessor Message', $obj->message = 'Lvalue accessor Message');
+    $self->assert_equals('Lvalue accessor Message', $obj->message);
+    $self->assert_equals($$, $obj->pid);
+    eval { $obj->pid = 0 };
+    $self->assert_matches(qr/modify non-lvalue subroutine call/, $@);
 }
 
 sub test_accessor_message {
