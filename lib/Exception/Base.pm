@@ -323,6 +323,7 @@ sub import {
                     *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
                         return { %{ $isa->ATTRS }, %overriden_attributes };
                     };
+		    $name->_make_accessors;
                 }
             }
         }
