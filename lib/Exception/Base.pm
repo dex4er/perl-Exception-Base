@@ -471,12 +471,6 @@ sub throw (;$@) {
 sub _propagate {
     my ($self) = @_;
 
-    my $ignore_level = defined $self->{ignore_level}
-                     ? $self->{ignore_level}
-                     : defined $self->{defaults}->{ignore_level}
-                       ? $self->{defaults}->{ignore_level}
-                       : 0;
-
     # Fill propagate stack
     my $level = 1;
     while (my @c = caller($level++)) {
