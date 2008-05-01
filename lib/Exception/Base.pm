@@ -741,7 +741,7 @@ sub _caller_backtrace {
     }
     # Dump the stack
     while (my %c = $self->_caller_info($level++)) {
-        $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}$tid_msg\n";
+        $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}\n";
     }
 
     return $message || " at unknown line 0$tid_msg\n";
