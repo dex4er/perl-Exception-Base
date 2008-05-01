@@ -51,6 +51,29 @@
       print $e->message;
   }
 
+* The catch method returns $@ variable if error stack is empty.
+
+  Was:
+
+  try eval { -f "/etc/shadow"  or Exception::Base->throw() };
+  try eval { -f "/etc/passwd"  or Exception::Base->throw() };
+  try eval { -f "/etc/passwd-" or Exception::Base->throw() };
+  while (catch my $e) {
+    do_something();
+  }
+
+  Should be:
+
+  try eval {
+       -f "/etc/shadow"  or Exception::Base->throw();
+       -f "/etc/passwd"  or Exception::Base->throw();
+       -f "/etc/passwd-" or Exception::Base->throw();
+  };
+  eval { die "bad" };
+  if (catch my $e) {
+      do_something();
+  }
+
 ------------------------------------------------------------------------
 0.14 -> 0.15
 

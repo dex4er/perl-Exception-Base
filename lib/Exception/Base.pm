@@ -607,6 +607,7 @@ sub with {
 
 
 # Push the exception on error stack. Stolen from Exception::Class::TryCatch
+
 sub try ($;$) {
     # Can be used also as function
     my $self = shift if defined $_[0] and do { local $@; local $SIG{__DIE__}; eval { $_[0]->isa(__PACKAGE__) } };
@@ -653,7 +654,7 @@ sub catch (;$$) {
     }
     else {
         # New exception based on error from $@. Clean up the message.
-        $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)\n$//s;
+        $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $e = $class->new(message => $e_from_stack);
     }
 
@@ -1575,9 +1576,9 @@ reference or regexp.
 
 =item try(I<eval>)
 
-The B<try> method or function can be used with eval block as argument.  Then
+The B<try> method or function can be used with eval block as argument and then
 the eval's error is pushed into error stack and can be used with B<catch>
-later.  Then the B<$@> variable is replaced with empty string.
+later.  The B<$@> variable is replaced with empty string.
 
   try eval { Exception::Base->throw; };
   eval { die "another error messing with \$@ variable"; };
@@ -1603,44 +1604,39 @@ The B<try> can be used as method or function.
     Exception::Base->throw(message=>"imported function");
   };
 
-=item I<CLASS>->catch([$I<variable>])
+=item I<CLASS>-E<gt>catch([$I<variable>])
 
 The exception is popped from error stack written into the method argument.  If
 the exception is not based on the I<CLASS>, the exception is thrown
 immediately.
 
-  try eval { Exception::Base->throw; };
-  catch Exception::Base my $e;
+  eval { Exception::Base->throw; };
+  Exception::Base->catch( my $e );
   print $e->stringify(1);
 
-If the error stack is empty, the B<catch> method returns undefined value.  It
-can be used in loop to clean up all unhandled exceptions.
+If the error stack is empty, the B<catch> method recovers B<$@> variable and
+replaces it with empty string to avoid endless loop.  It allows to use
+B<catch> method without previous B<try>.
 
-  try eval { -f 'file1' or Exception::FileNotFound->throw };
-  try eval { -f 'file2' or Exception::FileNotFound->throw };
-  try eval { -f 'file3' or Exception::FileNotFound->throw };
-  while (catch my $e) {
-      warn "$e" if not $e->isa('Exception::FileNotFound');
-  }
-
-If the B<$@> variable does not contain the exception object but string, new
-exception object is created with message from B<$@> variable with removed C<"
-at file line 123."> string and the last end of line (LF).
+If the popped value does not contain the exception object but string, new
+exception object is created with message based on previous value with removed
+C<" at file line 123."> string and the last end of line (LF).
 
   try eval { die "Died\n"; };
-  catch 'Exception::Base', my $e;
-  print $e->stringify;
+  catch 'Exception::Base' => my $e;
+  print $e->message;   # "Died"
 
 The method returns B<1>, if the exception object is caught, and returns B<0>
 otherwise.
 
   try eval { throw 'Exception::Base'; };
-  if (Exception::Base->catch(my $e)) {
+  if (catch my $e) {
     warn "Exception caught: " . ref $e;
+  }
 
 If the method argument is missing, the method returns the exception object.
 
-  try eval { Exception::Base->throw; };
+  eval { Exception::Base->throw; };
   my $e = Exception::Base->catch;
 
 The B<catch> can be used as method or function.  If it is used as function,
