@@ -502,8 +502,6 @@ sub stringify {
                : $self->{defaults}->{verbosity}
         if not defined $verbosity;
 
-    return ref $self if $verbosity == 0;
-
     my $string;
 
     $message = $self->{message} if not defined $message;
