@@ -12,7 +12,6 @@ Exception::Base - Lightweight exceptions
 
   # Use module and create needed exceptions
   use Exception::Base
-     ':all',                            # import try/catch/throw
      'Exception::Runtime',              # create new module
      'Exception::System',               # load existing module
      'Exception::IO',          => {
@@ -29,8 +28,8 @@ Exception::Base - Lightweight exceptions
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
-  if ($@) {  
-    catch my $e;   # catch returns an object because $@ is true
+  if ($@) {
+    my $e = Exception::Base->catch;
     # $e is an exception object so no need to check if is blessed
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
@@ -41,7 +40,7 @@ Exception::Base - Lightweight exceptions
   }
 
   # try/catch (15x slower method)
-  use Exception::Base ':all';   # need try(), catch() and throw()
+  use Exception::Base ':all';   # import try/catch/throw
   try eval {
     open my $file, '/etc/passwd'
       or throw 'Exception::FileNotFound' =>
@@ -60,7 +59,7 @@ Exception::Base - Lightweight exceptions
 
   # try/catch can be separated with another eval
   try eval { die "this die will be caught" };
-  eval { die "this die will be simply ignored" };
+  eval { die "this die will be ignored" };
   catch my $e;   # the first die is recovered
 
   # the exception can be thrown later
@@ -637,7 +636,7 @@ sub catch (;$$) {
     my $e_from_stack;
     if (@Exception_Stack) {
         # Recover exception from stack
-	$e_from_stack = pop @Exception_Stack;
+        $e_from_stack = pop @Exception_Stack;
     }
     else {
         # Recover exception from $@ and clear it
@@ -1453,18 +1452,19 @@ The object returns:
 
 =over
 
-=item Boolean context
+=item For boolean context
 
 True value.
 
-=item Numeric context
+=item For numeric context
 
 Content of B<value> attribute.
 
-=item String context
+=item For string context
 
-The B<message> attribute if the B<$SIG{__DIE__}> handler is set or value
-returned from B<stringify> method if B<$SIG{__DIE__}> is unmodified.
+If the B<$SIG{__DIE__}> handler is set, it returns the value of B<message>
+attribute.  If the B<$SIG{__DIE__}> handler is unmodified, it returns the
+output of B<stringify> method.
 
 =head1 CONSTRUCTORS
 
@@ -1734,28 +1734,40 @@ without any arguments.
 
 =back
 
-=head1 SEE ALSO
+=head1
 
-There are more implementation of exception objects available on CPAN:
+There are more implementation of exception objects available on CPAN.  Please
+note that Perl has built-in implementation of pseudo-exceptions:
+
+  eval { die { message => "Pseudo-exception", package => __PACKAGE__,
+               file => __FILE__, line => __LINE__ };
+  };
+  if ($@) {
+    print $@->{message}, " at ", $@->{file}, " in line ", $@->{line}, ".\n";
+  }
 
 =over
+
+The more complex implementation of exception mechanism provides more features.
 
 =item L<Error>
 
 Complete implementation of try/catch/finally/otherwise mechanism.  Uses nested
 closures with a lot of syntactic sugar.  It is slightly faster than
-L<Exception::Base> module.  It doesn't provide a simple way to create user
-defined exceptions.  It doesn't collect system data and stack trace on error.
+L<Exception::Base> module for failure scenario and is much slower for success
+scenario.  It doesn't provide a simple way to create user defined exceptions.
+It doesn't collect system data and stack trace on error.
 
 =item L<Exception::Class>
 
-More perl-ish way to do OO exceptions.  It is too heavy and too slow.  It
-requires non-core perl modules to work.  It missing try/catch mechanism.
+More perl-ish way to do OO exceptions.  It is too heavy and too slow for
+failure scenario and slightly slower for success scenario.  It requires
+non-core perl modules to work.
 
 =item L<Exception::Class::TryCatch>
 
 Additional try/catch mechanism for L<Exception::Class>.  It is also slow as
-L<Exception::Class>.
+L<Exception::Base> with try/catch mechanism for success scenario.
 
 =item L<Class::Throwable>
 
@@ -1773,52 +1785,49 @@ echanced exception class based on this L<Exception::Base> class.
 
 =head1 PERFORMANCE
 
+There are two scenarios for "eval" block: success or failure.  Success
+scenario should has no penalty on speed.  Failure scenario is usually more
+complex to handle and can be significally slower.
+
+Any other code than simple "if ($@)" is really slow and shouldn't be used if
+speed is important.  It means that L<Error> and L<Exception::Class::TryCatch>
+are slow by design.  The L<Exception::Class> module doesn't use this syntax in
+its documentation so it was benchmarked with its default syntax, however it
+should be possible to convert it to simple "if ($@)".
+
 The L<Exception::Base> module was benchmarked with other implementations for
-simple try/catch scenario.  The results (Perl 5.8.8
-i486-linux-gnu-thread-multi) are following:
+simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
+are following:
 
-=over
+  -----------------------------------------------------------------------
+  | Module                              | Success       | Failure       |
+  -----------------------------------------------------------------------
+  | eval/die string                     |      805649/s |      233181/s |
+  -----------------------------------------------------------------------
+  | eval/die object                     |      805595/s |      125318/s |
+  -----------------------------------------------------------------------
+  | Exception::Base eval/if             |      816917/s |        8078/s |
+  -----------------------------------------------------------------------
+  | Exception::Base try/catch           |       55975/s |        8913/s |
+  -----------------------------------------------------------------------
+  | Exception::Base eval/if verbosity=1 |      814708/s |       14906/s |
+  -----------------------------------------------------------------------
+  | Exception::Base try/catch verbos.=1 |       56434/s |       17537/s |
+  -----------------------------------------------------------------------
+  | Error                               |       86178/s |       19622/s |
+  -----------------------------------------------------------------------
+  | Class::Throwable                    |      811949/s |        7407/s |
+  -----------------------------------------------------------------------
+  | Exception::Class                    |      334462/s |        1284/s |
+  -----------------------------------------------------------------------
+  | Exception::Class::TryCatch          |      217634/s |        1240/s |
+  -----------------------------------------------------------------------
 
-=item pure eval/die with string
-
-381868/s
-
-=item pure eval/die with object
-
-137700/s
-
-=item L<Exception::Base> module with default options
-
-5070/s
-
-=item L<Exception::Base> module with verbosity = 1
-
-18979/s
-
-=item L<Error> module
-
-17300/s
-
-=item L<Exception::Class> module
-
-1540/s
-
-=item L<Exception::Class::TryCatch> module
-
-1491/s
-
-=item L<Class::Throwable> module
-
-7383/s
-
-=back
-
-The L<Exception::Base> module is 80 times slower than pure eval/die.  This
-module was written to be as fast as it is possible.  It does not use i.e.
-accessor functions which are slower about 6 times than standard variables. It
-is slower than pure die/eval because it is uses OO mechanism which are slow in
-Perl.  It can be a litte faster if some features are disables, i.e. the stack
-trace and higher verbosity.
+The L<Exception::Base> module was written to be as fast as it is possible.  It
+does not use i.e. accessor functions which are slower about 6 times than
+standard variables.  It is slower than pure die/eval because it is uses OO
+mechanisms which are slow in Perl.  It can be a litte faster if some features
+are disables, i.e. the stack trace and higher verbosity.
 
 You can find the benchmark script in this package distribution.
 
