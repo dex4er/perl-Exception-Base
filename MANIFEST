@@ -11,13 +11,11 @@ MANIFEST			This list of files
 META.yml
 README
 t/all_tests.t
-t/benchmark.pl
 t/benchmark_fail.pl
 t/benchmark_ok.pl
 t/cover.sh
 t/pod.t
 t/pod_coverage.t
-t/profile.pl
 t/profile_eval.pl
 t/profile_try.pl
 t/test.pl
