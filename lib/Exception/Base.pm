@@ -1001,19 +1001,9 @@ sub _make_caller_info_accessors {
                                  : defined $self->{defaults}->{ignore_level}
                                    ? $self->{defaults}->{ignore_level}
                                    : 0;
-                my $ignore_package = defined $self->{ignore_package}
-                                 ? $self->{ignore_package}
-                                 : $self->{defaults}->{ignore_package};
                 my $level = 0;
                 while (my %c = $self->_caller_info($level++)) {
-                    if (defined $ignore_package) {
-                        if (ref $ignore_package eq 'ARRAY') {
-                            next if grep { $_ eq $c{package} } @{ $ignore_package };
-                        }
-                        else {
-                            next if $c{package} eq $ignore_package;
-                        }
-                    }
+                    next if $self->_skip_ignored_package($c{package});
                     # Skip ignored levels
                     if ($ignore_level > 0) {
                         $ignore_level --;
