@@ -1451,6 +1451,8 @@ If the B<$SIG{__DIE__}> handler is set, it returns the value of B<message>
 attribute or class name if the B<message> is empty.  If the B<$SIG{__DIE__}>
 handler is unmodified, it returns the output of B<stringify> method.
 
+=back
+
 =head1 CONSTRUCTORS
 
 =over
@@ -1726,9 +1728,10 @@ note that Perl has built-in implementation of pseudo-exceptions:
     print $@->{message}, " at ", $@->{file}, " in line ", $@->{line}, ".\n";
   }
 
-=over
 
 The more complex implementation of exception mechanism provides more features.
+
+=over
 
 =item L<Error>
 
