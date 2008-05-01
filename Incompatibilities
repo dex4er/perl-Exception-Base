@@ -69,7 +69,6 @@
        -f "/etc/passwd"  or Exception::Base->throw();
        -f "/etc/passwd-" or Exception::Base->throw();
   };
-  eval { die "bad" };
   if (catch my $e) {
       do_something();
   }
