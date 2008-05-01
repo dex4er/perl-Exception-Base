@@ -482,15 +482,8 @@ sub _propagate {
     while (my @c = caller($level++)) {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
-            # Skip ignored package
-            next if $self->_skip_ignored_package($c[0]);
-            # Skip ignored levels
-            if ($ignore_level > 0) {
-                $ignore_level --;
-                next;
-            }
             # Collect the caller stack
-            push @{ $self->{propagated_stack} }, [ $c[1], $c[2] ];
+            push @{ $self->{propagated_stack} }, [ @c[0..2] ];
             last;
     }
 
@@ -520,7 +513,6 @@ sub stringify {
             $message,
             defined $self->{file} && $self->{file} ne '' ? $self->{file} : 'unknown',
             $self->{line} || 0;
-        $string .= $self->_propagated_backtrace($verbosity);
     }
     elsif ($verbosity >= 3) {
         $string .= sprintf "%s: %s", ref $self, $message;
@@ -763,11 +755,14 @@ sub _caller_backtrace {
 
 sub _propagated_backtrace {
     my ($self) = @_;
-    my $message = "";
 
+    my $message = "";
     foreach (@{ $self->{propagated_stack} }) {
-        my ($file, $line) = @$_;
-        $message .= sprintf "\t...propagated at %s line %d.\n",
+        my ($package, $file, $line) = @$_;
+        # Skip ignored package
+        next if $self->_skip_ignored_package($package);
+        $message .= sprintf "\t...propagated in package %s at %s line %d.\n",
+            $package,
             defined $file && $file ne '' ? $file : 'unknown',
             $line || 0;
     }
@@ -1288,7 +1283,7 @@ option.
 
  Class: Message at %s line %d
          %c_ = %s::%s() called in package %s at %s line %d
-         ...propagated at %s line %d.
+         ...propagated in package %s at %s line %d.
  ...
 
 The output contains full trace of error stack without first B<ignore_level>
@@ -1401,7 +1396,7 @@ greater than 1.
 
 Contains the error stack as array of array with informations about caller
 functions.  The first 8 elements of the array's row are the same as first 8
-elements of the output of caller() function.  Further elements are optional
+elements of the output of B<caller> function.  Further elements are optional
 and are the arguments of called function.  Collected if the verbosity on
 throwing exception was greater than 1.  Contains only the first element of
 caller stack if the verbosity was lower than 3.
@@ -1412,8 +1407,9 @@ caller stack if the verbosity was lower than 3.
 
 =item propagated_stack (ro)
 
-Contains the array of "file, line" pairs which are used for generating
-"...propagated at" message.
+Contains the array of array which is used for generating "...propagated at"
+message.  The elements of the array's row are the same as first 3 elements of
+the output of B<caller> function.
 
 =item max_arg_len (rw, default: 64)
 
