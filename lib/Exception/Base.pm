@@ -500,21 +500,19 @@ sub stringify {
     $message = $self->{defaults}->{message} if not defined $message or $message eq '';
 
     if ($verbosity == 1) {
-        $string = $message . "\n";
+        $string  = $message . "\n";
     }
     elsif ($verbosity == 2) {
-        $string = sprintf "%s at %s line %d.\n",
-            $message,
-            defined $self->{file} && $self->{file} ne '' ? $self->{file} : 'unknown',
-            $self->{line} || 0;
+        $string  = $message;
+        $string .= $self->_caller_backtrace($verbosity);
     }
     elsif ($verbosity >= 3) {
-        $string .= sprintf "%s: %s", ref $self, $message;
+        $string  = sprintf "%s: %s", ref $self, $message;
         $string .= $self->_caller_backtrace($verbosity);
         $string .= $self->_propagated_backtrace;
     }
     else {
-        $string = "";
+        $string  = "";
     }
 
     return $string;
@@ -729,21 +727,23 @@ sub _caller_backtrace {
             next;
         }
         if (not defined $message) {
-            $message = sprintf " at %s line %s$tid_msg\n",
+            $message = sprintf " at %s line %s$tid_msg%s\n",
                        defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
-                       $c{line} || 0;
+                       $c{line} || 0,
+                       $verbosity < 3 ? '.' : "";
         }
         last;
     }
-    # Reset the stack trace level only if needed
-    if ($verbosity > 3) {
-        $level = 0;
+    if ($verbosity >= 3) {
+        # Reset the stack trace level only if needed
+        if ($verbosity >= 4) {
+            $level = 0;
+        }
+        # Dump the stack
+        while (my %c = $self->_caller_info($level++)) {
+            $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}\n";
+        }
     }
-    # Dump the stack
-    while (my %c = $self->_caller_info($level++)) {
-        $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}\n";
-    }
-
     return $message || " at unknown line 0$tid_msg\n";
 }
 

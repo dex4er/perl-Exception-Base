@@ -214,6 +214,12 @@ sub test_stringify {
         $obj->{max_arg_nums} = 8;
         $obj->{max_eval_len} = 0;
 
+	$obj->{caller_stack} = [ [ 'main', '-e', 1, 'Exception::Base::throw', 1, undef, undef, undef, 'Exception::Base' ] ];
+	$obj->{file} = '-e';
+	$obj->{line} = 1;
+
+	$self->assert_equals("Stringify at -e line 1.\n", $obj->stringify(2));
+
         $obj->{caller_stack} = [
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
             ['Package1', 'Package1.pm', 1, 'Package1::func1', 0, undef, undef, undef ],
@@ -224,8 +230,6 @@ sub test_stringify {
             ['Package6', '-e', 6, 'Package6::func6', 0, undef, undef, undef ],
             ['Package7', undef, undef, 'Package7::func7', 0, undef, undef, undef ],
         ];
-        $obj->{file} = 'Package1.pm';
-        $obj->{line} = 1;
         $obj->{propagated_stack} = [
             ['Exception::BaseTest::Propagate1', 'Propagate1.pm', 11],
             ['Exception::BaseTest::Propagate2', 'Propagate2.pm', 22],
