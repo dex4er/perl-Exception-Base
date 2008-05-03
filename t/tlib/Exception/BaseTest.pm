@@ -179,7 +179,7 @@ sub test_throw {
         my $obj9 = $@;
         $self->assert_not_null($obj1);
         $self->assert($obj9->isa("Exception::Base"));
-        $self->assert_equals('Throw', $obj9->{message});
+        $self->assert_equals('Hash', $obj9->{message});
         $self->assert_equals(__PACKAGE__ . '::test_throw', $obj9->{caller_stack}->[3]->[3]);
         $self->assert_equals(ref $self, ref $obj9->{caller_stack}->[3]->[8]);
 

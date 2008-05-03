@@ -436,9 +436,9 @@ sub throw (;$@) {
                 die $self->new(@_);
             }
             else {
-                # First argument is a message
+                # First argument is a message; it can be overriden with normal args
                 my $message = shift;
-                die $self->new(@_, message => $message);
+                die $self->new(message => $message, @_);
             }
         }
         else {
@@ -1513,9 +1513,11 @@ existing exception object.
 =item throw(I<message>, [%I<args>])
 
 If the number of I<args> list for arguments is odd, the first argument is a
-message.  This message is more important than the attribute from I<args> list.
+message.  This message can be overriden by message from I<args> list.
 
-  Exception::Base->throw("Problem", message=>"ignored message");
+  Exception::Base->throw( "Problem", message=>"More important" );
+  eval { die "Bum!" };
+  Exception::Base->throw( $@, message=>"New message" );
 
 =item I<CLASS>-E<gt>throw($I<exception>, [%I<args>])
 
