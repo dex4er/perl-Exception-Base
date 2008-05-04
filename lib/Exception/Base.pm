@@ -82,7 +82,7 @@ Exception::Base - Lightweight exceptions
   package My::Package;
   use Exception::Base '+ignore_package' => __PACKAGE__;
 
-  # run Perl with changed verbosity
+  # run Perl with changed verbosity for debugging purposes
   $ perl -MException::Base=verbosity,4 script.pl
 
 =head1 DESCRIPTION
@@ -226,6 +226,7 @@ sub import {
     while (defined $_[0]) {
         my $name = shift @_;
         if ($name =~ /^(try|catch|throw|:all)$/) {
+            # Export our functions
             push @export, $name;
         }
         elsif ($name =~ /^([+-]?)([a-z0-9_]+)$/) {
@@ -463,7 +464,7 @@ sub throw (;$@) {
     }
     $old->_propagate;
     if (ref $old ne $class) {
-        # Rebless for new class
+        # Rebless old object for new class
         bless $old => $class;
     }
     die $old;
@@ -524,13 +525,6 @@ sub stringify {
 
 # Stringify for overloaded operator
 sub _stringify {
-    if ($SIG{__DIE__}) {
-        # return simple message if die signal was modified
-        return ! defined $_[0]->{message} || $_[0]->{message} eq ""
-               ? ref $_[0]
-               : $_[0]->{message};
-    }
-    # otherwise return standard stringify
     return $_[0]->stringify;
 }
 
@@ -1040,7 +1034,7 @@ __END__
 
 =over
 
-=item use Exception::Base qw< catch try throw >;
+=item use Exception::Base 'catch', 'try', 'throw';
 
 Exports the B<catch>, B<try> and B<throw> functions to the caller namespace.
 
@@ -1151,7 +1145,7 @@ The class will have the default property for the given attribute.
     if ($e->isa('Exception::My')) { print $e->VERSION; }
   }
 
-=item no Exception::Base qw< catch try throw >;
+=item no Exception::Base 'catch', 'try', 'throw';
 
 =item no Exception::Base ':all';
 
@@ -1233,7 +1227,7 @@ are also available as accessors methods.
 Contains the message of the exception.  It is the part of the string
 representing the exception object.
 
-  eval { Exception::Base->throw(message=>"Message"); };
+  eval { Exception::Base->throw( message=>"Message" ); };
   print $@->{message} if $@;
 
 =item value (rw, default: 0)
@@ -1241,7 +1235,7 @@ representing the exception object.
 Contains the value which represents numeric value of the exception object in
 numeric context.
 
-  eval { Exception::Base->throw(value=>2); };
+  eval { Exception::Base->throw( value=>2 ); };
   print "Error 2" if $@ == 2;
 
 =item verbosity (rw, default: 2)
@@ -1329,7 +1323,7 @@ some packages will be ignored even the derived class was called.
 
   package My::Package;
   use Exception::Base;
-  Exception::Base->throw(ignore_class => "My::Base");
+  Exception::Base->throw( ignore_class => "My::Base" );
 
 This setting can be changed with import interface.
 
@@ -1342,9 +1336,9 @@ package throws an exception but this module shouldn't be listed in stack
 trace.  It can be used with or without I<ignore_package> attribute.
 
   # Convert warning into exception. The signal handler ignores itself.
-  use Exception::Base 'Exception::Warning';
+  use Exception::Base 'Exception::My::Warning';
   $SIG{__WARN__} = sub {
-    Exception::Warning->throw(message => $_[0], ignore_level => 1)
+    Exception::My::Warning->throw( message => $_[0], ignore_level => 1 );
   };
 
 =item time (ro)
@@ -1352,7 +1346,7 @@ trace.  It can be used with or without I<ignore_package> attribute.
 Contains the timestamp of the thrown exception.  Collected if the verbosity on
 throwing exception was greater than 1.
 
-  eval { Exception::Base->throw(message=>"Message"); };
+  eval { Exception::Base->throw( message=>"Message" ); };
   print scalar localtime $@->{time};
 
 =item pid (ro)
@@ -1360,7 +1354,7 @@ throwing exception was greater than 1.
 Contains the PID of the Perl process at time of thrown exception.  Collected
 if the verbosity on throwing exception was greater than 1.
 
-  eval { Exception::Base->throw(message=>"Message"); };
+  eval { Exception::Base->throw( message=>"Message" ); };
   kill 10, $@->{pid};
 
 =item tid (ro)
@@ -1389,7 +1383,7 @@ and are the arguments of called function.  Collected if the verbosity on
 throwing exception was greater than 1.  Contains only the first element of
 caller stack if the verbosity was lower than 3.
 
-  eval { Exception::Base->throw(message=>"Message"); };
+  eval { Exception::Base->throw( message=>"Message" ); };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
   $evaltext, $is_require, @args) = $@->{caller_stack}->[0];
 
@@ -1404,7 +1398,7 @@ the output of B<caller> function.
 Contains the maximal length of argument for functions in backtrace output.
 Zero means no limit for length.
 
-  sub a { Exception::Base->throw(max_arg_len=>5) }
+  sub a { Exception::Base->throw( max_arg_len=>5 ) }
   a("123456789");
 
 =item max_arg_nums (rw, default: 8)
@@ -1412,7 +1406,7 @@ Zero means no limit for length.
 Contains the maximal number of arguments for functions in backtrace output.
 Zero means no limit for arguments.
 
-  sub a { Exception::Base->throw(max_arg_nums=>1) }
+  sub a { Exception::Base->throw( max_arg_nums=>1 ) }
   a(1,2,3);
 
 =item max_eval_len (rw, default: 0)
@@ -1420,7 +1414,7 @@ Zero means no limit for arguments.
 Contains the maximal length of eval strings in backtrace output.  Zero means
 no limit for length.
 
-  eval "Exception->throw(max_eval_len=>10)";
+  eval "Exception->throw( max_eval_len=>10 )";
   print "$@";
 
 =item defaults (rw)
@@ -1450,9 +1444,7 @@ Content of B<value> attribute.
 
 =item For string context
 
-If the B<$SIG{__DIE__}> handler is set, it returns the value of B<message>
-attribute or class name if the B<message> is empty.  If the B<$SIG{__DIE__}>
-handler is unmodified, it returns the output of B<stringify> method.
+The output of B<stringify> method.
 
 =back
 
@@ -1485,16 +1477,16 @@ Creates the exception object and immediately throws it with B<die> system
 function.
 
   open FILE, $file
-    or Exception::Base->throw(message=>"Can not open file: $file");
+    or Exception::Base->throw( message=>"Can not open file: $file" );
 
 The B<throw> is also exported as a function.
 
   open FILE, $file
     or throw 'Exception::Base' => message=>"Can not open file: $file";
 
-The B<throw> can be also used as a method.
-
 =back
+
+The B<throw> can be also used as a method.
 
 =head1 METHODS
 
@@ -1508,9 +1500,9 @@ existing exception object.
 
   $e = Exception::Base->new;
   # (...)
-  $e->throw(message=>"thrown exception with overriden message");
+  $e->throw( message=>"thrown exception with overriden message" );
 
-  eval { Exception::Base->throw(message=>"Problem", value=>1) };
+  eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
   $@->throw if $@->{value};
 
 =item throw(I<message>, [%I<args>])
@@ -1552,18 +1544,18 @@ argument is single value, the B<message> attribute will be matched.  If the
 argument is a part of hash, an attribute of the exception object will be
 matched.
 
-  $e->with("message");
-  $e->with(value=>123);
-  $e->with("message", value=>45);
-  $e->with(uid=>0);
-  $e->with(message=>'$e->{message}');
+  $e->with( "message" );
+  $e->with( value=>123 );
+  $e->with( "message", value=>45 );
+  $e->with( uid=>0 );
+  $e->with( message=>'$e->{message}' );
 
 The argument (for message or attributes) can be simple string or code
 reference or regexp.
 
-  $e->with("message");
-  $e->with(sub {/message/});
-  $e->with(qr/message/);
+  $e->with( "message" );
+  $e->with( sub {/message/} );
+  $e->with( qr/message/ );
 
 =item try(I<eval>)
 
@@ -1585,14 +1577,14 @@ array context.
 The B<try> can be used as method or function.
 
   try 'Exception::Base' => eval {
-    Exception::Base->throw(message=>"method");
+    Exception::Base->throw( message=>"method" );
   };
   Exception::Base::try eval {
-    Exception::Base->throw(message=>"function");
+    Exception::Base->throw( message=>"function" );
   };
-  Exception::Base->import('try');
+  Exception::Base->import( 'try' );
   try eval {
-    Exception::Base->throw(message=>"imported function");
+    Exception::Base->throw( message=>"imported function" );
   };
 
 =item I<CLASS>-E<gt>catch([$I<variable>])
@@ -1634,8 +1626,8 @@ The B<catch> can be used as method or function.  If it is used as function,
 then the I<CLASS> is Exception::Base by default.
 
   try eval { throw 'Exception::Base' => message=>"method"; };
-  Exception::Base->import('catch');
-  catch my $e;  # the same as Exception::Base->catch(my $e);
+  Exception::Base->import( 'catch' );
+  catch my $e;  # the same as Exception::Base->catch( my $e );
   print $e->stringify;
 
 =item I<CLASS>-E<gt>catch([$I<variable>,] \@I<ExceptionClasses>)
@@ -1719,6 +1711,11 @@ Checks the caller stack and fills the B<propagated_stack> attribute.  It is
 usually called by B<PROPAGATE> handler if B<die> system function was called
 without any arguments.
 
+=item _stringify
+
+Method called by L<overload>'s B<q{""}> operator.  It have to be
+implemented in derived class if it has B<stringify> method implemented.
+
 =back
 
 =head1
@@ -1774,14 +1771,15 @@ echanced exception class based on this L<Exception::Base> class.
 =head1 PERFORMANCE
 
 There are two scenarios for "eval" block: success or failure.  Success
-scenario should has no penalty on speed.  Failure scenario is usually more
+scenario should have no penalty on speed.  Failure scenario is usually more
 complex to handle and can be significally slower.
 
 Any other code than simple "if ($@)" is really slow and shouldn't be used if
 speed is important.  It means that L<Error> and L<Exception::Class::TryCatch>
-are slow by design.  The L<Exception::Class> module doesn't use this syntax in
-its documentation so it was benchmarked with its default syntax, however it
-should be possible to convert it to simple "if ($@)".
+should be avoided as far as they are slow by design.  The L<Exception::Class>
+module doesn't use "if ($@)" syntax in its documentation so it was benchmarked
+with its default syntax, however it might be possible to convert it to simple
+"if ($@)".
 
 The L<Exception::Base> module was benchmarked with other implementations for
 simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
@@ -1790,38 +1788,35 @@ are following:
   -----------------------------------------------------------------------
   | Module                              | Success       | Failure       |
   -----------------------------------------------------------------------
-  | eval/die string                     |      805649/s |      233181/s |
+  | eval/die string                     |      818638/s |      237975/s |
   -----------------------------------------------------------------------
-  | eval/die object                     |      805595/s |      125318/s |
+  | eval/die object                     |      849686/s |      124853/s |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if             |      816917/s |        8078/s |
+  | Exception::Base eval/if             |      848593/s |        8356/s |
   -----------------------------------------------------------------------
-  | Exception::Base try/catch           |       55975/s |        8913/s |
+  | Exception::Base try/catch           |       56639/s |        9218/s |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if verbosity=1 |      814708/s |       14906/s |
+  | Exception::Base eval/if verbosity=1 |      849180/s |       14899/s |
   -----------------------------------------------------------------------
-  | Exception::Base try/catch verbos.=1 |       56434/s |       17537/s |
+  | Exception::Base try/catch verbos.=1 |       56986/s |       18232/s |
   -----------------------------------------------------------------------
-  | Error                               |       86178/s |       19622/s |
+  | Error                               |       88123/s |       19782/s |
   -----------------------------------------------------------------------
-  | Class::Throwable                    |      811949/s |        7407/s |
+  | Class::Throwable                    |      844204/s |        7545/s |
   -----------------------------------------------------------------------
-  | Exception::Class                    |      334462/s |        1284/s |
+  | Exception::Class                    |      344124/s |        1311/s |
   -----------------------------------------------------------------------
-  | Exception::Class::TryCatch          |      217634/s |        1240/s |
+  | Exception::Class::TryCatch          |      223822/s |        1270/s |
   -----------------------------------------------------------------------
 
-The L<Exception::Base> module was written to be as fast as it is possible.  It
-does not use i.e. accessor functions which are slower about 6 times than
-standard variables.  It is slower than pure die/eval because it is uses OO
-mechanisms which are slow in Perl.  It can be a litte faster if some features
-are disables, i.e. the stack trace and higher verbosity.
+The L<Exception::Base> module was written to be as fast as it is
+possible.  It does not use internally i.e. accessor functions which are
+slower about 6 times than standard variables.  It is slower than pure
+die/eval because it is uses OO mechanisms which are slow in Perl.  It
+can be a litte faster if some features are disables, i.e. the stack
+trace and higher verbosity.
 
 You can find the benchmark script in this package distribution.
-
-=head1 TESTS
-
-The module was tested with L<Devel::Cover> and L<Devel::Dprof>.
 
 =head1 BUGS
 

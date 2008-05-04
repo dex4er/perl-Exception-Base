@@ -6,7 +6,8 @@ use warnings;
 use Exception::Base ':all';
 
 eval {
-    eval { open my $file, "<", "/badmodeexample" or Exception::Base->throw(message=>"cannot open", verbosity=>4); };
+    eval { open my $file, "<", "/badmodeexample"
+        or Exception::Base->throw( message=>"cannot open", verbosity=>4 ); };
     die;
 };
 die;

@@ -21,7 +21,7 @@ BEGIN {
 use Test::Unit::Lite;
 
 use Exception::Base
-    max_arg_nums => 0, verbosity => 4,
+    max_arg_nums => 0, max_arg_len => 0, verbosity => 4,
     'Exception::Warning';
 
 local $SIG{__WARN__} = sub { $@ = $_[0]; Exception::Warning->throw(message => 'Warning', ignore_level => 1, max_arg_nums => 0, verbosity => 4) };

@@ -428,6 +428,8 @@ END
 sub test_overload {
     my $self = shift;
 
+    local $SIG{__DIE__};
+
     my $obj = Exception::Base->new(message=>'String', value=>123);
     $self->assert_not_null($obj);
     $self->assert($obj->isa("Exception::Base"));
@@ -439,23 +441,7 @@ sub test_overload {
     $self->assert_num_equals(123, $obj);
     
     # stringify without $SIG{__DIE__}
-    {
-        local $SIG{__DIE__};
-        $self->assert_matches(qr/^Exception::Base: String at /, $obj);
-    }
-
-    # stringify with $SIG{__DIE__}
-    {
-        local $SIG{__DIE__} = sub { die @_ };
-
-        $self->assert_str_equals('String', $obj);
-
-        $obj->{message} = "";
-        $self->assert_str_equals('Exception::Base', $obj);
-
-        undef $obj->{message};
-        $self->assert_str_equals('Exception::Base', $obj);
-    }
+    $self->assert_matches(qr/^Exception::Base: String at /, $obj);
 }
 
 sub test_with {
@@ -532,6 +518,7 @@ sub test_with {
 sub test_catch {
     my $self = shift;
 
+    local $SIG{__DIE__};
     eval {
         # empty stack trace
         while (Exception::Base->catch(my $obj0)) { };
@@ -665,6 +652,7 @@ sub test_catch {
 sub test_catch_non_exception {
     my $self = shift;
 
+    #local $SIG{__DIE__};
     eval {
         # empty stack trace
         while (Exception::Base->catch(my $obj0)) { };
@@ -712,6 +700,7 @@ sub test_catch_non_exception {
 sub test_try {
     my $self = shift;
 
+    local $SIG{__DIE__};
     eval {
         # empty stack trace
         while (Exception::Base->catch(my $obj0)) { };
@@ -841,7 +830,7 @@ sub test_import_keywords {
 
         eval 'Exception::Base->unimport(qw<try>);';
         eval 'try eval { throw "Exception::Base"; };';
-        $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_matches(qr/syntax error/, "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->import(qw<:all>);';
@@ -850,7 +839,7 @@ sub test_import_keywords {
 
         eval 'Exception::Base->unimport(qw<:all>);';
         eval 'catch my $e, ["Exception"];';
-        $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_matches(qr/syntax error/, "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->import(qw<:all>);';
@@ -859,7 +848,7 @@ sub test_import_keywords {
 
         eval 'Exception::Base->unimport();';
         eval 'catch my $e, ["Exception"];';
-        $self->assert_matches(qr/^syntax error/, "$@");
+        $self->assert_matches(qr/syntax error/, "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base->unimport();';
@@ -868,8 +857,7 @@ sub test_import_keywords {
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base::import::Test1->throw;';
-        $self->assert_matches(qr/^Can.t locate object method/, "$@");
-
+        $self->assert_matches(qr/Can.t locate object method/, "$@");
         eval 'Exception::Base->throw;';
         my $obj1 = $@;
         $self->assert_not_null($obj1);
@@ -881,6 +869,7 @@ sub test_import_keywords {
 sub test_import_class {
     my $self = shift;
 
+    #local $SIG{__DIE__};
     eval {
         no warnings 'reserved';
 
