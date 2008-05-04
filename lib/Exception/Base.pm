@@ -429,6 +429,7 @@ sub throw (;$@) {
     my $old;
 
     if (not ref $self) {
+        # CLASS->throw
         if (not ref $_[0]) {
             # Throw new exception
             if (scalar @_ % 2 == 0) {
@@ -442,10 +443,12 @@ sub throw (;$@) {
             }
         }
         else {
+            # First argument is an old exception
             $old = shift;
         }
     }
     else {
+        # $e->throw
         $old = $self;
     }
 
