@@ -1718,7 +1718,7 @@ implemented in derived class if it has B<stringify> method implemented.
 
 =back
 
-=head1
+=head1 SEE ALSO
 
 There are more implementation of exception objects available on CPAN.  Please
 note that Perl has built-in implementation of pseudo-exceptions:
