@@ -1159,7 +1159,8 @@ The class will have the default property for the given attribute.
 
 =item no Exception::Base;
 
-Unexports the B<catch> and B<try> functions from the caller namespace.
+Unexports the B<catch>, B<try> and B<throw> functions from the caller
+namespace.
 
   use Exception::Base ':all', 'Exception::FileNotFound';
   try eval { Exception::FileNotFound->throw; };  # ok
