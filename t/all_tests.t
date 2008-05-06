@@ -18,6 +18,7 @@ use Test::Unit::Lite;
 
 use Exception::Base
     max_arg_nums => 0, max_arg_len => 200, verbosity => 3,
+    '+ignore_package' => [ qr/^Test::Unit::/, 'main' ],
     'Exception::Base::Warning',
     'Exception::Base::Died';
 
