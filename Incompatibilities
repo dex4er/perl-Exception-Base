@@ -73,6 +73,23 @@
       do_something();
   }
 
+* The _stringify private method renamed to __stringify.  It might be important
+  for derived classes which overloads q{""}.
+
+  Was:
+
+  package Exception::My;
+  use base 'Exception::Base';
+  use overload 'q{""}' => '_stringify';
+  sub _stringify { return $_[0]->stringify; }
+
+  Should be:
+
+  use Exception::My;
+  use base 'Exception::Base';
+  use overload 'q{""}' => '__stringify';
+  sub __stringify { return $_[0]->stringify; }
+
 ------------------------------------------------------------------------
 0.14 -> 0.15
 
