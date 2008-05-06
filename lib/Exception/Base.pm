@@ -259,13 +259,6 @@ sub import {
                               verbosity => 1
                         );
                     }
-                    # Paranoid check
-                    if ($name eq __PACKAGE__) {
-                        Exception::Base->throw(
-                              message => "$name class can not be created automatically",
-                              verbosity => 1
-                        );
-                    }
                     my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
                     $version = 0.01 if not $version;
                     my $has = defined $param->{has} ? $param->{has} : [ ];
@@ -580,7 +573,7 @@ sub with {
         return 0 if defined $val and not
             exists $self->{$key} && defined $self->{$key};
 
-        if (defined $val and exists $self->{$key} && defined $self->{$key}) {
+        if (defined $val) {
             if (ref $val eq 'CODE') {
                 $_ = $self->{$key};
                 return 0 if not &$val;

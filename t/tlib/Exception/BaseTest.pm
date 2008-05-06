@@ -423,20 +423,54 @@ END
         my $s25 = $obj->stringify(3);
         $self->assert_equals($s24, $s25);
 
+        $obj->{defaults}->{verbosity} = 1;
         $obj->{verbosity} = undef;
 
-        $self->assert_equals(1, $obj->{defaults}->{verbosity} = 1);
-        $self->assert_equals(1, $obj->{defaults}->{verbosity});
         $self->assert_equals("Stringify\n", $obj->stringify);
         $self->assert_not_null(Exception::Base->ATTRS->{verbosity}->{default});
-        $obj->{defaults}->{verbosity} = Exception::Base->ATTRS->{verbosity}->{default};
-        $self->assert_equals(1, $obj->{verbosity} = 1);
+
+        $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception::Base->ATTRS->{verbosity}->{default});
+        $obj->{verbosity} = 1;
+
         $self->assert_equals("Stringify\n", $obj->stringify);
 
         $self->assert_equals("Message\n", $obj->stringify(1, "Message"));
         $self->assert_equals("Unknown exception\n", $obj->stringify(1, ''));
     };
     die "$@" if $@;
+}
+
+sub test_numerify {
+    my $self = shift;
+
+    eval {
+        my $obj = Exception::Base->new;
+
+        $self->assert_not_null($obj);
+        $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+
+        $self->assert_num_equals(0, $obj->numerify);
+        $self->assert_num_equals(0, 0+ $obj);
+
+        $obj->{defaults}->{value} = 123;
+        $obj->{value} = undef;
+
+        $self->assert_num_equals(123, $obj->numerify);
+        $self->assert_num_equals(123, 0+ $obj);
+
+        $obj->{value} = 456;
+
+        $self->assert_num_equals(456, $obj->numerify);
+        $self->assert_num_equals(456, 0+ $obj);
+
+        $obj->{defaults}->{value} = undef;
+        $obj->{value} = undef;
+
+        $self->assert_num_equals(0, $obj->numerify);
+        $self->assert_num_equals(0, 0+ $obj);
+
+        $self->assert_num_equals(0, $obj->{defaults}->{value} = Exception::Base->ATTRS->{value}->{default});
+    }
 }
 
 sub test_overload {
@@ -1083,6 +1117,7 @@ sub test_import_defaults {
         eval 'Exception::Base->import("+ignore_package" => qr/6/);';
         $self->assert_equals('', "$@");
         $self->assert_deep_equals([qw<(?-xism:6) 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+        $self->assert_equals('Regexp', ref $fields->{ignore_package}->{default}->[1]);
 
         eval 'Exception::Base->import("-ignore_package" => [ "5", qr/6/ ]);';
         $self->assert_equals('', "$@");
