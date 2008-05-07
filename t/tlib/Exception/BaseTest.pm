@@ -751,42 +751,37 @@ sub test_catch_non_exception {
         # empty stack trace
         while (Exception::Base->catch(my $obj0)) { };
 
-        my $file = __FILE__;
-        $file =~ s/\W/./g;
-        my $regexp = qr/Exception::Base: Unknown message at $file line \d+( thread \d+)?\n/s;
-
-        eval { 1; };
         $@ = "Unknown message";
         my $obj1 = Exception::Base->catch;
-        $self->assert_matches($regexp, "$obj1");
+        $self->assert_equals("Unknown message", $obj1->{message});
 
-        eval { 1; };
         Exception::Base::try do { $@ = "Unknown message\n" };
         my $obj2 = Exception::Base->catch;
-        $self->assert_matches($regexp, "$obj2");
+        $self->assert_equals("Unknown message", $obj2->{message});
 
-        eval { 1; };
         Exception::Base::try do { $@ = "Unknown message at file line 123.\n" };
         my $obj3 = Exception::Base->catch;
-        $self->assert_matches($regexp, "$obj3");
+        $self->assert_equals("Unknown message", $obj3->{message});
 
-        eval { 1; };
         Exception::Base::try do { $@ = "Unknown message at file line 123 thread 456789.\n" };
         my $obj4 = Exception::Base->catch;
-        $self->assert_matches($regexp, "$obj4");
+        $self->assert_equals("Unknown message", $obj4->{message});
 
-        eval { 1; };
         Exception::Base::try do { $@ = "Unknown message at foo at bar at baz at file line 123.\n" };
         my $obj5 = Exception::Base->catch;
-        $regexp = qr/Exception::Base: Unknown message at foo at bar at baz at $file line \d+( thread \d+)?\n/s;
-        $self->assert_matches($regexp, "$obj5");
+        $self->assert_equals("Unknown message at foo at bar at baz", $obj5->{message});
 
-        eval { 1; };
         Exception::Base::try do { $@ = "Unknown message\nNext line\n" };
         my $obj6 = Exception::Base->catch;
-        $regexp = qr/Exception::Base: Unknown message\nNext line at $file line \d+( thread \d+)?\n/s;
-        $self->assert_matches($regexp, "$obj6");
+        $self->assert_equals("Unknown message\nNext line", $obj6->{message});
 
+        Exception::Base::try do { $@ = "Unknown message\n\t...propagated at -e line 1.\n" };
+        my $obj7 = Exception::Base->catch;
+        $self->assert_equals("Unknown message", $obj7->{message});
+
+        Exception::Base::try do { $@ = "Unknown message\n\t...propagated at -e line 1.\n\t...propagated at file line 123 thread 456789.\n" };
+        my $obj8 = Exception::Base->catch;
+        $self->assert_equals("Unknown message", $obj8->{message});
     };
     die "$@" if $@;
 }

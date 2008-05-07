@@ -645,6 +645,7 @@ sub catch (;$$) {
     }
     else {
         # New exception based on error from $@. Clean up the message.
+        while ($e_from_stack =~ s/\t\.\.\.propagated at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s) { }
         $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $e = $class->new;
         my $eval_attribute = $e->{defaults}->{eval_attribute};
