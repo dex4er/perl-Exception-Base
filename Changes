@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
-0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-05-06
+0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-05-07
 
 New:
 
@@ -19,8 +19,11 @@ Changes:
   attribute.
 * Removed eval_error attribute.  Only catch() converts "$@" string into message
   attribute.
-* If the error stack is empty, the catch method recover $@ variable.
 * The try method clears $@ variable.
+* If the error stack is empty, the catch method recover $@ variable into attribute
+  pointed by eval_attribute.
+* If throw method is called with one argument, its value is stored in
+  attribute pointed by default_attribute.
 
 Fixes:
 

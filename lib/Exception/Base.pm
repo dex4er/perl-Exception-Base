@@ -177,27 +177,29 @@ use overload 'bool'   => sub () { 1; },
              fallback => 1;
 
 
-# List of class attributes (name => {is=>ro|rw, default=>value})
+# List of class attributes (name => { is=>ro|rw, default=>value })
 use constant ATTRS => {
-    defaults         => { },
-    message          => { is => 'rw', default => 'Unknown exception' },
-    value            => { is => 'rw', default => 0 },
-    caller_stack     => { is => 'ro' },
-    propagated_stack => { is => 'ro' },
-    egid             => { is => 'ro' },
-    euid             => { is => 'ro' },
-    gid              => { is => 'ro' },
-    pid              => { is => 'ro' },
-    tid              => { is => 'ro' },
-    time             => { is => 'ro' },
-    uid              => { is => 'ro' },
-    verbosity        => { is => 'rw', default => 2 },
-    ignore_package   => { is => 'rw', default => [ ] },
-    ignore_class     => { is => 'rw', default => [ ] },
-    ignore_level     => { is => 'rw', default => 0 },
-    max_arg_len      => { is => 'rw', default => 64 },
-    max_arg_nums     => { is => 'rw', default => 8 },
-    max_eval_len     => { is => 'rw', default => 0 },
+    defaults          => { },
+    default_attribute => { default => 'message' },
+    eval_attribute    => { default => 'message' },
+    message           => { is => 'rw', default => 'Unknown exception' },
+    value             => { is => 'rw', default => 0 },
+    caller_stack      => { is => 'ro' },
+    propagated_stack  => { is => 'ro' },
+    egid              => { is => 'ro' },
+    euid              => { is => 'ro' },
+    gid               => { is => 'ro' },
+    pid               => { is => 'ro' },
+    tid               => { is => 'ro' },
+    time              => { is => 'ro' },
+    uid               => { is => 'ro' },
+    verbosity         => { is => 'rw', default => 2 },
+    ignore_package    => { is => 'rw', default => [ ] },
+    ignore_class      => { is => 'rw', default => [ ] },
+    ignore_level      => { is => 'rw', default => 0 },
+    max_arg_len       => { is => 'rw', default => 64 },
+    max_arg_nums      => { is => 'rw', default => 8 },
+    max_eval_len      => { is => 'rw', default => 0 },
 };
 
 
@@ -431,9 +433,12 @@ sub throw (;$@) {
                 die $self->new(@_);
             }
             else {
-                # First argument is a message; it can be overriden with normal args
-                my $message = shift;
-                die $self->new(message => $message, @_);
+                # First argument is a default attribute; it can be overriden with normal args
+                my $argument = shift;
+                my $e = $self->new(@_);
+                my $default_attribute = $e->{defaults}->{default_attribute};
+                $e->{$default_attribute} = $argument if not defined $e->{$default_attribute};
+                die $e;
             }
         }
         else {
@@ -641,7 +646,9 @@ sub catch (;$$) {
     else {
         # New exception based on error from $@. Clean up the message.
         $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-        $e = $class->new(message => $e_from_stack);
+        $e = $class->new;
+        my $eval_attribute = $e->{defaults}->{eval_attribute};
+        $e->{$eval_attribute} = $e_from_stack;
     }
 
     if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
@@ -1426,7 +1433,7 @@ no limit for length.
   eval "Exception->throw( max_eval_len=>10 )";
   print "$@";
 
-=item defaults (rw)
+=item defaults
 
 Meta-attribute contains the list of default values.
 
@@ -1434,6 +1441,40 @@ Meta-attribute contains the list of default values.
   print defined $e->{verbosity}
     ? $e->{verbosity}
     : $e->{defaults}->{verbosity};
+
+=item default_attribute (default: 'message')
+
+Meta-attribute contains the name of the default attribute.  This attribute
+will be set for one argument throw method.  This attribute has meaning for
+derived classes.
+
+  package Exception::My;
+  use base 'Exception::Base';
+  use constant ATTRS => { %{Exception::Base->ATTRS},
+    myattr => { is => 'ro' },
+    default_attribute => 'myattr' };
+  __PACKAGE__->_make_accessors;
+
+  package main;
+  eval { Exception::My->throw("string") };
+  print $@->myattr;    # "string"
+
+=item eval_attribute (default: 'message')
+
+Meta-attribute contains the name of the attribute which is filled if error
+stack is empty.  This attribute will contain value of B<$@> variable.  This
+attribute has meaning for derived classes.
+
+  package Exception::My;
+  use base 'Exception::Base';
+  use constant ATTRS => { %{Exception::Base->ATTRS},
+    myattr => { is => 'ro' },
+    eval_attribute => 'myattr' };
+  __PACKAGE__->_make_accessors;
+
+  package main;
+  eval { die "string" };
+  print $@->myattr;    # "string"
 
 =back
 
