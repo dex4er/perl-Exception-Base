@@ -8,7 +8,7 @@ use Exception::Base
     ':all',
     'verbosity' => 3,
     'Exception::IO',
-    'Exception::FileNotFound' => { isa => 'Exception::IO' };
+    'Exception::FileNotFound' => { isa => 'Exception::IO', has => 'filename' };
 
 sub func1 {
     # try / catch
@@ -16,7 +16,7 @@ sub func1 {
         my $file = '/notfound';
         open my $fh, $file
             or throw 'Exception::FileNotFound' =>
-                     message=>'Can not open file', file=>$file;
+                     message=>'Can not open file', filename=>$file;
 	close $fh;
     };
 
@@ -24,7 +24,7 @@ sub func1 {
         # $e is an exception object for sure, no need to check if is blessed
         warn "Exception caught";
         if ($e->isa('Exception::FileNotFound')) {
-            warn "Exception caught for file " . $e->{properties}->{file};
+            warn "Exception caught for file " . $e->file;
         }
         # rethrow the exception
         warn "Rethrow exception";

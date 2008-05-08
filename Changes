@@ -1,4 +1,35 @@
 ------------------------------------------------------------------------
+0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-05-07
+
+New:
+
+* New attribute value which can contain numeric value.
+* The exception object can be used in bool, numeric or string context.  The
+  bool value is always true.
+
+Changes:
+
+* Verbosity 0 means exception's class name.
+* The exception object returns 
+* The default verbosity for stringification of exception object is 0.
+* The FIELD constant was renamed to ATTRS as far as every OO language calls it
+  attributes.
+* The _stringify private method was renamed to __stringify.
+* An unknown attribute will be ignored instead to be part of properties
+  attribute.
+* Removed eval_error attribute.  Only catch() converts "$@" string into message
+  attribute.
+* The try method clears $@ variable.
+* If the error stack is empty, the catch method recover $@ variable into attribute
+  pointed by eval_attribute.
+* If throw method is called with one argument, its value is stored in
+  attribute pointed by default_attribute.
+
+Fixes:
+
+* Support for threads module.
+
+------------------------------------------------------------------------
 0.15 | Piotr Roszatycki <dexter@debian.org> | 2008-04-19
 
 New:

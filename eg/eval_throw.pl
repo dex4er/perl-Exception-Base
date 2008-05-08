@@ -1,10 +1,13 @@
-#!/usr/bin/perl -I../lib
+#!/usr/bin/perl -l -I../lib
 
 use strict;
 use warnings;
 
-use Exception::Base ':all',
-    'Exception::Eval';
+use Exception::Base ':all';
 
-eval { open my $file, "x", "/badmodeexample" };
-throw 'Exception::Eval' => message=>"cannot open", verbosity=>4 if $@;
+eval {
+    eval { open my $file, "<", "/badmodeexample"
+        or Exception::Base->throw( message=>"cannot open", verbosity=>4 ); };
+    die;
+};
+die;

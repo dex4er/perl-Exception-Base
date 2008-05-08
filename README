@@ -3,36 +3,59 @@ NAME
 
 SYNOPSIS
       # Use module and create needed exceptions
-      use Exception::Base (
-        ':all',                            # import try/catch/throw
-        'Exception::Runtime',              # create new module
-        'Exception::System',               # load existing module
-        'Exception::IO',          => {
-            isa => 'Exception::System' },  # create new based on existing
-        'Exception::FileNotFound' => {
-            message => 'File not found',
-            isa => 'Exception::IO' },      # create new based on new
-      );
+      use Exception::Base
+         'Exception::Runtime',              # create new module
+         'Exception::System',               # load existing module
+         'Exception::IO',          => {
+             isa => 'Exception::System' },  # create new based on existing
+         'Exception::FileNotFound' => {
+             isa => 'Exception::IO',        # create new based on previous
+             message => 'File not found',   # override default message
+             has => [ 'filename' ] };       # define new rw attribute
 
-      # try / catch
-      try eval {
-        do_something() or throw 'Exception::FileNotFound' =>
-                                message=>'Something wrong',
-                                tag=>'something';
+      # eval/$@ (fastest method)
+      eval {
+        open my $file, '/etc/passwd'
+          or Exception::FileNotFound->throw(
+                message=>'Something wrong',
+                filename=>'/etc/passwd');
       };
-      # Catch the Exception::Base and derived, rethrow immediately others
-      if (catch my $e) {
-        # $e is an exception object for sure, no need to check if is blessed
+      if ($@) {
+        my $e = Exception::Base->catch;
+        # $e is an exception object so no need to check if is blessed
         if ($e->isa('Exception::IO')) { warn "IO problem"; }
         elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
         elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-        elsif ($e->with(tag=>'something')) { warn "something happened"; }
+        elsif ($e->with(value=>9)) { warn "something happened"; }
         elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
         else { $e->throw; } # rethrow the exception
       }
 
+      # try/catch (15x slower method)
+      use Exception::Base ':all';   # import try/catch/throw
+      try eval {
+        open my $file, '/etc/passwd'
+          or throw 'Exception::FileNotFound' =>
+                        message=>'Something wrong',
+                        filename=>'/etc/passwd';
+      };
+      if (catch my $e) {
+        # $e is an exception object so no need to check if is blessed
+        if ($e->isa('Exception::IO')) { warn "IO problem"; }
+        elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
+        elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
+        elsif ($e->with(value=>9)) { warn "something happened"; }
+        elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
+        else { $e->throw; } # rethrow the exception
+      }
+
+      # try/catch can be separated with another eval
+      try eval { die "this die will be caught" };
+      eval { die "this die will be ignored" };
+      catch my $e;   # the first die is recovered
+
       # the exception can be thrown later
-      $e = Exception::Base->new;
+      my $e = Exception::Base->new;
       # (...)
       $e->throw;
 
@@ -47,17 +70,12 @@ SYNOPSIS
       try eval { die "Bang!\n" };
       catch my $e, [];
 
-      # don't use syntactic sugar
-      use Exception::Base;          # does not import ':all' tag
-      Exception::Base->try(eval {
-        Exception::IO->throw;
-      });
-      Exception::Base->catch(my $e);  # catch Exception::Base and derived
-      # or
-      Exception::IO->catch(my $e);    # catch IO errors and rethrow others
+      # ignore our package in stack trace
+      package My::Package;
+      use Exception::Base '+ignore_package' => __PACKAGE__;
 
-      # run Perl with changed verbosity
-      sh$ perl -MException::Base=verbosity,4 script.pl
+      # run Perl with changed verbosity for debugging purposes
+      $ perl -MException::Base=verbosity,4 script.pl
 
 DESCRIPTION
     This class implements a fully OO exception mechanism similar to
@@ -65,11 +83,11 @@ DESCRIPTION
     modules like Exception::Class and it is more powerful than
     Class::Throwable. Also it does not use closures as Error and does not
     polute namespace as Exception::Class::TryCatch. It is also much faster
-    than Exception::Class.
+    than Exception::Class and Error.
 
     The features of Exception::Base:
 
-    * fast implementation of an exception object
+    * fast implementation of the exception class
 
     * fully OO without closures and source code filtering
 
@@ -82,15 +100,17 @@ DESCRIPTION
     * the default behaviour of exception class can be changed globally or
       just for the thrown exception
 
-    * the exception can be created with defined custom properties
-
-    * matching the exception by class, message or custom properties
+    * matching the exception by class, message or other attributes
 
     * matching with string, regex or closure function
 
     * creating automatically the derived exception classes ("use" interface)
 
     * easly expendable, see Exception::System class for example
+
+    * prints just an error message or dumps full stack trace
+
+    * can propagate (rethrow) an exception
 
 AUTHOR
     Piotr Roszatycki <dexter@debian.org>

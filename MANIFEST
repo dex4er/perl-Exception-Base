@@ -4,17 +4,21 @@ eg/eval_throw.pl
 eg/file-not-found_exception.pl
 eg/try_catch_throw.pl
 inc/Test/Unit/Lite.pm
+Incompatibilities
 lib/Exception/Base.pm
 Makefile.PL
 MANIFEST			This list of files
+MANIFEST.SKIP
 META.yml
 README
 t/all_tests.t
-t/benchmark.pl
+t/benchmark_fail.pl
+t/benchmark_ok.pl
 t/cover.sh
 t/pod.t
 t/pod_coverage.t
-t/profile.pl
+t/profile_eval.pl
+t/profile_try.pl
 t/test.pl
 t/tlib/Exception/BaseTest.pm
 t/tlib/Exception/BaseTest/MissingVersion.pm

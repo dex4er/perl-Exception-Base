@@ -3,9 +3,14 @@
 use Exception::Base
     ':all',
     'verbosity' => 3,
-    'Exception::Eval';
+    'Exception::My';
 
-try eval { open $file, "z", "/badmodeexample" };
+try eval {
+    try eval { open $file, "z", "/badmodeexample" };
+    if (catch my $e) {
+        throw 'Exception::My' => $e, message=>"cannot open";
+    }
+};
 if (catch my $e) {
-    throw 'Exception::Eval' => $e, message=>"cannot open";
+    throw $e;
 }

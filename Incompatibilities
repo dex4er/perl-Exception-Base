@@ -1,0 +1,111 @@
+------------------------------------------------------------------------
+0.15 -> 0.16
+
+* All derived classes should use ATTRS constant instead of FIELD constant:
+
+  Was:
+
+  use constant FIELDS => {
+    %{ Exception::Base->FIELDS },
+    message  => { is => 'rw', default => 'Extended exception' },
+    myattr   => { is => 'rw' },
+  };
+
+  Should be:
+
+  use constant ATTRS => {
+    %{ Exception::Base->ATTRS },
+    message  => { is => 'rw', default => 'Extended exception' },
+    myattr   => { is => 'rw' },
+  };
+
+* An unknown attribute will be ignored instead to be part of properties
+  attribute.  You can create additional exception class which supports these
+  attributes.
+
+  Was:
+
+  Exception::Base->throw(tag => 1, myattr => 2);
+  $@->with(tag => 1);
+
+  Should be:
+
+  use Exception::Base 'Exception::My' => { has => [ 'tag', 'myattr' ] };
+  Exception::My->throw(tag => 1, myattr => 2);
+  $@->with(tag => 1);
+
+* Removed eval_error attribute.  The catch method converts "$@" string into
+  an exception object with message attribute filled.
+
+  Was:
+
+  try eval { die "Message" };
+  if (catch my $e) {
+      print $e->eval_error;
+  }
+
+  Should be:
+
+  try eval { die "Message" };
+  if (catch my $e) {
+      print $e->message;
+  }
+
+* The catch method returns $@ variable if error stack is empty.
+
+  Was:
+
+  try eval { -f "/etc/shadow"  or Exception::Base->throw() };
+  try eval { -f "/etc/passwd"  or Exception::Base->throw() };
+  try eval { -f "/etc/passwd-" or Exception::Base->throw() };
+  while (catch my $e) {
+    do_something();
+  }
+
+  Should be:
+
+  try eval {
+       -f "/etc/shadow"  or Exception::Base->throw();
+       -f "/etc/passwd"  or Exception::Base->throw();
+       -f "/etc/passwd-" or Exception::Base->throw();
+  };
+  if (catch my $e) {
+      do_something();
+  }
+
+* The _stringify private method renamed to __stringify.  It might be important
+  for derived classes which overloads q{""}.
+
+  Was:
+
+  package Exception::My;
+  use base 'Exception::Base';
+  use overload 'q{""}' => '_stringify';
+  sub _stringify { return $_[0]->stringify; }
+
+  Should be:
+
+  use Exception::My;
+  use base 'Exception::Base';
+  use overload 'q{""}' => '__stringify';
+  sub __stringify { return $_[0]->stringify; }
+
+------------------------------------------------------------------------
+0.14 -> 0.15
+
+* throw() method is exported with ":all" tag.  It can break the code which
+  uses indirect notation.
+
+  Was:
+
+  throw Exception::Base message => 'Something happened';
+
+  Should be:
+
+  Exception::Base->throw( message => 'Something happened' );
+
+  or:
+
+  throw 'Exception::Base' => message => 'Something happened';
+
+------------------------------------------------------------------------
