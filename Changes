@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
-0.17 | Piotr Roszatycki <dexter@debian.org> | 2008-05-10
+0.17 | Piotr Roszatycki <dexter@debian.org> | 2008-05-11
 
 Incompatibilities:
 
@@ -15,6 +15,7 @@ New:
 Changes:
 
 * Show full propagated stack for verbosity = 4.
+* The "with" method matches the default_attribute if one argument is given.
 
 ------------------------------------------------------------------------
 0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-05-07

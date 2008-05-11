@@ -551,25 +551,51 @@ sub with {
     my $self = shift;
     return unless @_;
 
-    # Odd number of arguments - first is message
+    my $default_attribute = $self->{defaults}->{default_attribute};
+
+    # Odd number of arguments - first is default attribute
     if (scalar @_ % 2 == 1) {
-        my $message = shift @_;
-        if (not defined $message) {
-            return 0 if defined $self->{message};
+        my $val = shift @_;
+        if (ref $val eq 'ARRAY') {
+            my $arrret = 0;
+            foreach my $arrval (@{ $val }) {
+                if (not defined $arrval) {
+                    $arrret = 1 if not defined $self->{$default_attribute};
+                }
+                elsif (not defined $self->{$default_attribute}) {
+                    next;
+                }
+                elsif (ref $arrval eq 'CODE') {
+                    local $_ = $self->{$default_attribute};
+                    $arrret = 1 if &$arrval;
+                }
+                elsif (ref $arrval eq 'Regexp') {
+                    local $_ = $self->{$default_attribute};
+                    $arrret = 1 if /$arrval/;
+                }
+                else {
+                    $arrret = 1 if $self->{$default_attribute} eq $arrval;
+                }
+                last if $arrret;
+            }
+            return 0 if not $arrret;
         }
-        elsif (not defined $self->{message}) {
+        elsif (not defined $val) {
+            return 0 if defined $self->{$default_attribute};
+        }
+        elsif (not defined $self->{$default_attribute}) {
             return 0;
         }
-        elsif (ref $message eq 'CODE') {
-            $_ = $self->{message};
-            return 0 if not &$message;
+        elsif (ref $val eq 'CODE') {
+            $_ = $self->{$default_attribute};
+            return 0 if not &$val;
         }
-        elsif (ref $message eq 'Regexp') {
-            $_ = $self->{message};
-            return 0 if not /$message/;
+        elsif (ref $val eq 'Regexp') {
+            $_ = $self->{$default_attribute};
+            return 0 if not /$val/;
         }
         else {
-            return 0 if $self->{message} ne $message;
+            return 0 if $self->{$default_attribute} ne $val;
         }
         return 1 unless @_;
     }
@@ -577,24 +603,77 @@ sub with {
 
     my %args = @_;
     while (my($key,$val) = each %args) {
-        return 0 if not defined $val and
-            exists $self->{$key} && defined $self->{$key};
-
-        return 0 if defined $val and not
-            exists $self->{$key} && defined $self->{$key};
-
-        if (defined $val) {
-            if (ref $val eq 'CODE') {
-                $_ = $self->{$key};
-                return 0 if not &$val;
-            }
-            elsif (ref $val eq 'Regexp') {
-                $_ = $self->{$key};
-                return 0 if not /$val/;
+        if (not defined $key) {
+            return 0;
+        }
+        elsif ($key eq 'isa') {
+            if (ref $val eq 'ARRAY') {
+                my $arrret = 0;
+                foreach my $arrval (@{ $val }) {
+                    next if not defined $arrval;
+                    $arrret = 1 if $self->isa($arrval);
+                    last if $arrret;
+                }
+                return 0 if not $arrret;
             }
             else {
-                return 0 if $self->{$key} ne $val;
+                return 0 if not $self->isa($val);
             }
+        }
+        elsif ($key eq 'has') {
+            if (ref $val eq 'ARRAY') {
+                my $arrret = 0;
+                foreach my $arrval (@{ $val }) {
+                    next if not defined $arrval;
+                    $arrret = 1 if exists $self->ATTRS->{$arrval};
+                    last if $arrret;
+                }
+                return 0 if not $arrret;
+            }
+            else {
+                return 0 if not $self->ATTRS->{$val};
+            }
+        }
+        elsif (ref $val eq 'ARRAY') {
+            my $arrret = 0;
+            foreach my $arrval (@{ $val }) {
+                if (not defined $arrval) {
+                    $arrret = 1 if not defined $self->{$key};
+                }
+                elsif (not defined $self->{$key}) {
+                    next;
+                }
+                elsif (ref $arrval eq 'CODE') {
+                    local $_ = $self->{$key};
+                    $arrret = 1 if &$arrval;
+                }
+                elsif (ref $arrval eq 'Regexp') {
+                    local $_ = $self->{$key};
+                    $arrret = 1 if /$arrval/;
+                }
+                else {
+                    $arrret = 1 if $self->{$key} eq $arrval;
+                }
+                last if $arrret;
+            }
+            return 0 if not $arrret;
+        }
+        elsif (not defined $val) {
+            return 0 if exists $self->{$key} && defined $self->{$key};
+        }
+        elsif (not defined $self->{$key}) {
+            return 0;
+        }
+        elsif (ref $val eq 'CODE') {
+            $_ = $self->{$key};
+            return 0 if not &$val;
+        }
+        elsif (ref $val eq 'Regexp') {
+            $_ = $self->{$key};
+            return 0 if not /$val/;
+        }
+        else {
+            return 0 if $self->{$key} ne $val;
         }
     }
 
@@ -1601,22 +1680,47 @@ method can be used explicity.
 =item with(I<condition>)
 
 Checks if the exception object matches the given condition.  If the first
-argument is single value, the B<message> attribute will be matched.  If the
+argument is single value, the B<default_attribute> will be matched.  If the
 argument is a part of hash, an attribute of the exception object will be
-matched.
+matched.  The B<with> method returns true value if all its arguments match.
 
-  $e->with( "message" );
-  $e->with( value=>123 );
-  $e->with( "message", value=>45 );
-  $e->with( uid=>0 );
-  $e->with( message=>'$e->{message}' );
+  $e = Exception::Base->new( message=>"Message", value=>123 );
+  $e->with( "Message" );             # matches
+  $e->with( value=>123 );            # matches
+  $e->with( "Message", value=>45 );  # doesn't match second
+  $e->with( uid=>0 );                # match if runs with root privileges
+  $e->with( message=>"Message" );    # matches
 
 The argument (for message or attributes) can be simple string or code
 reference or regexp.
 
-  $e->with( "message" );
-  $e->with( sub {/message/} );
-  $e->with( qr/message/ );
+  $e->with( "Message" );
+  $e->with( sub {/Message/} );
+  $e->with( qr/Message/ );
+
+If argument is a reference to array, the argument matches if any of its
+element matches.
+
+  $e->with( message=>["Not", 123, 45, "Message"] );  # matches
+  $e->with( value=>[123, 45], message=>"Not" );      # doesn't match second
+
+The B<with> method matches for special keywords:
+
+=over
+
+=item isa
+
+Matches if the object is a given class.  The argument can be string only.
+
+  $e->with( isa=>"Exception::Base" );   # matches
+
+=item has
+
+Matches if the object has a given attribute.  The argument can be string only.
+
+  $e->with( has=>"message" );           # matches
+
+=back
 
 =item try(I<eval>)
 
