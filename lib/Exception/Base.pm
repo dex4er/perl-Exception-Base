@@ -29,8 +29,7 @@ Exception::Base - Lightweight exceptions
             filename=>'/etc/passwd');
   };
   if ($@) {
-    my $e = Exception::Base->catch;
-    # $e is an exception object so no need to check if is blessed
+    my $e = Exception::Base->catch;   # convert $@ into exception
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
@@ -39,7 +38,7 @@ Exception::Base - Lightweight exceptions
     else { $e->throw; } # rethrow the exception
   }
 
-  # try/catch (15x slower method)
+  # try/catch (15x slower)
   use Exception::Base ':all';   # import try/catch/throw
   try eval {
     open my $file, '/etc/passwd'
@@ -57,26 +56,33 @@ Exception::Base - Lightweight exceptions
     else { $e->throw; } # rethrow the exception
   }
 
+  # $@ has to be recovered ASAP!
+  eval { die "this die will be caught" };
+  my $e = Exception::Base->catch;
+  eval { die "this die will be ignored" };
+  if ($e) {
+     (...)
+  }
+
   # try/catch can be separated with another eval
   try eval { die "this die will be caught" };
-  eval { die "this die will be ignored" };
-  catch my $e;   # the first die is recovered
+  do { eval { die "this die will be ignored" } };
+  catch my $e;   # only first die is recovered
 
   # the exception can be thrown later
   my $e = Exception::Base->new;
   # (...)
   $e->throw;
 
-  # try with array context
+  # try returns eval's value for scalar or array context
+  $v = try eval { do_something_returning_scalar(); };
   @v = try [eval { do_something_returning_array(); }];
 
   # catch only IO errors, rethrow immediately others
-  try eval { File::Stat::Moose->stat("/etc/passwd") };
-  catch my $e, ['Exception::IO'];
-
-  # immediately rethrow all caught exceptions and eval errors
-  try eval { die "Bang!\n" };
-  catch my $e, [];
+  eval { File::Stat::Moose->stat("/etc/passwd") };
+  if ($@) {
+      my $e = Exception::Base->catch( ['Exception::IO'] );
+  }
 
   # ignore our package in stack trace
   package My::Package;
@@ -88,11 +94,10 @@ Exception::Base - Lightweight exceptions
 =head1 DESCRIPTION
 
 This class implements a fully OO exception mechanism similar to
-L<Exception::Class> or L<Class::Throwable>.  It does not depend on other
-modules like L<Exception::Class> and it is more powerful than
-L<Class::Throwable>.  Also it does not use closures as L<Error> and does not
-polute namespace as L<Exception::Class::TryCatch>.  It is also much faster
-than L<Exception::Class> and L<Error>.
+L<Exception::Class> or L<Class::Throwable>.  It provides a simple interface
+allowing programmers to declare exception classes.  These classes can be
+thrown and caught.  Each uncaught exception prints full stack trace if the
+default verbosity is uppered for debugging purposes.
 
 The features of L<Exception::Base>:
 
@@ -652,24 +657,13 @@ sub catch (;$$) {
         $e->{$eval_attribute} = $e_from_stack;
     }
 
-    if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
+    if (scalar @_ > 0) {
         # Save object in argument, return only status
         $_[0] = $e;
         shift @_;
         $want_object = 0;
     }
-    if (defined $e) {
-        # For real exceptions...
-        if (defined $self and not do { local $@; local $SIG{__DIE__}; eval { $e->isa($class) } }) {
-            # ... throw if the exception is not our class
-            $e->throw;
-        }
-        if (defined $_[0] and ref $_[0] eq 'ARRAY') {
-            # ... throw if the exception class is not listed
-            $e->throw unless grep { do { local $@; local $SIG{__DIE__}; eval { $e->isa($_) } } } @{$_[0]};
-        }
-    }
-    # Return status or object
+
     return $want_object ? $e : defined $e;
 }
 
@@ -1656,22 +1650,25 @@ The B<try> can be used as method or function.
 
 =item I<CLASS>-E<gt>catch([$I<variable>])
 
-The exception is popped from error stack written into the method argument.  If
-the exception is not based on the I<CLASS>, the exception is thrown
-immediately.
+The exception is popped from error stack and returned from method or written into
+the method argument.
 
   eval { Exception::Base->throw; };
-  Exception::Base->catch( my $e );
-  print $e->stringify(1);
+  if ($@) {
+      my $e = Exception::Base->catch;
+      print $e->stringify(1);
+  }
 
 If the error stack is empty, the B<catch> method recovers B<$@> variable and
 replaces it with empty string to avoid endless loop.  It allows to use
 B<catch> method without previous B<try>.
 
 If the popped value does not contain the exception object but string, new
-exception object is created with message based on previous value with removed
-C<" at file line 123."> string and the last end of line (LF).
+exception object is created with class I<CLASS> and its message is based on
+previous value with removed C<" at file line 123."> string and the last end of
+line (LF).
 
+  use Exception::Base ':all';
   try eval { die "Died\n"; };
   catch 'Exception::Base' => my $e;
   print $e->message;   # "Died"
@@ -1699,19 +1696,14 @@ then the I<CLASS> is Exception::Base by default.
 
 =item I<CLASS>-E<gt>catch([$I<variable>,] \@I<ExceptionClasses>)
 
-The exception is popped from error stack.  If error stack is empty then
-returns B<$@> variable and replaces it with empty string.
-
-  try eval { throw Exception::IO; };
-  catch 'Exception::Base', my $e, ['Exception::IO'];
-  print "Only IO exception was caught: " . $e->stringify(1);
-
 If the exception is not based on the I<CLASS> and is not based on one of the
 class from argument, the new exception is thrown immediately with message set.
 
-  try eval { die "simple die"; };
-  catch my $e;        # simple die converted to the exception object
-  print $e->message;  # message is "simple die"
+  eval { throw Exception::IO };
+  if ($@) {
+      my $e = Exception::Base->catch( ['Exception::IO'] );
+      warn "IO exception was caught, others was rethrown automatically";
+  }
 
 =item PROPAGATE
 
@@ -1796,7 +1788,6 @@ note that Perl has built-in implementation of pseudo-exceptions:
     print $@->{message}, " at ", $@->{file}, " in line ", $@->{line}, ".\n";
   }
 
-
 The more complex implementation of exception mechanism provides more features.
 
 =over
@@ -1831,8 +1822,32 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 
 =back
 
-See also L<Exception::System> class as an example for implementation of
-echanced exception class based on this L<Exception::Base> class.
+The B<Exception::Base> does not depend on other modules like
+L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
+does not use closures as L<Error> and does not polute namespace as
+L<Exception::Class::TryCatch>.  It is also much faster than
+L<Exception::Class> and L<Error>.
+
+The B<Exception::Base> is also a base class for enchanced classes:
+
+=over
+
+=item L<Exception::System>
+
+The exception class for system or library calls which modifies B<$!> variable.
+
+=item L<Exception::Died>
+
+The exception class for eval blocks with simple L<perlfunc/die>.  It can also
+handle L<$SIG{__DIE__}|perlvar/%SIG> hook and convert simple L<perlfunc/die>
+into an exception object.
+
+=item L<Exception::Warning>
+
+The exception class which handle L<$SIG{__WARN__}|pervar/%SIG> hook and
+convert simple L<perlfunc/warn> into an exception object.
+
+=back
 
 =head1 PERFORMANCE
 
