@@ -9,7 +9,7 @@ Incompatibilities:
 
 New:
 
-* The "with" method supports "isa" and "has" keyword. Value can be a  
+* The "with" method supports "-isa" and "-has" keyword. Value can be a    
   reference to array which means any value matches.
 
 Changes:
