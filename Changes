@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+0.17 | Piotr Roszatycki <dexter@debian.org> | 2008-05-10
+
+Changes:
+
+* Show full propagated stack for verbosity = 4.
+
+------------------------------------------------------------------------
 0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-05-07
 
 New:

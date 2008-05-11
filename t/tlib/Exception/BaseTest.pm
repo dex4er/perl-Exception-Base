@@ -434,17 +434,20 @@ END
         my $s23 = $obj->stringify(3);
         $self->assert_equals($s22, $s23);
 
+        my $s24 = $obj->stringify(4);
+        $self->assert_equals($s10, $s24);
+
         $obj->{caller_stack} = [ ];
         $obj->{propagated_stack} = [ ];
 
-        my $s24 = << 'END';
+        my $s25 = << 'END';
 Exception::Base: Stringify at unknown line 0
 END
 
-        $s24 =~ s/\\t/\t/g;
+        $s25 =~ s/\\t/\t/g;
 
-        my $s25 = $obj->stringify(3);
-        $self->assert_equals($s24, $s25);
+        my $s26 = $obj->stringify(3);
+        $self->assert_equals($s25, $s26);
 
         $obj->{defaults}->{verbosity} = 1;
         $obj->{verbosity} = undef;

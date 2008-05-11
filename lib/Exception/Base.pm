@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.16;
+our $VERSION = 0.17;
 
 =head1 NAME
 
@@ -511,7 +511,7 @@ sub stringify {
     elsif ($verbosity >= 3) {
         $string  = sprintf "%s: %s", ref $self, $message;
         $string .= $self->_caller_backtrace($verbosity);
-        $string .= $self->_propagated_backtrace;
+        $string .= $self->_propagated_backtrace($verbosity);
     }
     else {
         $string  = "";
@@ -761,14 +761,20 @@ sub _caller_backtrace {
 }
 
 
+# Stringify propagated backtrace.
 sub _propagated_backtrace {
-    my ($self) = @_;
+    my ($self, $verbosity) = @_;
+
+    $verbosity = defined $self->{verbosity}
+                  ? $self->{verbosity}
+                  : $self->{defaults}->{verbosity}
+        if not defined $verbosity;
 
     my $message = "";
     foreach (@{ $self->{propagated_stack} }) {
         my ($package, $file, $line) = @$_;
         # Skip ignored package
-        next if $self->_skip_ignored_package($package);
+        next if $verbosity <= 3 and $self->_skip_ignored_package($package);
         $message .= sprintf "\t...propagated in package %s at %s line %d.\n",
             $package,
             defined $file && $file ne '' ? $file : 'unknown',
