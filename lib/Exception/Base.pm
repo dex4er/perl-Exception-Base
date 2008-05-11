@@ -606,7 +606,7 @@ sub with {
         if (not defined $key) {
             return 0;
         }
-        elsif ($key eq 'isa') {
+        elsif ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
                 foreach my $arrval (@{ $val }) {
@@ -620,7 +620,7 @@ sub with {
                 return 0 if not $self->isa($val);
             }
         }
-        elsif ($key eq 'has') {
+        elsif ($key eq '-has') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
                 foreach my $arrval (@{ $val }) {
@@ -1708,17 +1708,17 @@ The B<with> method matches for special keywords:
 
 =over
 
-=item isa
+=item -isa
 
 Matches if the object is a given class.  The argument can be string only.
 
-  $e->with( isa=>"Exception::Base" );   # matches
+  $e->with( -isa=>"Exception::Base" );   # matches
 
-=item has
+=item -has
 
 Matches if the object has a given attribute.  The argument can be string only.
 
-  $e->with( has=>"message" );           # matches
+  $e->with( -has=>"message" );           # matches
 
 =back
 

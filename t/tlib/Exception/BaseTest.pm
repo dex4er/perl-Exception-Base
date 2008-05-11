@@ -549,14 +549,14 @@ sub test_with {
         $self->assert_equals(1, $obj1->with(message=>[undef]));
         $self->assert_equals(1, $obj1->with(message=>['False', qr//, sub {}, undef]));
         $self->assert_equals(0, $obj1->with(message=>['False', qr//, sub {}]));
-        $self->assert_equals(0, $obj1->with(isa=>'False'));
-        $self->assert_equals(1, $obj1->with(isa=>'Exception::Base'));
-        $self->assert_equals(0, $obj1->with(isa=>['False', 'False', 'False']));
-        $self->assert_equals(1, $obj1->with(isa=>['False', 'Exception::Base', 'False']));
-        $self->assert_equals(0, $obj1->with(has=>'False'));
-        $self->assert_equals(1, $obj1->with(has=>'message'));
-        $self->assert_equals(0, $obj1->with(has=>['False', 'False', 'False']));
-        $self->assert_equals(1, $obj1->with(has=>['False', 'message', 'False']));
+        $self->assert_equals(0, $obj1->with(-isa=>'False'));
+        $self->assert_equals(1, $obj1->with(-isa=>'Exception::Base'));
+        $self->assert_equals(0, $obj1->with(-isa=>['False', 'False', 'False']));
+        $self->assert_equals(1, $obj1->with(-isa=>['False', 'Exception::Base', 'False']));
+        $self->assert_equals(0, $obj1->with(-has=>'False'));
+        $self->assert_equals(1, $obj1->with(-has=>'message'));
+        $self->assert_equals(0, $obj1->with(-has=>['False', 'False', 'False']));
+        $self->assert_equals(1, $obj1->with(-has=>['False', 'message', 'False']));
 
         my $obj2 = Exception::Base->new(message=>'Message', value=>123);
         $self->assert_equals(0, $obj2->with(undef));
