@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.16;
+our $VERSION = 0.17;
 
 =head1 NAME
 
@@ -29,8 +29,7 @@ Exception::Base - Lightweight exceptions
             filename=>'/etc/passwd');
   };
   if ($@) {
-    my $e = Exception::Base->catch;
-    # $e is an exception object so no need to check if is blessed
+    my $e = Exception::Base->catch;   # convert $@ into exception
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
@@ -39,7 +38,7 @@ Exception::Base - Lightweight exceptions
     else { $e->throw; } # rethrow the exception
   }
 
-  # try/catch (15x slower method)
+  # try/catch (15x slower)
   use Exception::Base ':all';   # import try/catch/throw
   try eval {
     open my $file, '/etc/passwd'
@@ -57,26 +56,33 @@ Exception::Base - Lightweight exceptions
     else { $e->throw; } # rethrow the exception
   }
 
+  # $@ has to be recovered ASAP!
+  eval { die "this die will be caught" };
+  my $e = Exception::Base->catch;
+  eval { die "this die will be ignored" };
+  if ($e) {
+     (...)
+  }
+
   # try/catch can be separated with another eval
   try eval { die "this die will be caught" };
-  eval { die "this die will be ignored" };
-  catch my $e;   # the first die is recovered
+  do { eval { die "this die will be ignored" } };
+  catch my $e;   # only first die is recovered
 
   # the exception can be thrown later
   my $e = Exception::Base->new;
   # (...)
   $e->throw;
 
-  # try with array context
+  # try returns eval's value for scalar or array context
+  $v = try eval { do_something_returning_scalar(); };
   @v = try [eval { do_something_returning_array(); }];
 
   # catch only IO errors, rethrow immediately others
-  try eval { File::Stat::Moose->stat("/etc/passwd") };
-  catch my $e, ['Exception::IO'];
-
-  # immediately rethrow all caught exceptions and eval errors
-  try eval { die "Bang!\n" };
-  catch my $e, [];
+  eval { File::Stat::Moose->stat("/etc/passwd") };
+  if ($@) {
+      my $e = Exception::Base->catch( ['Exception::IO'] );
+  }
 
   # ignore our package in stack trace
   package My::Package;
@@ -88,11 +94,10 @@ Exception::Base - Lightweight exceptions
 =head1 DESCRIPTION
 
 This class implements a fully OO exception mechanism similar to
-L<Exception::Class> or L<Class::Throwable>.  It does not depend on other
-modules like L<Exception::Class> and it is more powerful than
-L<Class::Throwable>.  Also it does not use closures as L<Error> and does not
-polute namespace as L<Exception::Class::TryCatch>.  It is also much faster
-than L<Exception::Class> and L<Error>.
+L<Exception::Class> or L<Class::Throwable>.  It provides a simple interface
+allowing programmers to declare exception classes.  These classes can be
+thrown and caught.  Each uncaught exception prints full stack trace if the
+default verbosity is uppered for debugging purposes.
 
 The features of L<Exception::Base>:
 
@@ -511,7 +516,7 @@ sub stringify {
     elsif ($verbosity >= 3) {
         $string  = sprintf "%s: %s", ref $self, $message;
         $string .= $self->_caller_backtrace($verbosity);
-        $string .= $self->_propagated_backtrace;
+        $string .= $self->_propagated_backtrace($verbosity);
     }
     else {
         $string  = "";
@@ -546,25 +551,51 @@ sub with {
     my $self = shift;
     return unless @_;
 
-    # Odd number of arguments - first is message
+    my $default_attribute = $self->{defaults}->{default_attribute};
+
+    # Odd number of arguments - first is default attribute
     if (scalar @_ % 2 == 1) {
-        my $message = shift @_;
-        if (not defined $message) {
-            return 0 if defined $self->{message};
+        my $val = shift @_;
+        if (ref $val eq 'ARRAY') {
+            my $arrret = 0;
+            foreach my $arrval (@{ $val }) {
+                if (not defined $arrval) {
+                    $arrret = 1 if not defined $self->{$default_attribute};
+                }
+                elsif (not defined $self->{$default_attribute}) {
+                    next;
+                }
+                elsif (ref $arrval eq 'CODE') {
+                    local $_ = $self->{$default_attribute};
+                    $arrret = 1 if &$arrval;
+                }
+                elsif (ref $arrval eq 'Regexp') {
+                    local $_ = $self->{$default_attribute};
+                    $arrret = 1 if /$arrval/;
+                }
+                else {
+                    $arrret = 1 if $self->{$default_attribute} eq $arrval;
+                }
+                last if $arrret;
+            }
+            return 0 if not $arrret;
         }
-        elsif (not defined $self->{message}) {
+        elsif (not defined $val) {
+            return 0 if defined $self->{$default_attribute};
+        }
+        elsif (not defined $self->{$default_attribute}) {
             return 0;
         }
-        elsif (ref $message eq 'CODE') {
-            $_ = $self->{message};
-            return 0 if not &$message;
+        elsif (ref $val eq 'CODE') {
+            $_ = $self->{$default_attribute};
+            return 0 if not &$val;
         }
-        elsif (ref $message eq 'Regexp') {
-            $_ = $self->{message};
-            return 0 if not /$message/;
+        elsif (ref $val eq 'Regexp') {
+            $_ = $self->{$default_attribute};
+            return 0 if not /$val/;
         }
         else {
-            return 0 if $self->{message} ne $message;
+            return 0 if $self->{$default_attribute} ne $val;
         }
         return 1 unless @_;
     }
@@ -572,24 +603,77 @@ sub with {
 
     my %args = @_;
     while (my($key,$val) = each %args) {
-        return 0 if not defined $val and
-            exists $self->{$key} && defined $self->{$key};
-
-        return 0 if defined $val and not
-            exists $self->{$key} && defined $self->{$key};
-
-        if (defined $val) {
-            if (ref $val eq 'CODE') {
-                $_ = $self->{$key};
-                return 0 if not &$val;
-            }
-            elsif (ref $val eq 'Regexp') {
-                $_ = $self->{$key};
-                return 0 if not /$val/;
+        if (not defined $key) {
+            return 0;
+        }
+        elsif ($key eq '-isa') {
+            if (ref $val eq 'ARRAY') {
+                my $arrret = 0;
+                foreach my $arrval (@{ $val }) {
+                    next if not defined $arrval;
+                    $arrret = 1 if $self->isa($arrval);
+                    last if $arrret;
+                }
+                return 0 if not $arrret;
             }
             else {
-                return 0 if $self->{$key} ne $val;
+                return 0 if not $self->isa($val);
             }
+        }
+        elsif ($key eq '-has') {
+            if (ref $val eq 'ARRAY') {
+                my $arrret = 0;
+                foreach my $arrval (@{ $val }) {
+                    next if not defined $arrval;
+                    $arrret = 1 if exists $self->ATTRS->{$arrval};
+                    last if $arrret;
+                }
+                return 0 if not $arrret;
+            }
+            else {
+                return 0 if not $self->ATTRS->{$val};
+            }
+        }
+        elsif (ref $val eq 'ARRAY') {
+            my $arrret = 0;
+            foreach my $arrval (@{ $val }) {
+                if (not defined $arrval) {
+                    $arrret = 1 if not defined $self->{$key};
+                }
+                elsif (not defined $self->{$key}) {
+                    next;
+                }
+                elsif (ref $arrval eq 'CODE') {
+                    local $_ = $self->{$key};
+                    $arrret = 1 if &$arrval;
+                }
+                elsif (ref $arrval eq 'Regexp') {
+                    local $_ = $self->{$key};
+                    $arrret = 1 if /$arrval/;
+                }
+                else {
+                    $arrret = 1 if $self->{$key} eq $arrval;
+                }
+                last if $arrret;
+            }
+            return 0 if not $arrret;
+        }
+        elsif (not defined $val) {
+            return 0 if exists $self->{$key} && defined $self->{$key};
+        }
+        elsif (not defined $self->{$key}) {
+            return 0;
+        }
+        elsif (ref $val eq 'CODE') {
+            $_ = $self->{$key};
+            return 0 if not &$val;
+        }
+        elsif (ref $val eq 'Regexp') {
+            $_ = $self->{$key};
+            return 0 if not /$val/;
+        }
+        else {
+            return 0 if $self->{$key} ne $val;
         }
     }
 
@@ -652,24 +736,13 @@ sub catch (;$$) {
         $e->{$eval_attribute} = $e_from_stack;
     }
 
-    if (scalar @_ > 0 and ref($_[0]) ne 'ARRAY') {
+    if (scalar @_ > 0) {
         # Save object in argument, return only status
         $_[0] = $e;
         shift @_;
         $want_object = 0;
     }
-    if (defined $e) {
-        # For real exceptions...
-        if (defined $self and not do { local $@; local $SIG{__DIE__}; eval { $e->isa($class) } }) {
-            # ... throw if the exception is not our class
-            $e->throw;
-        }
-        if (defined $_[0] and ref $_[0] eq 'ARRAY') {
-            # ... throw if the exception class is not listed
-            $e->throw unless grep { do { local $@; local $SIG{__DIE__}; eval { $e->isa($_) } } } @{$_[0]};
-        }
-    }
-    # Return status or object
+
     return $want_object ? $e : defined $e;
 }
 
@@ -761,14 +834,20 @@ sub _caller_backtrace {
 }
 
 
+# Stringify propagated backtrace.
 sub _propagated_backtrace {
-    my ($self) = @_;
+    my ($self, $verbosity) = @_;
+
+    $verbosity = defined $self->{verbosity}
+                  ? $self->{verbosity}
+                  : $self->{defaults}->{verbosity}
+        if not defined $verbosity;
 
     my $message = "";
     foreach (@{ $self->{propagated_stack} }) {
         my ($package, $file, $line) = @$_;
         # Skip ignored package
-        next if $self->_skip_ignored_package($package);
+        next if $verbosity <= 3 and $self->_skip_ignored_package($package);
         $message .= sprintf "\t...propagated in package %s at %s line %d.\n",
             $package,
             defined $file && $file ne '' ? $file : 'unknown',
@@ -1601,22 +1680,47 @@ method can be used explicity.
 =item with(I<condition>)
 
 Checks if the exception object matches the given condition.  If the first
-argument is single value, the B<message> attribute will be matched.  If the
+argument is single value, the B<default_attribute> will be matched.  If the
 argument is a part of hash, an attribute of the exception object will be
-matched.
+matched.  The B<with> method returns true value if all its arguments match.
 
-  $e->with( "message" );
-  $e->with( value=>123 );
-  $e->with( "message", value=>45 );
-  $e->with( uid=>0 );
-  $e->with( message=>'$e->{message}' );
+  $e = Exception::Base->new( message=>"Message", value=>123 );
+  $e->with( "Message" );             # matches
+  $e->with( value=>123 );            # matches
+  $e->with( "Message", value=>45 );  # doesn't match second
+  $e->with( uid=>0 );                # match if runs with root privileges
+  $e->with( message=>"Message" );    # matches
 
 The argument (for message or attributes) can be simple string or code
 reference or regexp.
 
-  $e->with( "message" );
-  $e->with( sub {/message/} );
-  $e->with( qr/message/ );
+  $e->with( "Message" );
+  $e->with( sub {/Message/} );
+  $e->with( qr/Message/ );
+
+If argument is a reference to array, the argument matches if any of its
+element matches.
+
+  $e->with( message=>["Not", 123, 45, "Message"] );  # matches
+  $e->with( value=>[123, 45], message=>"Not" );      # doesn't match second
+
+The B<with> method matches for special keywords:
+
+=over
+
+=item -isa
+
+Matches if the object is a given class.  The argument can be string only.
+
+  $e->with( -isa=>"Exception::Base" );   # matches
+
+=item -has
+
+Matches if the object has a given attribute.  The argument can be string only.
+
+  $e->with( -has=>"message" );           # matches
+
+=back
 
 =item try(I<eval>)
 
@@ -1650,22 +1754,25 @@ The B<try> can be used as method or function.
 
 =item I<CLASS>-E<gt>catch([$I<variable>])
 
-The exception is popped from error stack written into the method argument.  If
-the exception is not based on the I<CLASS>, the exception is thrown
-immediately.
+The exception is popped from error stack and returned from method or written into
+the method argument.
 
   eval { Exception::Base->throw; };
-  Exception::Base->catch( my $e );
-  print $e->stringify(1);
+  if ($@) {
+      my $e = Exception::Base->catch;
+      print $e->stringify(1);
+  }
 
 If the error stack is empty, the B<catch> method recovers B<$@> variable and
 replaces it with empty string to avoid endless loop.  It allows to use
 B<catch> method without previous B<try>.
 
 If the popped value does not contain the exception object but string, new
-exception object is created with message based on previous value with removed
-C<" at file line 123."> string and the last end of line (LF).
+exception object is created with class I<CLASS> and its message is based on
+previous value with removed C<" at file line 123."> string and the last end of
+line (LF).
 
+  use Exception::Base ':all';
   try eval { die "Died\n"; };
   catch 'Exception::Base' => my $e;
   print $e->message;   # "Died"
@@ -1693,19 +1800,14 @@ then the I<CLASS> is Exception::Base by default.
 
 =item I<CLASS>-E<gt>catch([$I<variable>,] \@I<ExceptionClasses>)
 
-The exception is popped from error stack.  If error stack is empty then
-returns B<$@> variable and replaces it with empty string.
-
-  try eval { throw Exception::IO; };
-  catch 'Exception::Base', my $e, ['Exception::IO'];
-  print "Only IO exception was caught: " . $e->stringify(1);
-
 If the exception is not based on the I<CLASS> and is not based on one of the
 class from argument, the new exception is thrown immediately with message set.
 
-  try eval { die "simple die"; };
-  catch my $e;        # simple die converted to the exception object
-  print $e->message;  # message is "simple die"
+  eval { throw Exception::IO };
+  if ($@) {
+      my $e = Exception::Base->catch( ['Exception::IO'] );
+      warn "IO exception was caught, others was rethrown automatically";
+  }
 
 =item PROPAGATE
 
@@ -1790,7 +1892,6 @@ note that Perl has built-in implementation of pseudo-exceptions:
     print $@->{message}, " at ", $@->{file}, " in line ", $@->{line}, ".\n";
   }
 
-
 The more complex implementation of exception mechanism provides more features.
 
 =over
@@ -1825,8 +1926,32 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 
 =back
 
-See also L<Exception::System> class as an example for implementation of
-echanced exception class based on this L<Exception::Base> class.
+The B<Exception::Base> does not depend on other modules like
+L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
+does not use closures as L<Error> and does not polute namespace as
+L<Exception::Class::TryCatch>.  It is also much faster than
+L<Exception::Class> and L<Error>.
+
+The B<Exception::Base> is also a base class for enchanced classes:
+
+=over
+
+=item L<Exception::System>
+
+The exception class for system or library calls which modifies B<$!> variable.
+
+=item L<Exception::Died>
+
+The exception class for eval blocks with simple L<perlfunc/die>.  It can also
+handle L<$SIG{__DIE__}|perlvar/%SIG> hook and convert simple L<perlfunc/die>
+into an exception object.
+
+=item L<Exception::Warning>
+
+The exception class which handle L<$SIG{__WARN__}|pervar/%SIG> hook and
+convert simple L<perlfunc/warn> into an exception object.
+
+=back
 
 =head1 PERFORMANCE
 

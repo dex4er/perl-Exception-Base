@@ -1,7 +1,60 @@
+0.16 -> 0.17
+
+* The catch method doesn't rethrow a caught exception.  The class name of static
+  method has no meaning and reference to array is no longer an argument for
+  the method.
+
+  Was:
+
+  eval { throw Exception::Base };
+  if ($@) {
+      my $e = Exception::System->catch;
+      # retrow anything else than Exception::System automatically
+      (...)
+  }
+
+  Should be:
+
+  eval { throw Exception::Base };
+  if ($@) {
+      my $e = Exception::Base->catch;
+      if ($e->isa('Exception::System') {
+          (...)
+      }
+      else {
+          $e->throw;
+      }
+  }
+
+  or:
+
+  Was:
+
+  try eval { throw Exception::Base };
+  if (catch my $e, ['Exception::System', 'Exception::Died']) {
+      # retrow anything else than Exception::System automatically
+      (...)
+  }
+
+  Should be:
+
+  eval { throw Exception::Base };
+  if ($@) {
+      my $e = Exception::Base->catch;
+      if ($e->with(-isa => ['Exception::System', 'Exception::Died'])) {
+          (...)
+      }
+      else {
+          $e->throw;
+      }
+  }
+
 ------------------------------------------------------------------------
 0.15 -> 0.16
 
-* All derived classes should use ATTRS constant instead of FIELD constant:
+* The FIELD constant was renamed to ATTRS as far as every OO language calls it
+  attributes.  All derived classes should use ATTRS constant instead of FIELD
+  constant.
 
   Was:
 
@@ -34,8 +87,8 @@
   Exception::My->throw(tag => 1, myattr => 2);
   $@->with(tag => 1);
 
-* Removed eval_error attribute.  The catch method converts "$@" string into
-  an exception object with message attribute filled.
+* Removed eval_error attribute.  If the error stack is empty, the catch method
+  recover $@ variable into attribute pointed by eval_attribute.
 
   Was:
 

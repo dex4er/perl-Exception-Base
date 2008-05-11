@@ -21,8 +21,7 @@ SYNOPSIS
                 filename=>'/etc/passwd');
       };
       if ($@) {
-        my $e = Exception::Base->catch;
-        # $e is an exception object so no need to check if is blessed
+        my $e = Exception::Base->catch;   # convert $@ into exception
         if ($e->isa('Exception::IO')) { warn "IO problem"; }
         elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
         elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
@@ -31,7 +30,7 @@ SYNOPSIS
         else { $e->throw; } # rethrow the exception
       }
 
-      # try/catch (15x slower method)
+      # try/catch (15x slower)
       use Exception::Base ':all';   # import try/catch/throw
       try eval {
         open my $file, '/etc/passwd'
@@ -49,26 +48,33 @@ SYNOPSIS
         else { $e->throw; } # rethrow the exception
       }
 
+      # $@ has to be recovered ASAP!
+      eval { die "this die will be caught" };
+      my $e = Exception::Base->catch;
+      eval { die "this die will be ignored" };
+      if ($e) {
+         (...)
+      }
+
       # try/catch can be separated with another eval
       try eval { die "this die will be caught" };
-      eval { die "this die will be ignored" };
-      catch my $e;   # the first die is recovered
+      do { eval { die "this die will be ignored" } };
+      catch my $e;   # only first die is recovered
 
       # the exception can be thrown later
       my $e = Exception::Base->new;
       # (...)
       $e->throw;
 
-      # try with array context
+      # try returns eval's value for scalar or array context
+      $v = try eval { do_something_returning_scalar(); };
       @v = try [eval { do_something_returning_array(); }];
 
       # catch only IO errors, rethrow immediately others
-      try eval { File::Stat::Moose->stat("/etc/passwd") };
-      catch my $e, ['Exception::IO'];
-
-      # immediately rethrow all caught exceptions and eval errors
-      try eval { die "Bang!\n" };
-      catch my $e, [];
+      eval { File::Stat::Moose->stat("/etc/passwd") };
+      if ($@) {
+          my $e = Exception::Base->catch( ['Exception::IO'] );
+      }
 
       # ignore our package in stack trace
       package My::Package;
@@ -79,11 +85,10 @@ SYNOPSIS
 
 DESCRIPTION
     This class implements a fully OO exception mechanism similar to
-    Exception::Class or Class::Throwable. It does not depend on other
-    modules like Exception::Class and it is more powerful than
-    Class::Throwable. Also it does not use closures as Error and does not
-    polute namespace as Exception::Class::TryCatch. It is also much faster
-    than Exception::Class and Error.
+    Exception::Class or Class::Throwable. It provides a simple interface
+    allowing programmers to declare exception classes. These classes can be
+    thrown and caught. Each uncaught exception prints full stack trace if
+    the default verbosity is uppered for debugging purposes.
 
     The features of Exception::Base:
 

@@ -1,27 +1,51 @@
 ------------------------------------------------------------------------
+0.17 | Piotr Roszatycki <dexter@debian.org> | 2008-05-11
+
+Incompatibilities:
+
+* The "catch" method doesn't rethrow a caught exception.  The reference to
+  array is no longer an argument for the method.  The class name means that
+  caught non-exception will be converted to this class.
+
+New:
+
+* The "with" method supports "-isa" and "-has" keyword. Value can be a    
+  reference to array which means any value matches.
+
+Changes:
+
+* Show full propagated stack for verbosity = 4.
+* The "with" method matches the default_attribute if one argument is given.
+
+------------------------------------------------------------------------
 0.16 | Piotr Roszatycki <dexter@debian.org> | 2008-05-07
+
+Incompatibilites:
+
+* The FIELD constant was renamed to ATTRS as far as every OO language calls it
+  attributes.  All derived classes should use ATTRS constant instead of FIELD
+  constant.
+* An unknown attribute will be ignored instead to be part of properties
+  attribute.  You can create additional exception class which supports these
+  attributes.
+* Removed eval_error attribute.  If the error stack is empty, the catch method
+  recover $@ variable into attribute pointed by eval_attribute.
+* The catch method returns $@ variable if error stack is empty.
+* The _stringify private method renamed to __stringify.  It might be important
+  for derived classes which overloads q{""}.
 
 New:
 
 * New attribute value which can contain numeric value.
 * The exception object can be used in bool, numeric or string context.  The
-  bool value is always true.
+  bool value is always true.  The numeric value returns the content of value
+  attribute.
 
 Changes:
 
-* Verbosity 0 means exception's class name.
-* The exception object returns 
 * The default verbosity for stringification of exception object is 0.
-* The FIELD constant was renamed to ATTRS as far as every OO language calls it
-  attributes.
 * The _stringify private method was renamed to __stringify.
-* An unknown attribute will be ignored instead to be part of properties
-  attribute.
-* Removed eval_error attribute.  Only catch() converts "$@" string into message
-  attribute.
 * The try method clears $@ variable.
-* If the error stack is empty, the catch method recover $@ variable into attribute
-  pointed by eval_attribute.
 * If throw method is called with one argument, its value is stored in
   attribute pointed by default_attribute.
 

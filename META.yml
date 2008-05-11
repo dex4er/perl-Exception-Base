@@ -1,6 +1,6 @@
 ---
 name: Exception-Base
-version: 0.16
+version: 0.17
 author:
   - 'Piotr Roszatycki <dexter@debian.org>'
 abstract: Lightweight exceptions
@@ -12,7 +12,7 @@ requires:
 provides:
   Exception::Base:
     file: lib/Exception/Base.pm
-    version: 0.16
+    version: 0.17
 generated_by: Module::Build version 0.2808
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
