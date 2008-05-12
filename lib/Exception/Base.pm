@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.17;
+our $VERSION = 0.17_01;
 
 =head1 NAME
 
@@ -78,12 +78,6 @@ Exception::Base - Lightweight exceptions
   $v = try eval { do_something_returning_scalar(); };
   @v = try [eval { do_something_returning_array(); }];
 
-  # catch only IO errors, rethrow immediately others
-  eval { File::Stat::Moose->stat("/etc/passwd") };
-  if ($@) {
-      my $e = Exception::Base->catch( ['Exception::IO'] );
-  }
-
   # ignore our package in stack trace
   package My::Package;
   use Exception::Base '+ignore_package' => __PACKAGE__;
@@ -99,7 +93,7 @@ allowing programmers to declare exception classes.  These classes can be
 thrown and caught.  Each uncaught exception prints full stack trace if the
 default verbosity is uppered for debugging purposes.
 
-The features of L<Exception::Base>:
+The features of B<Exception::Base>:
 
 =over 2
 
@@ -1160,8 +1154,9 @@ If the original I<value> was a reference to array, the new I<value> can
 be included or removed from original array.  Use array reference if you
 need to add or remove more than one element.
 
-  use Exception::Base "+ignore_packages" => [ __PACKAGE__, qr/^Moose::/ ];
-  use Exception::Base "-ignore_class" => "My::Good::Class";
+  use Exception::Base
+      "+ignore_packages" => [ __PACKAGE__, qr/^Moose::/ ],
+      "-ignore_class" => "My::Good::Class";
 
 =item *
 
@@ -1183,7 +1178,7 @@ included.
 
 Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
-class will be based on L<Exception::Base> class.
+class will be based on B<Exception::Base> class.
 
   use Exception::Base qw< Exception::Custom Exception::SomethingWrong >;
   Exception::Custom->throw;
@@ -1530,9 +1525,11 @@ derived classes.
 
   package Exception::My;
   use base 'Exception::Base';
-  use constant ATTRS => { %{Exception::Base->ATTRS},
-    myattr => { is => 'ro' },
-    default_attribute => 'myattr' };
+  use constant ATTRS => {
+      %{Exception::Base->ATTRS},
+      myattr => { is => 'ro' },
+      default_attribute => 'myattr'
+  };
   __PACKAGE__->_make_accessors;
 
   package main;
@@ -1547,9 +1544,10 @@ attribute has meaning for derived classes.
 
   package Exception::My;
   use base 'Exception::Base';
-  use constant ATTRS => { %{Exception::Base->ATTRS},
-    myattr => { is => 'ro' },
-    eval_attribute => 'myattr' };
+  use constant ATTRS => {
+      %{Exception::Base->ATTRS},
+      myattr => { is => 'ro' },
+      eval_attribute => 'myattr' };
   __PACKAGE__->_make_accessors;
 
   package main;
@@ -1767,15 +1765,14 @@ If the error stack is empty, the B<catch> method recovers B<$@> variable and
 replaces it with empty string to avoid endless loop.  It allows to use
 B<catch> method without previous B<try>.
 
-If the popped value does not contain the exception object but string, new
-exception object is created with class I<CLASS> and its message is based on
-previous value with removed C<" at file line 123."> string and the last end of
-line (LF).
+If the popped value is not empty and does not contain the B<Exception::Base>
+object, new exception object is created with class I<CLASS> and its message is
+based on previous value with removed C<" at file line 123."> string and the
+last end of line (LF).
 
-  use Exception::Base ':all';
-  try eval { die "Died\n"; };
-  catch 'Exception::Base' => my $e;
-  print $e->message;   # "Died"
+  eval { die "Died\n"; };
+  my $e = Exception::Base->catch;
+  print ref $e;   # "Exception::Base"
 
 The method returns B<1>, if the exception object is caught, and returns B<0>
 otherwise.
@@ -1797,17 +1794,6 @@ then the I<CLASS> is Exception::Base by default.
   Exception::Base->import( 'catch' );
   catch my $e;  # the same as Exception::Base->catch( my $e );
   print $e->stringify;
-
-=item I<CLASS>-E<gt>catch([$I<variable>,] \@I<ExceptionClasses>)
-
-If the exception is not based on the I<CLASS> and is not based on one of the
-class from argument, the new exception is thrown immediately with message set.
-
-  eval { throw Exception::IO };
-  if ($@) {
-      my $e = Exception::Base->catch( ['Exception::IO'] );
-      warn "IO exception was caught, others was rethrown automatically";
-  }
 
 =item PROPAGATE
 
@@ -1900,7 +1886,7 @@ The more complex implementation of exception mechanism provides more features.
 
 Complete implementation of try/catch/finally/otherwise mechanism.  Uses nested
 closures with a lot of syntactic sugar.  It is slightly faster than
-L<Exception::Base> module for failure scenario and is much slower for success
+B<Exception::Base> module for failure scenario and is much slower for success
 scenario.  It doesn't provide a simple way to create user defined exceptions.
 It doesn't collect system data and stack trace on error.
 
@@ -1913,12 +1899,12 @@ non-core perl modules to work.
 =item L<Exception::Class::TryCatch>
 
 Additional try/catch mechanism for L<Exception::Class>.  It is also slow as
-L<Exception::Base> with try/catch mechanism for success scenario.
+B<Exception::Base> with try/catch mechanism for success scenario.
 
 =item L<Class::Throwable>
 
 Elegant OO exceptions without try/catch mechanism.  It might be missing some
-features found in L<Exception::Base> and L<Exception::Class>.
+features found in B<Exception::Base> and L<Exception::Class>.
 
 =item L<Exceptions>
 
@@ -1966,7 +1952,7 @@ module doesn't use "if ($@)" syntax in its documentation so it was benchmarked
 with its default syntax, however it might be possible to convert it to simple
 "if ($@)".
 
-The L<Exception::Base> module was benchmarked with other implementations for
+The B<Exception::Base> module was benchmarked with other implementations for
 simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
 are following:
 
@@ -1994,7 +1980,7 @@ are following:
   | Exception::Class::TryCatch          |      223822/s |        1270/s |
   -----------------------------------------------------------------------
 
-The L<Exception::Base> module was written to be as fast as it is
+The B<Exception::Base> module was written to be as fast as it is
 possible.  It does not use internally i.e. accessor functions which are
 slower about 6 times than standard variables.  It is slower than pure
 die/eval because it is uses OO mechanisms which are slow in Perl.  It

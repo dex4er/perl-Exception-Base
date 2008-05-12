@@ -70,12 +70,6 @@ SYNOPSIS
       $v = try eval { do_something_returning_scalar(); };
       @v = try [eval { do_something_returning_array(); }];
 
-      # catch only IO errors, rethrow immediately others
-      eval { File::Stat::Moose->stat("/etc/passwd") };
-      if ($@) {
-          my $e = Exception::Base->catch( ['Exception::IO'] );
-      }
-
       # ignore our package in stack trace
       package My::Package;
       use Exception::Base '+ignore_package' => __PACKAGE__;
