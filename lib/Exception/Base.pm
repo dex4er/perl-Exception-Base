@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.17_01;
+our $VERSION = 0.17_02;
 
 =head1 NAME
 
@@ -733,7 +733,6 @@ sub catch (;$$) {
     if (scalar @_ > 0) {
         # Save object in argument, return only status
         $_[0] = $e;
-        shift @_;
         $want_object = 0;
     }
 
