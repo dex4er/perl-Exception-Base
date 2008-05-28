@@ -865,7 +865,7 @@ sub _skip_ignored_package {
     if (defined $ignore_package) {
         if (ref $ignore_package eq 'ARRAY') {
             if (@{ $ignore_package }) {
-                do { return 1 if ref $_ eq 'Regexp' and $package =~ $_ or ref $_ ne 'Regexp' and $package eq $_ } foreach @{ $ignore_package };
+                do { return 1 if defined $_ and (ref $_ eq 'Regexp' and $package =~ $_ or ref $_ ne 'Regexp' and $package eq $_) } foreach @{ $ignore_package };
             }
         }
         else {

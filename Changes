@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+0.1702 | Piotr Roszatycki <dexter@debian.org> | 2008-05-28
+
+Fixed:
+
+* Fix some "undefined value" warning.
+
+------------------------------------------------------------------------
 0.1701 | Piotr Roszatycki <dexter@debian.org> | 2008-05-12
 
 * Corrected documentation.
