@@ -1,4 +1,37 @@
 ------------------------------------------------------------------------
+0.18 | Piotr Roszatycki <dexter@debian.org> | 2008-10-01
+
+New:
+
+* The exception class can be created with "import" interface in own package.
+
+  package Exception::My;
+  use Exception::Base (__PACKAGE__) =>
+    'has' => 'myattr',
+  };
+
+* New attribute "stringify_attributes" defines attributes which create
+  string returned by stringify method.
+
+  use Exception::Base 'Exception::WithReason' =>
+    'has' => 'reason',
+    stringify_attributes => ['message', 'reason'],
+  };
+  eval { Exception::WithReason->(
+    message => "My message",
+    reason  => "My reason",
+  );
+  print $@->stringify;  # "My message: My reason"
+
+* The default value for new attribute defined with "has" keyword with "import"
+  interface can be set in the same statement.
+
+  use Exception::Base 'Exception::WithDefaultValue' =>
+    'has' => 'value',
+    'value' => 'Default value',
+  };
+
+------------------------------------------------------------------------
 0.1702 | Piotr Roszatycki <dexter@debian.org> | 2008-05-28
 
 Fixed:

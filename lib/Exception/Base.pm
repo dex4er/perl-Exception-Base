@@ -175,31 +175,35 @@ use overload 'bool'   => sub () { 1; },
              q{""}    => '__stringify',
              fallback => 1;
 
+# Overload smart matching for Perl 5.10
+use if ($] >= 5.010),
+    overload => '~~'  => '__matches';
+
 
 # List of class attributes (name => { is=>ro|rw, default=>value })
 use constant ATTRS => {
-    defaults          => { },
-    default_attribute => { default => 'message' },
-    eval_attribute    => { default => 'message' },
-    message           => { is => 'rw', default => 'Unknown exception' },
-    value             => { is => 'rw', default => 0 },
-    caller_stack      => { is => 'ro' },
-    propagated_stack  => { is => 'ro' },
-    egid              => { is => 'ro' },
-    euid              => { is => 'ro' },
-    gid               => { is => 'ro' },
-    pid               => { is => 'ro' },
-    tid               => { is => 'ro' },
-    time              => { is => 'ro' },
-    uid               => { is => 'ro' },
-    verbosity         => { is => 'rw', default => 2 },
-    ignore_package    => { is => 'rw', default => [ ] },
-    ignore_class      => { is => 'rw', default => [ ] },
-    ignore_level      => { is => 'rw', default => 0 },
-    stringify         => { is => 'rw', default => [ 'message' ] },
-    max_arg_len       => { is => 'rw', default => 64 },
-    max_arg_nums      => { is => 'rw', default => 8 },
-    max_eval_len      => { is => 'rw', default => 0 },
+    defaults             => { },
+    default_attribute    => { default => 'message' },
+    eval_attribute       => { default => 'message' },
+    stringify_attributes => { default => [ 'message' ] },
+    message              => { is => 'rw', default => 'Unknown exception' },
+    value                => { is => 'rw', default => 0 },
+    caller_stack         => { is => 'ro' },
+    propagated_stack     => { is => 'ro' },
+    egid                 => { is => 'ro' },
+    euid                 => { is => 'ro' },
+    gid                  => { is => 'ro' },
+    pid                  => { is => 'ro' },
+    tid                  => { is => 'ro' },
+    time                 => { is => 'ro' },
+    uid                  => { is => 'ro' },
+    verbosity            => { is => 'rw', default => 2 },
+    ignore_package       => { is => 'rw', default => [ ] },
+    ignore_class         => { is => 'rw', default => [ ] },
+    ignore_level         => { is => 'rw', default => 0 },
+    max_arg_len          => { is => 'rw', default => 64 },
+    max_arg_nums         => { is => 'rw', default => 8 },
+    max_eval_len         => { is => 'rw', default => 0 },
 };
 
 
@@ -303,7 +307,7 @@ sub import {
                 my %overriden_attributes;
                 # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
                 foreach my $attribute (@{ $has }) {
-                    if ($attribute =~ /^(isa|version|has|stringify)$/ or $isa->can($attribute)) {
+                    if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
                         Exception::Base->throw(
                             message => "Attribute name `$attribute' can not be defined for $name class"
                         );
@@ -312,8 +316,10 @@ sub import {
                 }
                 # Class => { message => "overriden default", ... }
                 foreach my $attribute (keys %{ $param }) {
-                    next if $attribute =~ /^(isa|version|has|stringify)$/;
-                    if (not exists $attributes->{$attribute}->{default}) {
+                    next if $attribute =~ /^(isa|version|has)$/;
+                    if (not exists $attributes->{$attribute}->{default}
+                        and not exists $overriden_attributes{$attribute})
+                    {
                         Exception::Base->throw(
                               message => "$isa class does not implement default value for `$attribute' attribute",
                               verbosity => 1
@@ -496,6 +502,12 @@ sub PROPAGATE {
 }
 
 
+# Smart matching for overloaded operator. The same as SUPER but Perl needs it here.
+sub __matches {
+    return $_[0]->matches;
+}
+
+
 # Convert an exception to string
 sub stringify {
     my ($self, $verbosity, $message) = @_;
@@ -507,8 +519,16 @@ sub stringify {
 
     my $string;
 
-    $message = $self->{message} if not defined $message;
-    $message = $self->{defaults}->{message} if not defined $message or $message eq '';
+    if (not defined $message or $message eq '') {
+        $message = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+    }
+
+    if ($message eq '') {
+        foreach (reverse @{ $self->{defaults}->{stringify_attributes} }) {
+            $message = $self->{defaults}->{$_};
+            last if defined $message;
+        }
+    }
 
     if ($verbosity == 1) {
         $string  = $message . "\n";
@@ -1128,6 +1148,58 @@ __init;
 
 __END__
 
+=begin umlwiki
+
+= Class Diagram =
+
+[                       <<exception>>
+                       Exception::Base
+ ----------------------------------------------------------
+ +ignore_class : ArrayRef                             {new}
+ +ignore_level : Int = 0                              {new}
+ +ignore_package : ArrayRef                           {new}
+ +max_arg_len : Int = 64                              {new}
+ +max_arg_nums : Int = 8                              {new}
+ +max_eval_len : Int = 0                              {new}
+ +message : Str = "Unknown exception"                 {new}
+ +value : Int = 0                                     {new}
+ +verbosity : Int = 2                                 {new}
+ +caller_stack : ArrayRef
+ +egid : Int
+ +euid : Int
+ +gid : Int
+ +pid : Int
+ +propagated_stack : ArrayRef
+ +tid : Int
+ +time : Int
+ +uid : Int
+ #defaults : HashRef
+ #default_attribute : Str = "message"
+ #eval_attribute : Str = "message"
+ #stringify_attributes : ArrayRef[Str] = ["message"]
+ ----------------------------------------------------------
+ <<create>> +new( args : Hash = undef )
+ +catch( out variable : Exception::Base ) : Bool   {export}
+ +catch() : Exception::Base                        {export}
+ +throw( args : Hash = undef )                     {export}
+ +throw( message : Str, args : Hash = undef )      {export}
+ +try( value : ArrayRef ) : Array                  {export}
+ +try( value : Value ) : Value                     {export}
+ +matches( that : Any ) : Bool
+ +numerify() : Num
+ +stringify( verbosity : Int, message : Str = undef ) : Str
+ +stringify( verbosity : Int = undef ) : Str
+ +with( args : Hash = undef ) : Bool
+ +with( message : Str, args : Hash = undef ) : Bool
+ #_collect_system_data()
+ #_make_accessors()
+ #_make_caller_info_accessors()
+ -__numerify() : Num                        {overload="0+"}
+ -__matches( that : Any ) : Bool            {overload="~~"}
+ -__stringify() : Str                    {overload="q{""}"} ]
+
+=end umlwiki
+
 =head1 IMPORTS
 
 =over
@@ -1532,16 +1604,11 @@ Meta-attribute contains the name of the default attribute.  This attribute
 will be set for one argument throw method.  This attribute has meaning for
 derived classes.
 
-  package Exception::My;
-  use base 'Exception::Base';
-  use constant ATTRS => {
-      %{Exception::Base->ATTRS},
-      myattr => { is => 'ro' },
-      default_attribute => 'myattr'
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      default_attribute => 'myattr',
   };
-  __PACKAGE__->_make_accessors;
 
-  package main;
   eval { Exception::My->throw("string") };
   print $@->myattr;    # "string"
 
@@ -1551,17 +1618,32 @@ Meta-attribute contains the name of the attribute which is filled if error
 stack is empty.  This attribute will contain value of B<$@> variable.  This
 attribute has meaning for derived classes.
 
-  package Exception::My;
-  use base 'Exception::Base';
-  use constant ATTRS => {
-      %{Exception::Base->ATTRS},
-      myattr => { is => 'ro' },
-      eval_attribute => 'myattr' };
-  __PACKAGE__->_make_accessors;
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      eval_attribute => 'myattr'
+  };
 
-  package main;
   eval { die "string" };
   print $@->myattr;    # "string"
+
+=item stringify_attributes (default: ['message'])
+
+Meta-attribute contains the array of names of attributes with defined value
+which are joined to the string returned by stringify method.  If none of
+attributes are defined, the string is created from the first default value
+of attributes listed in the opposite order.
+
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      myattr => 'default',
+      stringify_attributes => ['message', 'myattr'],
+  };
+
+  eval { Exception::My->throw( message=>"string", myattr=>"foo" ) };
+  print $@->myattr;    # "string: foo"
+
+  eval { Exception::My->throw() };
+  print $@->myattr;    # "default"
 
 =back
 
@@ -1947,6 +2029,39 @@ The exception class which handle L<$SIG{__WARN__}|pervar/%SIG> hook and
 convert simple L<perlfunc/warn> into an exception object.
 
 =back
+
+=head1 EXAMPLES
+
+=head2 New exception classes
+
+The B<Exception::Base> module allows to create new exception classes easly.
+You can use B<import> interface or L<base> module to do it.
+
+The B<import> interface allows to create new class with new read-write
+attributes.
+
+  package Exception::Simple;
+  use Exception::Base (__PACKAGE__) => {
+    has => qw< reason method >,
+    stringify_attributes => qw< message reason method >,
+  };
+
+For more complex exceptions you can redefine B<ATTRS> constant.
+
+  package Exception::Complex;
+  use base 'Exception::Base';
+  use constant ATTRS => {
+    %{ Exception::Base->ATTRS },     # SUPER::ATTRS
+    hostname => { is => 'ro' },
+    stringify_attributes => qw< hostname message >,
+  };
+  sub _collect_system_data {
+    my $self = shift;
+    my $hostname = `hostname`;
+    chomp $hostname;
+    $self->{hostname} = $hostname;
+    return $self->SUPER::_collect_system_data(@_);
+  }
 
 =head1 PERFORMANCE
 
