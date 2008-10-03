@@ -183,7 +183,7 @@ our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 # Overload the stringify operation
 use overload 'bool'   => sub () { 1; },
              '0+'     => 'numerify',
-             q{""}    => 'stringify',
+             q{""}    => sub { $_[0]->stringify() },
              fallback => 1;
 
 # Overload smart matching for Perl 5.10
@@ -270,8 +270,8 @@ sub import {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
                         Exception::Base->throw(
-                              message => "Can not load available $name class: $@",
-                              verbosity => 1
+                            message => "Can not load available $name class: $@",
+                            verbosity => 1
                         );
                     }
                 }
@@ -282,8 +282,8 @@ sub import {
                 # Package not found so it have to be created
                 if ($pkg ne __PACKAGE__) {
                     Exception::Base->throw(
-                          message => "Exceptions can only be created with " . __PACKAGE__ . " class",
-                          verbosity => 1
+                        message => "Exceptions can only be created with " . __PACKAGE__ . " class",
+                        verbosity => 1
                     );
                 }
                 my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
@@ -297,8 +297,8 @@ sub import {
                         eval "use $isa;";
                         if ($@) {
                             Exception::Base->throw(
-                                  message => "Base class $isa for class $name can not be found",
-                                  verbosity => 1
+                                message => "Base class $isa for class $name can not be found",
+                                verbosity => 1
                             );
                         }
                     }
@@ -309,8 +309,8 @@ sub import {
                 do { local $SIG{__DIE__}; eval { $attributes = $isa->ATTRS } };
                 if ($@) {
                     Exception::Base->throw(
-                          message => "$name class is based on $isa class which does not implement ATTRS",
-                          verbosity => 1
+                        message => "$name class is based on $isa class which does not implement ATTRS",
+                        verbosity => 1
                     );
                 }
 
@@ -332,8 +332,8 @@ sub import {
                         and not exists $overriden_attributes{$attribute})
                     {
                         Exception::Base->throw(
-                              message => "$isa class does not implement default value for `$attribute' attribute",
-                              verbosity => 1
+                            message => "$isa class does not implement default value for `$attribute' attribute",
+                            verbosity => 1
                         );
                     }
                     $overriden_attributes{$attribute} = {};
@@ -524,7 +524,7 @@ sub stringify {
 
     my $string;
 
-    if (not defined $message or $message eq '') {
+    if (not defined $message) {
         $message = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
     }
 
@@ -1789,8 +1789,12 @@ method can be used explicity and then the verbosity level can be used.
   print $@->stringify(4) if $VERY_VERBOSE;
 
 It also replaces any message stored in object with the I<message> argument if
-it exists.  This feature can be used by derived class overwriting B<stringify>
-method.
+it exists.  If message argument is an empty string, the default message is used.
+
+  eval { Exception::Base->throw( "Message" ); };
+  print $@->stringify(1);               # "Message"
+  print $@->stringify(1, "Overrided");  # "Overrided"
+  print $@->stringify(1, "");           # "Unknown exception"
 
 =item numerify
 
