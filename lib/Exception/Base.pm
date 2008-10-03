@@ -37,6 +37,17 @@ Exception::Base - Lightweight exceptions
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
+  # alternative syntax for Perl 5.10
+  if ($@) {
+    given (my $e = Exception::Base->catch) {
+      when ('Exception::IO') { warn "IO problem"; }
+      when ('Exception::Eval') { warn "eval died"; }
+      when ('Exception::Runtime') { warn "some runtime was caught"; }
+      when ({value=>9}) { warn "something happened"; }
+      when (qr/^Error/) { warn "some error based on regex"; }
+      default { $e->throw; } # rethrow the exception
+    }
+  }
 
   # try/catch (15x slower)
   use Exception::Base ':all';   # import try/catch/throw
@@ -171,13 +182,13 @@ our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
 # Overload the stringify operation
 use overload 'bool'   => sub () { 1; },
-             '0+'     => '__numerify',
-             q{""}    => '__stringify',
+             '0+'     => 'numerify',
+             q{""}    => 'stringify',
              fallback => 1;
 
 # Overload smart matching for Perl 5.10
 use if ($] >= 5.010),
-    overload => '~~'  => '__matches';
+    overload => '~~'  => 'matches';
 
 
 # List of class attributes (name => { is=>ro|rw, default=>value })
@@ -502,12 +513,6 @@ sub PROPAGATE {
 }
 
 
-# Smart matching for overloaded operator. The same as SUPER but Perl needs it here.
-sub __matches {
-    return $_[0]->matches;
-}
-
-
 # Convert an exception to string
 sub stringify {
     my ($self, $verbosity, $message) = @_;
@@ -550,12 +555,6 @@ sub stringify {
 }
 
 
-# Stringify for overloaded operator. The same as SUPER but Perl needs it here.
-sub __stringify {
-    return $_[0]->stringify;
-}
-
-
 # Convert an exception to number
 sub numerify {
     return 0+ $_[0]->{value} if defined $_[0]->{value};
@@ -564,9 +563,34 @@ sub numerify {
 }
 
 
-# Numerify for overloaded operator.
-sub __numerify {
-    return $_[0]->numerify;
+# Smart matching.
+sub matches {
+    my ($self, $that) = @_;
+
+    if (ref $that eq 'ARRAY') {
+        return $self->with( '-isa' => $that );
+    }
+    elsif (ref $that eq 'HASH') {
+        return $self->with( %{ $that } );
+    }
+    elsif (ref $that eq 'Regexp' or ref eq 'CODE') {
+        return $self->with( '-default' => $that );
+    }
+    elsif (ref $that and $] >= 5.010) {
+        return $self->_matches($that);
+    }
+
+    return $self->with( '-isa' => $that );
+}
+
+
+# Function that works only for Perl 5.10
+if ($] >= 5.010) {
+    eval q{
+        sub _matches ($$) {
+            return ((ref $_[0]) ~~ $_[1]);
+        }
+    }
 }
 
 
@@ -602,24 +626,24 @@ sub with {
                 }
                 last if $arrret;
             }
-            return 0 if not $arrret;
+            return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return 0 if defined $self->{$default_attribute};
+            return '' if defined $self->{$default_attribute};
         }
         elsif (not defined $self->{$default_attribute}) {
-            return 0;
+            return '';
         }
         elsif (ref $val eq 'CODE') {
             $_ = $self->{$default_attribute};
-            return 0 if not &$val;
+            return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
             $_ = $self->{$default_attribute};
-            return 0 if not /$val/;
+            return '' if not /$val/;
         }
         else {
-            return 0 if $self->{$default_attribute} ne $val;
+            return '' if $self->{$default_attribute} ne $val;
         }
         return 1 unless @_;
     }
@@ -627,8 +651,12 @@ sub with {
 
     my %args = @_;
     while (my($key,$val) = each %args) {
+        if (defined $key and $key eq '-default') {
+            $key = $default_attribute;
+        }
+
         if (not defined $key) {
-            return 0;
+            return '';
         }
         elsif ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
@@ -638,10 +666,10 @@ sub with {
                     $arrret = 1 if $self->isa($arrval);
                     last if $arrret;
                 }
-                return 0 if not $arrret;
+                return '' if not $arrret;
             }
             else {
-                return 0 if not $self->isa($val);
+                return '' if not $self->isa($val);
             }
         }
         elsif ($key eq '-has') {
@@ -652,10 +680,10 @@ sub with {
                     $arrret = 1 if exists $self->ATTRS->{$arrval};
                     last if $arrret;
                 }
-                return 0 if not $arrret;
+                return '' if not $arrret;
             }
             else {
-                return 0 if not $self->ATTRS->{$val};
+                return '' if not $self->ATTRS->{$val};
             }
         }
         elsif (ref $val eq 'ARRAY') {
@@ -680,24 +708,24 @@ sub with {
                 }
                 last if $arrret;
             }
-            return 0 if not $arrret;
+            return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return 0 if exists $self->{$key} && defined $self->{$key};
+            return '' if exists $self->{$key} && defined $self->{$key};
         }
         elsif (not defined $self->{$key}) {
-            return 0;
+            return '';
         }
         elsif (ref $val eq 'CODE') {
             $_ = $self->{$key};
-            return 0 if not &$val;
+            return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
             $_ = $self->{$key};
-            return 0 if not /$val/;
+            return '' if not /$val/;
         }
         else {
-            return 0 if $self->{$key} ne $val;
+            return '' if $self->{$key} ne $val;
         }
     }
 
@@ -706,7 +734,6 @@ sub with {
 
 
 # Push the exception on error stack. Stolen from Exception::Class::TryCatch
-
 sub try ($;$) {
     # Can be used also as function
     my $self = shift if defined $_[0] and do { local $@; local $SIG{__DIE__}; eval { $_[0]->isa(__PACKAGE__) } };
@@ -913,7 +940,7 @@ sub _skip_ignored_package {
         }
     }
 
-    return 0;
+    return '';
 }
 
 
@@ -1154,16 +1181,16 @@ __END__
 
 [                       <<exception>>
                        Exception::Base
- ----------------------------------------------------------
- +ignore_class : ArrayRef                             {new}
- +ignore_level : Int = 0                              {new}
- +ignore_package : ArrayRef                           {new}
- +max_arg_len : Int = 64                              {new}
- +max_arg_nums : Int = 8                              {new}
- +max_eval_len : Int = 0                              {new}
- +message : Str = "Unknown exception"                 {new}
- +value : Int = 0                                     {new}
- +verbosity : Int = 2                                 {new}
+ -----------------------------------------------------------------------------
+ +ignore_class : ArrayRef                                                {new}
+ +ignore_level : Int = 0                                                 {new}
+ +ignore_package : ArrayRef                                              {new}
+ +max_arg_len : Int = 64                                                 {new}
+ +max_arg_nums : Int = 8                                                 {new}
+ +max_eval_len : Int = 0                                                 {new}
+ +message : Str = "Unknown exception"                                    {new}
+ +value : Int = 0                                                        {new}
+ +verbosity : Int = 2                                                    {new}
  +caller_stack : ArrayRef
  +egid : Int
  +euid : Int
@@ -1177,26 +1204,24 @@ __END__
  #default_attribute : Str = "message"
  #eval_attribute : Str = "message"
  #stringify_attributes : ArrayRef[Str] = ["message"]
- ----------------------------------------------------------
+ -----------------------------------------------------------------------------
  <<create>> +new( args : Hash = undef )
- +catch( out variable : Exception::Base ) : Bool   {export}
- +catch() : Exception::Base                        {export}
- +throw( args : Hash = undef )                     {export}
- +throw( message : Str, args : Hash = undef )      {export}
- +try( value : ArrayRef ) : Array                  {export}
- +try( value : Value ) : Value                     {export}
- +matches( that : Any ) : Bool
- +numerify() : Num
- +stringify( verbosity : Int, message : Str = undef ) : Str
- +stringify( verbosity : Int = undef ) : Str
+ +catch( out variable : Exception::Base ) : Bool                      {export}
+ +catch() : Exception::Base                                           {export}
+ +throw( args : Hash = undef )                                        {export}
+ +throw( message : Str, args : Hash = undef )                         {export}
+ +try( value : ArrayRef ) : Array                                     {export}
+ +try( value : Value ) : Value                                        {export}
+ +matches( that : Any ) : Bool                                 {overload="~~"}
+ +numerify() : Num                                             {overload="0+"}
+ +stringify( verbosity : Int, message : Str = undef ) : Str {overload="q{""}"}
+ +stringify( verbosity : Int = undef ) : Str                {overload="q{""}"}
  +with( args : Hash = undef ) : Bool
  +with( message : Str, args : Hash = undef ) : Bool
  #_collect_system_data()
- #_make_accessors()
- #_make_caller_info_accessors()
- -__numerify() : Num                        {overload="0+"}
- -__matches( that : Any ) : Bool            {overload="~~"}
- -__stringify() : Str                    {overload="q{""}"} ]
+ #_make_accessors()                                                     {init}
+ #_make_caller_info_accessors()                                         {init}
+ -_matches( that : Any ) : Bool                            {perl-version=5.10} ]
 
 =end umlwiki
 
@@ -1668,6 +1693,16 @@ attribute with additional informations, depended on B<verbosity> setting.
 
 =back
 
+The overloaded operators:
+
+=over
+
+=item Smart matching operator:
+
+  "~~"
+
+=back
+
 =head1 CONSTRUCTORS
 
 =over
@@ -1766,12 +1801,57 @@ method can be used explicity.
   eval { Exception::Base->throw( value => 42 ); };
   print $@->numerify;   # 42
 
+=item matches(I<that>)
+
+Checks if the exception object matches the given argument.  It is
+somewhat similar to the B<with> method but it takes only one argument
+and the B<matches> method overloads B<~~> smart matching operator, so it
+can be used with B<given> keyword.
+
+  given ($e = Exception::Base->new( message=>"Message", value=>123 )) {
+    when( "Exception::Base" ) { ... }                     # matches
+    when( ["Exception::Foo", "Exception::Bar"] ) { ... }  # doesn't
+    when( { message=>"Message" } ) { ... }                # matches
+    when( { value=>123 } ) { ... }                        # matches
+    when( { message=>"Message", value=>45 } ) { ... }     # doesn't
+    when( { uid=>0 } ) { ... }  # matches if runs with root privileges
+  }
+
+If the argument is a simple string or reference to array, it is checked
+if the object is a given class.
+
+  use Exception::Base
+    'Exception::Simple',
+    'Exception::Complex' => { isa => 'Exception::Simple };
+  eval { Exception::Complex->throw() };
+  print $@ ~~ 'Exception::Base';                          # matches
+  print $@ ~~ ['Exception::Simple', 'Exception::Other'];  # matches
+  print $@ ~~ 'NullObject';                               # doesn't
+
+If the argument is a reference to hash, attributes of the exception
+object is matched.
+
+  eval { Exception::Complex->throw( message=>"Message", value=>123 ) };
+  print $@ ~~ { message=>"Message" };             # matches
+  print $@ ~~ { value=>123 };                     # matches
+  print $@ ~~ { message=>"Message", value=>45 };  # doesn't
+
+If the argument is a regexp or code reference, the default attribute of
+the exception object is matched (usually it is a "message" attribute).
+
+  eval { Exception::Complex->throw( message=>"Message" ) };
+  print $@ ~~ qr/Message/;                        # matches
+  print $@ ~~ qr/[0-9]/;                          # doesn't
+  print $@ ~~ sub{/Message/};                     # matches
+  print $@ ~~ sub{0};                             # doesn't
+
 =item with(I<condition>)
 
-Checks if the exception object matches the given condition.  If the first
-argument is single value, the B<default_attribute> will be matched.  If the
-argument is a part of hash, an attribute of the exception object will be
-matched.  The B<with> method returns true value if all its arguments match.
+Checks if the exception object matches the given condition.  If the
+first argument is single value, the B<default_attribute> is matched.  If
+the argument is a part of hash, an attribute of the exception object is
+matched.  The B<with> method returns true value if all its arguments
+match.
 
   $e = Exception::Base->new( message=>"Message", value=>123 );
   $e->with( "Message" );             # matches
@@ -1799,15 +1879,23 @@ The B<with> method matches for special keywords:
 
 =item -isa
 
-Matches if the object is a given class.  The argument can be string only.
+Matches if the object is a given class.
 
   $e->with( -isa=>"Exception::Base" );   # matches
 
 =item -has
 
-Matches if the object has a given attribute.  The argument can be string only.
+Matches if the object has a given attribute.
 
   $e->with( -has=>"message" );           # matches
+
+=item -default
+
+Matches against the default attribute, usually the B<message> attribute.
+
+  $e->with( "message" );
+  $e->with( message=>"message" );  # the same
+  $e->with( -default=>"message" ); # too
 
 =back
 
