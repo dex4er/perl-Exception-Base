@@ -1001,7 +1001,6 @@ sub test_import_class {
         $self->assert("$@");
 
         eval 'Exception::Base::import::Test3->import(qw<Exception::Base::import::Test7>);';
-#use Data::Dumper; print STDERR Dumper $@, "$@";
         $self->assert_matches(qr/can only be created with/, "$@");
 
         eval 'Exception::Base->import("Exception::Base::import::Test8" => "__Scalar");';
