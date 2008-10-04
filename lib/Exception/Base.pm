@@ -183,12 +183,13 @@ our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 # Overload the stringify operation
 use overload 'bool'   => sub () { 1; },
              '0+'     => 'numerify',
-             q{""}    => sub { $_[0]->stringify() },
+             '""'     => sub () { $_[0]->stringify() },
              fallback => 1;
 
-# Overload smart matching for Perl 5.10
-use if ($] >= 5.010),
-    overload => '~~'  => 'matches';
+## Overload smart matching for Perl 5.10
+use if ($] >= 5.010), overload =>
+             '~~'     => 'matches',
+             fallback => 1;
 
 
 # List of class attributes (name => { is=>ro|rw, default=>value })
@@ -1214,8 +1215,9 @@ __END__
  +try( value : Value ) : Value                                        {export}
  +matches( that : Any ) : Bool                                 {overload="~~"}
  +numerify() : Num                                             {overload="0+"}
- +stringify( verbosity : Int, message : Str = undef ) : Str {overload="q{""}"}
- +stringify( verbosity : Int = undef ) : Str                {overload="q{""}"}
+ +stringify() : Str                                            {overload='""'}
+ +stringify( verbosity : Int, message : Str = undef ) : Str
+ +stringify( verbosity : Int = undef ) : Str
  +with( args : Hash = undef ) : Bool
  +with( message : Str, args : Hash = undef ) : Bool
  #_collect_system_data()
