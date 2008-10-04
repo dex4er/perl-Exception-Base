@@ -51,6 +51,8 @@ Changes:
 * Removed private methods "__stringify" and "__numerify". The methods
   "stringify" and "numerify" overloads "q{""}" and "0+" operators.
 
+* Updated bundled Test::Unit::Lite to 0.10.
+
 ------------------------------------------------------------------------
 0.1702 | Piotr Roszatycki <dexter@debian.org> | 2008-05-28
 
