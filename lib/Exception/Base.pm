@@ -186,16 +186,21 @@ use overload 'bool'   => sub () { 1; },
              '""'     => sub () { $_[0]->stringify() },
              fallback => 1;
 
-## Overload smart matching for Perl 5.10
+# Overload smart matching for Perl 5.10
 use if ($] >= 5.010), overload =>
              '~~'     => 'matches',
              fallback => 1;
+
+
+# Constant regexp for numerify value check
+use constant RE_NUM_INT  => qr/^[+-]?\d+$/;
 
 
 # List of class attributes (name => { is=>ro|rw, default=>value })
 use constant ATTRS => {
     defaults             => { },
     default_attribute    => { default => 'message' },
+    value_attribute      => { default => 'value' },
     eval_attribute       => { default => 'message' },
     stringify_attributes => { default => [ 'message' ] },
     message              => { is => 'rw', default => 'Unknown exception' },
@@ -251,7 +256,7 @@ sub import {
             # Lower case: change default
             my ($modifier, $key) = ($1, $2);
             my $value = shift;
-            $pkg->_modify_default_value($key, $value, $modifier);
+            $pkg->_modify_default($key, $value, $modifier);
         }
         else {
             # Try to use external module
@@ -558,8 +563,12 @@ sub stringify {
 
 # Convert an exception to number
 sub numerify {
-    return 0+ $_[0]->{value} if defined $_[0]->{value};
-    return 0+ $_[0]->{defaults}->{value} if defined $_[0]->{defaults}->{value};
+    my $self = shift;
+    my $value_attribute = $self->{defaults}->{value_attribute};
+
+    no warnings 'numeric';
+    return 0+ $_[0]->{$value_attribute} if defined $_[0]->{$value_attribute};
+    return 0+ $_[0]->{defaults}->{$value_attribute} if defined $_[0]->{defaults}->{$value_attribute};
     return 0;
 }
 
@@ -580,7 +589,7 @@ sub matches {
     elsif (ref $that) {
         return '';
     }
-    elsif ($that =~ /^\d+$/) {
+    elsif ($that =~ RE_NUM_INT) {
         return $self->with( value => $that );
     }
 
@@ -594,6 +603,7 @@ sub with {
     return unless @_;
 
     my $default_attribute = $self->{defaults}->{default_attribute};
+    my $value_attribute   = $self->{defaults}->{value_attribute};
 
     # Odd number of arguments - first is default attribute
     if (scalar @_ % 2 == 1) {
@@ -615,8 +625,10 @@ sub with {
                     local $_ = $self->{$default_attribute};
                     $arrret = 1 if /$arrval/;
                 }
-                elsif ($arrval =~ /^[+-]?(\d+\.\d+|\d+\.|\.\d+|\d+)([eE][+-]?\d+)?$/) {
-                    $arrret = 1 if $self->{value} == $arrval;
+                elsif ($arrval =~ RE_NUM_INT) {
+                    no warnings 'numeric';
+                    $arrret = 1 if $self->{$value_attribute} == $arrval;
+                }
                 else {
                     $arrret = 1 if $self->{$default_attribute} eq $arrval;
                 }
@@ -639,8 +651,10 @@ sub with {
             $_ = $self->{$default_attribute};
             return '' if not /$val/;
         }
-        elsif ($arrval =~ /^[+-]?(\d+\.\d+|\d+\.|\.\d+|\d+)([eE][+-]?\d+)?$/) {
-            return '' if $self->{value} != $val;
+        elsif ($val =~ RE_NUM_INT) {
+            no warnings 'numeric';
+            return '' if $self->{$value_attribute} != $val;
+        }
         else {
             return '' if $self->{$default_attribute} ne $val;
         }
@@ -1045,7 +1059,7 @@ sub _str_len_trim {
 
 
 # Modify default values for ATTRS
-sub _modify_default_value {
+sub _modify_default {
     my ($self, $key, $value, $modifier) = @_;
     my $class = ref $self ? ref $self : $self;
 
@@ -1201,6 +1215,7 @@ __END__
  +uid : Int
  #defaults : HashRef
  #default_attribute : Str = "message"
+ #value_attribute : Str = "value"
  #eval_attribute : Str = "message"
  #stringify_attributes : ArrayRef[Str] = ["message"]
  -----------------------------------------------------------------------------
@@ -1221,6 +1236,8 @@ __END__
  #_collect_system_data()
  #_make_accessors()                                                     {init}
  #_make_caller_info_accessors()                                         {init}
+ <<constant>> +ATTRS() : HashRef
+ <<constant>> +RE_NUM_INT() : Regexp                                          ]
 
 =end umlwiki
 
@@ -1366,6 +1383,10 @@ Declaration of class attributes as reference to hash.
 
 The attributes are listed as I<name> => {I<properties>}, where I<properties> is a
 list of attribute properties:
+
+=item RE_NUM_INT
+
+Represents regexp for numeric integer value.
 
 =over
 
@@ -1635,6 +1656,20 @@ derived classes.
 
   eval { Exception::My->throw("string") };
   print $@->myattr;    # "string"
+
+=item value_attribute (default: 'value')
+
+Meta-attribute contains the name of the attribute which contains numeric value
+of exception object.  This attribute will be used for representing exception
+in numeric context.
+
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      value_attribute => 'myattr',
+  };
+
+  eval { Exception::My->throw(myattr=>123) };
+  print 0 + $@;    # 123
 
 =item eval_attribute (default: 'message')
 
