@@ -20,8 +20,6 @@ BEGIN {
 
 use Test::Unit::Lite;
 
-use Carp ();
-
-local $SIG{__WARN__} = sub { Carp::confess(message=>$_[0]) };
+local $SIG{__WARN__} = sub { require Carp; Carp::confess( $_[0] ) };
 
 all_tests;

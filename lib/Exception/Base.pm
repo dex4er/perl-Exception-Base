@@ -574,24 +574,17 @@ sub matches {
     elsif (ref $that eq 'HASH') {
         return $self->with( %{ $that } );
     }
-    elsif (ref $that eq 'Regexp' or ref eq 'CODE') {
+    elsif (ref $that eq 'Regexp' or ref $that eq 'CODE' or not defined $that) {
         return $self->with( '-default' => $that );
     }
-    elsif (ref $that and $] >= 5.010) {
-        return $self->_matches($that);
+    elsif (ref $that) {
+        return '';
+    }
+    elsif ($that =~ /^\d+$/) {
+        return $self->with( value => $that );
     }
 
     return $self->with( '-isa' => $that );
-}
-
-
-# Function that works only for Perl 5.10
-if ($] >= 5.010) {
-    eval q{
-        sub _matches ($$) {
-            return ((ref $_[0]) ~~ $_[1]);
-        }
-    }
 }
 
 
@@ -1842,14 +1835,16 @@ object is matched.
   print $@ ~~ { value=>123 };                     # matches
   print $@ ~~ { message=>"Message", value=>45 };  # doesn't
 
-If the argument is a regexp or code reference, the default attribute of
-the exception object is matched (usually it is a "message" attribute).
+If the argument is a regexp or code reference or is undefined, the default
+attribute of the exception object is matched (usually it is a "message"
+attribute).
 
   eval { Exception::Complex->throw( message=>"Message" ) };
   print $@ ~~ qr/Message/;                        # matches
   print $@ ~~ qr/[0-9]/;                          # doesn't
   print $@ ~~ sub{/Message/};                     # matches
   print $@ ~~ sub{0};                             # doesn't
+  print $@ ~~ undef;                              # doesn't
 
 =item with(I<condition>)
 
