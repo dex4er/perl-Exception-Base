@@ -664,14 +664,11 @@ sub with {
 
     my %args = @_;
     while (my($key,$val) = each %args) {
-        if (defined $key and $key eq '-default') {
+        if ($key eq '-default') {
             $key = $default_attribute;
         }
 
-        if (not defined $key) {
-            return '';
-        }
-        elsif ($key eq '-isa') {
+        if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
                 foreach my $arrval (@{ $val }) {

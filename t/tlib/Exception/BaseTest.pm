@@ -604,6 +604,8 @@ sub test_with {
         my $obj1 = Exception::Base->new;
         $self->assert_null($obj1->with);
         $self->assert_num_equals(1, $obj1->with(undef));
+        $self->assert_num_equals(1, $obj1->with(0));
+        $self->assert_num_equals(0, $obj1->with(123));
         $self->assert_num_equals(0, $obj1->with('Unknown'));
         $self->assert_num_equals(0, $obj1->with('False'));
         $self->assert_num_equals(0, $obj1->with(sub {/Unknown/}));
@@ -612,8 +614,9 @@ sub test_with {
         $self->assert_num_equals(0, $obj1->with(qr/False/));
         $self->assert_num_equals(0, $obj1->with([]));
         $self->assert_num_equals(1, $obj1->with([undef]));
-        $self->assert_num_equals(1, $obj1->with(['False', qr//, sub {}, undef]));
-        $self->assert_num_equals(0, $obj1->with(['False', qr//, sub {}]));
+        $self->assert_num_equals(1, $obj1->with([0]));
+        $self->assert_num_equals(1, $obj1->with(['False', qr//, sub {}, 123, undef]));
+        $self->assert_num_equals(0, $obj1->with(['False', qr//, sub {}, 123]));
         $self->assert_num_equals(1, $obj1->with(tag=>undef));
         $self->assert_num_equals(0, $obj1->with(tag=>'false'));
         $self->assert_num_equals(1, $obj1->with(tag=>['False', qr//, sub {}, undef]));
@@ -636,9 +639,13 @@ sub test_with {
         $self->assert_num_equals(1, $obj1->with(-has=>'message'));
         $self->assert_num_equals(0, $obj1->with(-has=>['False', 'False', 'False']));
         $self->assert_num_equals(1, $obj1->with(-has=>['False', 'message', 'False']));
+        $self->assert_num_equals(1, $obj1->with(-default=>undef));
+        $self->assert_num_equals(0, $obj1->with(-default=>'false'));
 
         my $obj2 = Exception::Base->new(message=>'Message', value=>123);
         $self->assert_num_equals(0, $obj2->with(undef));
+        $self->assert_num_equals(0, $obj2->with(0));
+        $self->assert_num_equals(1, $obj2->with(123));
         $self->assert_num_equals(1, $obj2->with('Message'));
         $self->assert_num_equals(0, $obj2->with('False'));
         $self->assert_num_equals(1, $obj2->with(sub {/Message/}));
@@ -647,10 +654,13 @@ sub test_with {
         $self->assert_num_equals(0, $obj2->with(qr/False/));
         $self->assert_num_equals(0, $obj2->with([]));
         $self->assert_num_equals(0, $obj2->with([undef]));
-        $self->assert_num_equals(0, $obj2->with(['False', qr/False/, sub {/False/}, undef]));
-        $self->assert_num_equals(1, $obj2->with(['Message', qr/False/, sub {/False/}, undef]));
-        $self->assert_num_equals(1, $obj2->with(['False', qr/Message/, sub {/False/}, undef]));
-        $self->assert_num_equals(1, $obj2->with(['False', qr/False/, sub {/Message/}, undef]));
+        $self->assert_num_equals(0, $obj2->with([0]));
+        $self->assert_num_equals(1, $obj2->with([123]));
+        $self->assert_num_equals(0, $obj2->with(['False', qr/False/, sub {/False/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['Message', qr/False/, sub {/False/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['False', qr/Message/, sub {/False/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['False', qr/False/, sub {/Message/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['False', qr/False/, sub {/False/}, 123, undef]));
         $self->assert_num_equals(1, $obj2->with(value=>123));
         $self->assert_num_equals(0, $obj2->with(value=>'false'));
         $self->assert_num_equals(1, $obj2->with(value=>sub {/123/}));
@@ -682,6 +692,8 @@ sub test_with {
         $self->assert_num_equals(1, $obj2->with(message=>['Message', qr/False/, sub {/False/}, undef]));
         $self->assert_num_equals(1, $obj2->with(message=>['False', qr/Message/, sub {/False/}, undef]));
         $self->assert_num_equals(1, $obj2->with(message=>['False', qr/False/, sub {/Message/}, undef]));
+        $self->assert_num_equals(0, $obj2->with(-default=>undef));
+        $self->assert_num_equals(1, $obj2->with(-default=>'Message'));
 
         my $obj3 = Exception::Base->new(message=>'Message');
         $self->assert_num_equals(0, $obj3->with(undef));
