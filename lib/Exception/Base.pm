@@ -614,6 +614,10 @@ sub with {
                 if (not defined $arrval) {
                     $arrret = 1 if not defined $self->{$default_attribute};
                 }
+                elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
+                    no warnings 'numeric', 'uninitialized';
+                    $arrret = 1 if $self->{$value_attribute} == $arrval;
+                }
                 elsif (not defined $self->{$default_attribute}) {
                     next;
                 }
@@ -624,10 +628,6 @@ sub with {
                 elsif (ref $arrval eq 'Regexp') {
                     local $_ = $self->{$default_attribute};
                     $arrret = 1 if /$arrval/;
-                }
-                elsif ($arrval =~ RE_NUM_INT) {
-                    no warnings 'numeric';
-                    $arrret = 1 if $self->{$value_attribute} == $arrval;
                 }
                 else {
                     $arrret = 1 if $self->{$default_attribute} eq $arrval;
@@ -640,6 +640,10 @@ sub with {
         elsif (not defined $val) {
             return '' if defined $self->{$default_attribute};
         }
+        elsif (not ref $val and $val =~ RE_NUM_INT) {
+            no warnings 'numeric', 'uninitialized';
+            return '' if $self->{$value_attribute} != $val;
+        }
         elsif (not defined $self->{$default_attribute}) {
             return '';
         }
@@ -650,10 +654,6 @@ sub with {
         elsif (ref $val eq 'Regexp') {
             $_ = $self->{$default_attribute};
             return '' if not /$val/;
-        }
-        elsif ($val =~ RE_NUM_INT) {
-            no warnings 'numeric';
-            return '' if $self->{$value_attribute} != $val;
         }
         else {
             return '' if $self->{$default_attribute} ne $val;
@@ -725,6 +725,10 @@ sub with {
         }
         elsif (not defined $val) {
             return '' if exists $self->{$key} && defined $self->{$key};
+        }
+        elsif (not ref $val and $val =~ RE_NUM_INT) {
+            no warnings 'numeric', 'uninitialized';
+            return '' if $self->{$key} != $val;
         }
         elsif (not defined $self->{$key}) {
             return '';

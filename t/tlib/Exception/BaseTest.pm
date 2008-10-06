@@ -542,8 +542,8 @@ sub test_matches {
         $self->assert_num_equals(0, $obj1->matches('False'));
         $self->assert_num_equals(1, $obj1->matches('Exception::Base'));
         $self->assert_num_equals(1, $obj1->matches(0));
-        $self->assert_num_equals(1, $obj1->matches(1));
-        $self->assert_num_equals(1, $obj1->matches(123));
+        $self->assert_num_equals(0, $obj1->matches(1));
+        $self->assert_num_equals(0, $obj1->matches(123));
         $self->assert_num_equals(0, $obj1->matches(['False', 'False', 'False']));
         $self->assert_num_equals(1, $obj1->matches(['False', 'Exception::Base', 'False']));
         $self->assert_num_equals(0, $obj1->matches(\1));
@@ -585,6 +585,14 @@ sub test_matches {
         $self->assert_num_equals(1, $obj2->matches({message=>['Message', qr/False/, sub {/False/}, undef]}));
         $self->assert_num_equals(1, $obj2->matches({message=>['False', qr/Message/, sub {/False/}, undef]}));
         $self->assert_num_equals(1, $obj2->matches({message=>['False', qr/False/, sub {/Message/}, undef]}));
+        $self->assert_num_equals(0, $obj2->matches('False'));
+        $self->assert_num_equals(1, $obj2->matches('Exception::Base'));
+        $self->assert_num_equals(0, $obj2->matches(0));
+        $self->assert_num_equals(0, $obj2->matches(1));
+        $self->assert_num_equals(1, $obj2->matches(123));
+        $self->assert_num_equals(0, $obj2->matches(['False', 'False', 'False']));
+        $self->assert_num_equals(1, $obj2->matches(['False', 'Exception::Base', 'False']));
+        $self->assert_num_equals(0, $obj2->matches(\1));
     };
     die "$@" if $@;
 }
