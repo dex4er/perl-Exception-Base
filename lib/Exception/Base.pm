@@ -567,8 +567,8 @@ sub numerify {
     my $value_attribute = $self->{defaults}->{value_attribute};
 
     no warnings 'numeric';
-    return 0+ $_[0]->{$value_attribute} if defined $_[0]->{$value_attribute};
-    return 0+ $_[0]->{defaults}->{$value_attribute} if defined $_[0]->{defaults}->{$value_attribute};
+    return 0+ $self->{$value_attribute} if defined $self->{$value_attribute};
+    return 0+ $self->{defaults}->{$value_attribute} if defined $self->{defaults}->{$value_attribute};
     return 0;
 }
 
