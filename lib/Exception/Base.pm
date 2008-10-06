@@ -19,7 +19,9 @@ Exception::Base - Lightweight exceptions
      'Exception::FileNotFound' => {
          isa => 'Exception::IO',        # create new based on previous
          message => 'File not found',   # override default message
-         has => [ 'filename' ] };       # define new rw attribute
+         has => [ 'filename' ],         # define new rw attribute
+         stringify_attributes => [ 'message', 'filename' ],
+     };                                 # output message and filename
 
   # eval/$@ (fastest method)
   eval {
@@ -92,6 +94,12 @@ Exception::Base - Lightweight exceptions
   # ignore our package in stack trace
   package My::Package;
   use Exception::Base '+ignore_package' => __PACKAGE__;
+
+  # define new exception in separate module
+  package Exception::My;
+  use Exception::Base (__PACKAGE__) => {
+      has => ['myattr'],
+  };
 
   # run Perl with changed verbosity for debugging purposes
   $ perl -MException::Base=verbosity,4 script.pl
@@ -200,7 +208,7 @@ use constant RE_NUM_INT  => qr/^[+-]?\d+$/;
 use constant ATTRS => {
     defaults             => { },
     default_attribute    => { default => 'message' },
-    value_attribute      => { default => 'value' },
+    numeric_attribute    => { default => 'value' },
     eval_attribute       => { default => 'message' },
     stringify_attributes => { default => [ 'message' ] },
     message              => { is => 'rw', default => 'Unknown exception' },
@@ -564,11 +572,11 @@ sub stringify {
 # Convert an exception to number
 sub numerify {
     my $self = shift;
-    my $value_attribute = $self->{defaults}->{value_attribute};
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     no warnings 'numeric';
-    return 0+ $self->{$value_attribute} if defined $self->{$value_attribute};
-    return 0+ $self->{defaults}->{$value_attribute} if defined $self->{defaults}->{$value_attribute};
+    return 0+ $self->{$numeric_attribute} if defined $self->{$numeric_attribute};
+    return 0+ $self->{defaults}->{$numeric_attribute} if defined $self->{defaults}->{$numeric_attribute};
     return 0;
 }
 
@@ -603,7 +611,7 @@ sub with {
     return unless @_;
 
     my $default_attribute = $self->{defaults}->{default_attribute};
-    my $value_attribute   = $self->{defaults}->{value_attribute};
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     # Odd number of arguments - first is default attribute
     if (scalar @_ % 2 == 1) {
@@ -612,25 +620,27 @@ sub with {
             my $arrret = 0;
             foreach my $arrval (@{ $val }) {
                 if (not defined $arrval) {
-                    $arrret = 1 if not defined $self->{$default_attribute};
+                    $arrret = 1 if not grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                 }
                 elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
+                    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
                     no warnings 'numeric', 'uninitialized';
-                    $arrret = 1 if $self->{$value_attribute} == $arrval;
+                    $arrret = 1 if $self->{$numeric_attribute} == $arrval;
                 }
-                elsif (not defined $self->{$default_attribute}) {
+                elsif (not grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
                     next;
                 }
                 elsif (ref $arrval eq 'CODE') {
-                    local $_ = $self->{$default_attribute};
+                    local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                     $arrret = 1 if &$arrval;
                 }
                 elsif (ref $arrval eq 'Regexp') {
-                    local $_ = $self->{$default_attribute};
+                    local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                     $arrret = 1 if /$arrval/;
                 }
                 else {
-                    $arrret = 1 if $self->{$default_attribute} eq $arrval;
+                    local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    $arrret = 1 if $_ eq $arrval;
                 }
                 last if $arrret;
             }
@@ -638,25 +648,27 @@ sub with {
             return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return '' if defined $self->{$default_attribute};
+            return '' if grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
         }
         elsif (not ref $val and $val =~ RE_NUM_INT) {
+            my $numeric_attribute = $self->{defaults}->{numeric_attribute};
             no warnings 'numeric', 'uninitialized';
-            return '' if $self->{$value_attribute} != $val;
+            return '' if $self->{$numeric_attribute} != $val;
         }
-        elsif (not defined $self->{$default_attribute}) {
+        elsif (not grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
             return '';
         }
         elsif (ref $val eq 'CODE') {
-            $_ = $self->{$default_attribute};
+            local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
             return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
-            $_ = $self->{$default_attribute};
+            local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
             return '' if not /$val/;
         }
         else {
-            return '' if $self->{$default_attribute} ne $val;
+            local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            return '' if $_ ne $val;
         }
         return 1 unless @_;
     }
@@ -731,11 +743,11 @@ sub with {
             return '';
         }
         elsif (ref $val eq 'CODE') {
-            $_ = $self->{$key};
+            local $_ = $self->{$key};
             return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
-            $_ = $self->{$key};
+            local $_ = $self->{$key};
             return '' if not /$val/;
         }
         else {
@@ -1216,7 +1228,7 @@ __END__
  +uid : Int
  #defaults : HashRef
  #default_attribute : Str = "message"
- #value_attribute : Str = "value"
+ #numeric_attribute : Str = "value"
  #eval_attribute : Str = "message"
  #stringify_attributes : ArrayRef[Str] = ["message"]
  -----------------------------------------------------------------------------
@@ -1385,10 +1397,6 @@ Declaration of class attributes as reference to hash.
 The attributes are listed as I<name> => {I<properties>}, where I<properties> is a
 list of attribute properties:
 
-=item RE_NUM_INT
-
-Represents regexp for numeric integer value.
-
 =over
 
 =item is
@@ -1430,6 +1438,10 @@ attributes.
     print $e->{readwrite};                # = 2
     print $e->{defaults}->{readwrite};    # = "blah"
   }
+
+=item RE_NUM_INT
+
+Represents regexp for numeric integer value.
 
 =back
 
@@ -1658,7 +1670,7 @@ derived classes.
   eval { Exception::My->throw("string") };
   print $@->myattr;    # "string"
 
-=item value_attribute (default: 'value')
+=item numeric_attribute (default: 'value')
 
 Meta-attribute contains the name of the attribute which contains numeric value
 of exception object.  This attribute will be used for representing exception
@@ -1666,7 +1678,7 @@ in numeric context.
 
   use Exception::Base 'Exception::My' => {
       has => 'myattr',
-      value_attribute => 'myattr',
+      numeric_attribute => 'myattr',
   };
 
   eval { Exception::My->throw(myattr=>123) };
@@ -1895,11 +1907,11 @@ matches.
 
 =item with(I<condition>)
 
-Checks if the exception object matches the given condition.  If the
-first argument is single value, the B<default_attribute> is matched.  If
-the argument is a part of hash, an attribute of the exception object is
-matched.  The B<with> method returns true value if all its arguments
-match.
+Checks if the exception object matches the given condition.  If the first
+argument is single value, the message combined from B<stringify_attributes>
+attributes is matched.  If the argument is a part of hash, an attribute of the
+exception object is matched.  The B<with> method returns true value if all its
+arguments match.
 
   eval { Exception::Base->new( message=>"Message", value=>123 ) };
   print $@->with( "Message" );                    # matches
@@ -1916,8 +1928,8 @@ reference or regexp.
   print $@->with( sub {/Message/} );              # matches
   print $@->with( qr/Message/ );                  # matches
 
-If argument is a numeric value, the argument matches if B<value> attribute
-matches.
+If argument is a numeric value, the argument matches if attribute pointed by
+B<numeric_attribute> attribute matches.
 
   eval { Exception::Base->new( value=>123, message=>456 ) };
   print $@->with( 123 );                          # matches

@@ -732,6 +732,47 @@ sub test_with {
         $self->assert_num_equals(1, $obj4->with(message=>['Message', qr/False/, sub {/False/}, undef]));
         $self->assert_num_equals(1, $obj4->with(message=>['False', qr/Message/, sub {/False/}, undef]));
         $self->assert_num_equals(1, $obj4->with(message=>['False', qr/False/, sub {/Message/}, undef]));
+
+        eval q{
+            package Exception::BaseTest::with::Package1;
+            use base 'Exception::Base';
+            use constant ATTRS => {
+                %{ Exception::Base->ATTRS },
+                stringify_attributes => { default => [ 'message', 'strattr' ] },
+                numeric_attribute    => { default => 'numattr' },
+                strattr => { is => 'rw' },
+                numattr => { is => 'rw' },
+            };
+        };
+        $self->assert_equals('', $@);
+
+        my $obj5 = Exception::BaseTest::with::Package1->new;
+        $self->assert_num_equals(1, $obj5->with(undef));
+        $self->assert_num_equals(1, $obj5->with([undef]));
+        $self->assert_num_equals(1, $obj5->with(0));
+        $self->assert_num_equals(1, $obj5->with([0]));
+
+        my $obj6 = Exception::BaseTest::with::Package1->new(message=>'Message', value=>123);
+        $self->assert_num_equals(0, $obj6->with(undef));
+        $self->assert_num_equals(1, $obj6->with('Message'));
+        $self->assert_num_equals(1, $obj6->with(qr/Message/));
+        $self->assert_num_equals(1, $obj6->with(sub{qr/Message/}));
+        $self->assert_num_equals(1, $obj6->with(['Message']));
+        $self->assert_num_equals(1, $obj6->with([qr/Message/]));
+        $self->assert_num_equals(1, $obj6->with([sub{qr/Message/}]));
+        $self->assert_num_equals(1, $obj6->with(0));
+        $self->assert_num_equals(1, $obj6->with([0]));
+
+        my $obj7 = Exception::BaseTest::with::Package1->new(message=>'Message', strattr=>'String', value=>123, numattr=>456);
+        $self->assert_num_equals(0, $obj7->with(undef));
+        $self->assert_num_equals(1, $obj7->with('Message: String'));
+        $self->assert_num_equals(1, $obj7->with(qr/Message: String/));
+        $self->assert_num_equals(1, $obj7->with(sub{qr/Message: String/}));
+        $self->assert_num_equals(1, $obj7->with(['Message: String']));
+        $self->assert_num_equals(1, $obj7->with([qr/Message: String/]));
+        $self->assert_num_equals(1, $obj7->with([sub{qr/Message: String/}]));
+        $self->assert_num_equals(1, $obj7->with(456));
+        $self->assert_num_equals(1, $obj7->with([456]));
     };
     die "$@" if $@;
 }

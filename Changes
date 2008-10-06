@@ -51,7 +51,7 @@ Changes:
 * Removed private methods "__stringify" and "__numerify". The methods
   "stringify" and "numerify" overloads "q{""}" and "0+" operators.
 
-* New meta-attribute "value_attribute" which contains the name of attribute
+* New meta-attribute "numeric_attribute" which contains the name of attribute  
   which represents exception object in numeric context.
 
 * New constant RE_NUM_IN.
