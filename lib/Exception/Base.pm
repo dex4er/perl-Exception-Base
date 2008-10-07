@@ -1721,32 +1721,44 @@ of attributes listed in the opposite order.
 
 =head1 OVERLOADS
 
-The object returns:
-
 =over
 
-=item For boolean context
+=item Boolean context
 
 True value.
 
-=item For numeric context
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  if ($@) {
+     # the exception object is always true
+  }
 
-Content of B<value> attribute which is also output of B<numerify> method.
+=item Numeric context
 
-=item For string context
+Content of attribute pointed by B<numeric_attribute> attribute.  See
+B<numerify> method.
 
-The output of B<stringify> method.  It is usually the content of B<message>
-attribute with additional informations, depended on B<verbosity> setting.
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print 0+$@;           # 123
 
-=back
+=item String context
 
-The overloaded operators:
+Content of attribute which is combined from B<stringify_attributes> attributes
+with additional informations, depended on B<verbosity> setting.  See
+B<stringify> method.
 
-=over
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print "$@";           # "Message at -e line 1.\n"
 
-=item Smart matching operator:
+=item "~~"
 
-  "~~"
+Smart matching operator.  See B<matches> method.
+
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print $@ ~~ "Message";                          # 1
+  print $@ ~~ qr/message/i;                       # 1
+  print $@ ~~ ['Exception::Base'];                # 1
+  print $@ ~~ 123;                                # 1
+  print $@ ~~ {message=>"Message", value=>123};   # 1
 
 =back
 
@@ -1850,17 +1862,20 @@ automatically if the exception object is used in numeric scalar context.  The
 method can be used explicity.
 
   eval { Exception::Base->throw( value => 42 ); };
+  print 0+$@;           # 42
   print $@->numerify;   # 42
 
 =item matches(I<that>)
 
-Checks if the exception object matches the given argument.  It is
-somewhat similar to the B<with> method but it takes only one argument
-and the B<matches> method overloads B<~~> smart matching operator, so it
-can be used with B<given> keyword.
+Checks if the exception object matches the given argument.  It is somewhat
+similar to the B<with> method but it takes only one argument.  The B<matches>
+method overloads B<~~> smart matching operator, so it can be used with
+B<given> keyword.
 
   given ($e = Exception::Base->new( message=>"Message", value=>123 )) {
-    when( "Exception::Base" ) { ... }                     # matches
+    when( "Message" ) { ... }                             # matches
+    when( qr/message/i ) { ... }                          # matches
+    when( ["Exception::Base"] ) { ... }                   # matches
     when( ["Exception::Foo", "Exception::Bar"] ) { ... }  # doesn't
     when( { message=>"Message" } ) { ... }                # matches
     when( { value=>123 } ) { ... }                        # matches
@@ -1868,16 +1883,16 @@ can be used with B<given> keyword.
     when( { uid=>0 } ) { ... }  # matches if runs with root privileges
   }
 
-If the argument is a simple string or reference to array, it is checked
-if the object is a given class.
+If the argument is a reference to array, it is checked if the object is a
+given class.
 
   use Exception::Base
     'Exception::Simple',
     'Exception::Complex' => { isa => 'Exception::Simple };
   eval { Exception::Complex->throw() };
-  print $@ ~~ 'Exception::Base';                          # matches
+  print $@ ~~ ['Exception::Base'];                        # matches
   print $@ ~~ ['Exception::Simple', 'Exception::Other'];  # matches
-  print $@ ~~ 'NullObject';                               # doesn't
+  print $@ ~~ ['NullObject'];                             # doesn't
 
 If the argument is a reference to hash, attributes of the exception
 object is matched.
@@ -1887,11 +1902,12 @@ object is matched.
   print $@ ~~ { value=>123 };                     # matches
   print $@ ~~ { message=>"Message", value=>45 };  # doesn't
 
-If the argument is a regexp or code reference or is undefined, the default
-attribute of the exception object is matched (usually it is a "message"
-attribute).
+If the argument is a single string, regexp or code reference or is undefined,
+the default attribute of the exception object is matched (usually it is a
+"message" attribute).
 
   eval { Exception::Base->throw( message=>"Message" ) };
+  print $@ ~~ "Message";                          # matches
   print $@ ~~ qr/Message/;                        # matches
   print $@ ~~ qr/[0-9]/;                          # doesn't
   print $@ ~~ sub{/Message/};                     # matches
@@ -1959,16 +1975,14 @@ Matches if the object is a given class.
 Matches if the object has a given attribute.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( -has=>"message" );              # matches
+  print $@->with( -has=>"Message" );              # matches
 
 =item -default
 
 Matches against the default attribute, usually the B<message> attribute.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( "message" );                    # matches
-  print $@->with( message=>"message" );           # matches
-  print $@->with( -default=>"message" );          # matches
+  print $@->with( -default=>"Message" );          # matches
 
 =back
 
