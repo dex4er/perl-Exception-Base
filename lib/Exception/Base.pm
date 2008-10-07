@@ -539,7 +539,7 @@ sub stringify {
     my $string;
 
     if (not defined $message) {
-        $message = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+        $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
     }
 
     if ($message eq '') {
@@ -620,26 +620,26 @@ sub with {
             my $arrret = 0;
             foreach my $arrval (@{ $val }) {
                 if (not defined $arrval) {
-                    $arrret = 1 if not grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                 }
                 elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
                     my $numeric_attribute = $self->{defaults}->{numeric_attribute};
                     no warnings 'numeric', 'uninitialized';
                     $arrret = 1 if $self->{$numeric_attribute} == $arrval;
                 }
-                elsif (not grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
+                elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
                     next;
                 }
                 elsif (ref $arrval eq 'CODE') {
-                    local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                     $arrret = 1 if &$arrval;
                 }
                 elsif (ref $arrval eq 'Regexp') {
-                    local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                     $arrret = 1 if /$arrval/;
                 }
                 else {
-                    local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                     $arrret = 1 if $_ eq $arrval;
                 }
                 last if $arrret;
@@ -648,26 +648,26 @@ sub with {
             return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return '' if grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
         }
         elsif (not ref $val and $val =~ RE_NUM_INT) {
             my $numeric_attribute = $self->{defaults}->{numeric_attribute};
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$numeric_attribute} != $val;
         }
-        elsif (not grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
+        elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
             return '';
         }
         elsif (ref $val eq 'CODE') {
-            local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
             return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
-            local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
             return '' if not /$val/;
         }
         else {
-            local $_ = join ': ', grep { defined $_ } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
             return '' if $_ ne $val;
         }
         return 1 unless @_;

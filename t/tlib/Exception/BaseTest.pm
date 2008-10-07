@@ -451,6 +451,13 @@ END
 
         $obj->{defaults}->{stringify_attributes} = ['verbosity', 'message', 'value'];
         $self->assert_equals("1: Stringify: 123\n", $obj->stringify);
+
+        $obj->{value} = '';
+        $self->assert_equals("1: Stringify\n", $obj->stringify);
+
+        $obj->{value} = undef;
+        $self->assert_equals("1: Stringify\n", $obj->stringify);
+
         $self->assert_not_null(Exception::Base->ATTRS->{stringify_attributes}->{default});
         $self->assert_deep_equals(['message'], $obj->{defaults}->{stringify_attributes} = Exception::Base->ATTRS->{stringify_attributes}->{default});
 
