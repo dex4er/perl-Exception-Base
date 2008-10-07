@@ -1139,6 +1139,7 @@ sub _make_accessors {
     no warnings 'uninitialized';
     my $attributes = $class->ATTRS;
     foreach my $key (keys %{ $attributes }) {
+        next if ref $attributes->{$key} ne 'HASH';
         if (not $class->can($key)) {
             if ($attributes->{$key}->{is} eq 'rw') {
                 *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
