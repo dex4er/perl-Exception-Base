@@ -616,7 +616,6 @@ sub with {
     return unless @_;
 
     my $default_attribute = $self->{defaults}->{default_attribute};
-    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     # Odd number of arguments - first is default attribute
     if (scalar @_ % 2 == 1) {
