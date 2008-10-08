@@ -194,10 +194,14 @@ use overload 'bool'   => sub () { 1; },
              '""'     => sub () { $_[0]->stringify() },
              fallback => 1;
 
-# Overload smart matching for Perl 5.10
-use if ($] >= 5.010), overload =>
-             '~~'     => 'matches',
+# Overload smart matching for Perl 5.10.  Don't "use if" not available for base Perl 5.6.
+BEGIN {
+    eval q{
+	use overload
+    	     '~~'     => 'matches',
              fallback => 1;
+    } if ($] >= 5.010);
+}
 
 
 # Constant regexp for numerify value check
@@ -600,8 +604,9 @@ sub matches {
     elsif ($that =~ RE_NUM_INT) {
         return $self->with( value => $that );
     }
-
-    return $self->with( '-isa' => $that );
+    else {
+	return $self->with( $that );
+    }
 }
 
 

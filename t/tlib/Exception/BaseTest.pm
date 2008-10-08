@@ -519,6 +519,16 @@ sub test_overload {
 
     # stringify without $SIG{__DIE__}
     $self->assert_matches(qr/String at /, $obj);
+
+    # smart matching
+    if ($] >= 5.010) {
+	eval q{
+	    $self->assert_num_equals(1, $obj ~~ 'String');
+	    $self->assert_num_equals(1, $obj ~~ 123);
+	    $self->assert_num_equals(1, $obj ~~ ['Exception::Base']);
+	};
+	die "$@" if $@;
+    }
 }
 
 sub test_matches {
@@ -547,7 +557,7 @@ sub test_matches {
         $self->assert_num_equals(1, $obj1->matches({message=>['False', qr//, sub {}, undef]}));
         $self->assert_num_equals(0, $obj1->matches({message=>['False', qr//, sub {}]}));
         $self->assert_num_equals(0, $obj1->matches('False'));
-        $self->assert_num_equals(1, $obj1->matches('Exception::Base'));
+        $self->assert_num_equals(0, $obj1->matches('Exception::Base'));
         $self->assert_num_equals(1, $obj1->matches(0));
         $self->assert_num_equals(0, $obj1->matches(1));
         $self->assert_num_equals(0, $obj1->matches(123));
@@ -593,7 +603,8 @@ sub test_matches {
         $self->assert_num_equals(1, $obj2->matches({message=>['False', qr/Message/, sub {/False/}, undef]}));
         $self->assert_num_equals(1, $obj2->matches({message=>['False', qr/False/, sub {/Message/}, undef]}));
         $self->assert_num_equals(0, $obj2->matches('False'));
-        $self->assert_num_equals(1, $obj2->matches('Exception::Base'));
+        $self->assert_num_equals(0, $obj2->matches('Exception::Base'));
+        $self->assert_num_equals(1, $obj2->matches('Message'));
         $self->assert_num_equals(0, $obj2->matches(0));
         $self->assert_num_equals(0, $obj2->matches(1));
         $self->assert_num_equals(1, $obj2->matches(123));
