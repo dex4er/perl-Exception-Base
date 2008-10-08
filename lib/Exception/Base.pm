@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.17_01;
+our $VERSION = 0.18;
 
 =head1 NAME
 
@@ -19,7 +19,9 @@ Exception::Base - Lightweight exceptions
      'Exception::FileNotFound' => {
          isa => 'Exception::IO',        # create new based on previous
          message => 'File not found',   # override default message
-         has => [ 'filename' ] };       # define new rw attribute
+         has => [ 'filename' ],         # define new rw attribute
+         stringify_attributes => [ 'message', 'filename' ],
+     };                                 # output message and filename
 
   # eval/$@ (fastest method)
   eval {
@@ -36,6 +38,17 @@ Exception::Base - Lightweight exceptions
     elsif ($e->with(value=>9)) { warn "something happened"; }
     elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
+  }
+  # alternative syntax for Perl 5.10
+  if ($@) {
+    given (my $e = Exception::Base->catch) {
+      when ('Exception::IO') { warn "IO problem"; }
+      when ('Exception::Eval') { warn "eval died"; }
+      when ('Exception::Runtime') { warn "some runtime was caught"; }
+      when ({value=>9}) { warn "something happened"; }
+      when (qr/^Error/) { warn "some error based on regex"; }
+      default { $e->throw; } # rethrow the exception
+    }
   }
 
   # try/catch (15x slower)
@@ -81,6 +94,12 @@ Exception::Base - Lightweight exceptions
   # ignore our package in stack trace
   package My::Package;
   use Exception::Base '+ignore_package' => __PACKAGE__;
+
+  # define new exception in separate module
+  package Exception::My;
+  use Exception::Base (__PACKAGE__) => {
+      has => ['myattr'],
+  };
 
   # run Perl with changed verbosity for debugging purposes
   $ perl -MException::Base=verbosity,4 script.pl
@@ -171,34 +190,49 @@ our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
 # Overload the stringify operation
 use overload 'bool'   => sub () { 1; },
-             '0+'     => '__numerify',
-             q{""}    => '__stringify',
+             '0+'     => 'numerify',
+             '""'     => sub () { $_[0]->stringify() },
              fallback => 1;
+
+# Overload smart matching for Perl 5.10.  Don't "use if" not available for base Perl 5.6.
+BEGIN {
+    eval q{
+	use overload
+    	     '~~'     => 'matches',
+             fallback => 1;
+    } if ($] >= 5.010);
+}
+
+
+# Constant regexp for numerify value check
+use constant RE_NUM_INT  => qr/^[+-]?\d+$/;
 
 
 # List of class attributes (name => { is=>ro|rw, default=>value })
 use constant ATTRS => {
-    defaults          => { },
-    default_attribute => { default => 'message' },
-    eval_attribute    => { default => 'message' },
-    message           => { is => 'rw', default => 'Unknown exception' },
-    value             => { is => 'rw', default => 0 },
-    caller_stack      => { is => 'ro' },
-    propagated_stack  => { is => 'ro' },
-    egid              => { is => 'ro' },
-    euid              => { is => 'ro' },
-    gid               => { is => 'ro' },
-    pid               => { is => 'ro' },
-    tid               => { is => 'ro' },
-    time              => { is => 'ro' },
-    uid               => { is => 'ro' },
-    verbosity         => { is => 'rw', default => 2 },
-    ignore_package    => { is => 'rw', default => [ ] },
-    ignore_class      => { is => 'rw', default => [ ] },
-    ignore_level      => { is => 'rw', default => 0 },
-    max_arg_len       => { is => 'rw', default => 64 },
-    max_arg_nums      => { is => 'rw', default => 8 },
-    max_eval_len      => { is => 'rw', default => 0 },
+    defaults             => { },
+    default_attribute    => { default => 'message' },
+    numeric_attribute    => { default => 'value' },
+    eval_attribute       => { default => 'message' },
+    stringify_attributes => { default => [ 'message' ] },
+    message              => { is => 'rw', default => 'Unknown exception' },
+    value                => { is => 'rw', default => 0 },
+    caller_stack         => { is => 'ro' },
+    propagated_stack     => { is => 'ro' },
+    egid                 => { is => 'ro' },
+    euid                 => { is => 'ro' },
+    gid                  => { is => 'ro' },
+    pid                  => { is => 'ro' },
+    tid                  => { is => 'ro' },
+    time                 => { is => 'ro' },
+    uid                  => { is => 'ro' },
+    verbosity            => { is => 'rw', default => 2 },
+    ignore_package       => { is => 'rw', default => [ ] },
+    ignore_class         => { is => 'rw', default => [ ] },
+    ignore_level         => { is => 'rw', default => 0 },
+    max_arg_len          => { is => 'rw', default => 64 },
+    max_arg_nums         => { is => 'rw', default => 8 },
+    max_eval_len         => { is => 'rw', default => 0 },
 };
 
 
@@ -234,96 +268,107 @@ sub import {
             # Lower case: change default
             my ($modifier, $key) = ($1, $2);
             my $value = shift;
-            $pkg->_modify_default_value($key, $value, $modifier);
+            $pkg->_modify_default($key, $value, $modifier);
         }
         else {
             # Try to use external module
             my $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
             my $version = defined $param->{version} ? $param->{version} : 0;
             my $mod_version = do { local $SIG{__DIE__}; eval { $name->VERSION } } || 0;
-            if (not $mod_version or $version > $mod_version) {
+            my $this_package = caller eq $name;
+            my $need_create;
+
+            if ($this_package) {
+                $need_create = 1;
+            }
+            elsif (not $mod_version or $version > $mod_version) {
                 # Package is needed
-                do { local $SIG{__DIE__}; eval "use $name $version;" };
-                if ($@) {
+                do { local $SIG{__DIE__}; eval "use $name $version;" } unless $this_package;
+                if ($this_package or $@) {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
                         Exception::Base->throw(
-                              message => "Can not load available $name class: $@",
-                              verbosity => 1
+                            message => "Can not load available $name class: $@",
+                            verbosity => 1
                         );
                     }
-
-                    # Package not found so it have to be created
-                    if ($pkg ne __PACKAGE__) {
-                        Exception::Base->throw(
-                              message => "Exceptions can only be created with " . __PACKAGE__ . " class",
-                              verbosity => 1
-                        );
-                    }
-                    my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
-                    $version = 0.01 if not $version;
-                    my $has = defined $param->{has} ? $param->{has} : [ ];
-                    $has = [ $has ] if ref $has ne 'ARRAY';
-
-                    # Base class is needed
-                    {
-                        if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
-                            eval "use $isa;";
-                            if ($@) {
-                                Exception::Base->throw(
-                                      message => "Base class $isa for class $name can not be found",
-                                      verbosity => 1
-                                );
-                            }
-                        }
-                    }
-
-                    # Handle defaults for object attributes
-                    my $attributes;
-                    do { local $SIG{__DIE__}; eval { $attributes = $isa->ATTRS } };
-                    if ($@) {
-                        Exception::Base->throw(
-                              message => "$name class is based on $isa class which does not implement ATTRS",
-                              verbosity => 1
-                        );
-                    }
-
-                    # Create the hash with overriden attributes
-                    my %overriden_attributes;
-                    # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
-                    foreach my $attribute (@{ $has }) {
-                        if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
-                            Exception::Base->throw(
-                                message => "Attribute name `$attribute' can not be defined for $name class"
-                            );
-                        }
-                        $overriden_attributes{$attribute} = { is => 'rw' };
-                    }
-                    # Class => { message => "overriden default", ... }
-                    foreach my $attribute (keys %{ $param }) {
-                        next if $attribute =~ /^(isa|version|has)$/;
-                        if (not exists $attributes->{$attribute}->{default}) {
-                            Exception::Base->throw(
-                                  message => "$isa class does not implement default value for `$attribute' attribute",
-                                  verbosity => 1
-                            );
-                        }
-                        $overriden_attributes{$attribute} = {};
-                        $overriden_attributes{$attribute}->{default} = $param->{$attribute};
-                        foreach my $property (keys %{ $attributes->{$attribute} }) {
-                            next if $property eq 'default';
-                            $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
-                        }
-                    }
-
-                    # Create the new package
-                    ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
-                    @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
-                    *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
-                        return { %{ $isa->ATTRS }, %overriden_attributes };
-                    };
-                    $name->_make_accessors;
                 }
+                $need_create = 1;
+            }
+
+            if ($need_create) {
+                # Package not found so it have to be created
+                if ($pkg ne __PACKAGE__) {
+                    Exception::Base->throw(
+                        message => "Exceptions can only be created with " . __PACKAGE__ . " class",
+                        verbosity => 1
+                    );
+                }
+                my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
+                $version = 0.01 if not $version;
+                my $has = defined $param->{has} ? $param->{has} : [ ];
+                $has = [ $has ] if ref $has ne 'ARRAY';
+
+                # Base class is needed
+                {
+                    if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
+                        eval "use $isa;";
+                        if ($@) {
+                            Exception::Base->throw(
+                                message => "Base class $isa for class $name can not be found",
+                                verbosity => 1
+                            );
+                        }
+                    }
+                }
+
+                # Handle defaults for object attributes
+                my $attributes;
+                do { local $SIG{__DIE__}; eval { $attributes = $isa->ATTRS } };
+                if ($@) {
+                    Exception::Base->throw(
+                        message => "$name class is based on $isa class which does not implement ATTRS",
+                        verbosity => 1
+                    );
+                }
+
+                # Create the hash with overriden attributes
+                my %overriden_attributes;
+                # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
+                foreach my $attribute (@{ $has }) {
+                    if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+                        Exception::Base->throw(
+                            message => "Attribute name `$attribute' can not be defined for $name class"
+                        );
+                    }
+                    $overriden_attributes{$attribute} = { is => 'rw' };
+                }
+                # Class => { message => "overriden default", ... }
+                foreach my $attribute (keys %{ $param }) {
+                    next if $attribute =~ /^(isa|version|has)$/;
+                    if (not exists $attributes->{$attribute}->{default}
+                        and not exists $overriden_attributes{$attribute})
+                    {
+                        Exception::Base->throw(
+                            message => "$isa class does not implement default value for `$attribute' attribute",
+                            verbosity => 1
+                        );
+                    }
+                    $overriden_attributes{$attribute} = {};
+                    $overriden_attributes{$attribute}->{default} = $param->{$attribute};
+                    foreach my $property (keys %{ $attributes->{$attribute} }) {
+                        next if $property eq 'default';
+                        $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
+                    }
+                }
+
+                # Create the new package
+                ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
+                @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
+                *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
+                    return { %{ $isa->ATTRS }, %overriden_attributes };
+                };
+                $name->_make_accessors;
             }
         }
     }
@@ -497,8 +542,16 @@ sub stringify {
 
     my $string;
 
-    $message = $self->{message} if not defined $message;
-    $message = $self->{defaults}->{message} if not defined $message or $message eq '';
+    if (not defined $message) {
+        $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+    }
+
+    if ($message eq '') {
+        foreach (reverse @{ $self->{defaults}->{stringify_attributes} }) {
+            $message = $self->{defaults}->{$_};
+            last if defined $message;
+        }
+    }
 
     if ($verbosity == 1) {
         $string  = $message . "\n";
@@ -520,23 +573,40 @@ sub stringify {
 }
 
 
-# Stringify for overloaded operator. The same as SUPER but Perl needs it here.
-sub __stringify {
-    return $_[0]->stringify;
-}
-
-
 # Convert an exception to number
 sub numerify {
-    return 0+ $_[0]->{value} if defined $_[0]->{value};
-    return 0+ $_[0]->{defaults}->{value} if defined $_[0]->{defaults}->{value};
+    my $self = shift;
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+
+    no warnings 'numeric';
+    return 0+ $self->{$numeric_attribute} if defined $self->{$numeric_attribute};
+    return 0+ $self->{defaults}->{$numeric_attribute} if defined $self->{defaults}->{$numeric_attribute};
     return 0;
 }
 
 
-# Numerify for overloaded operator.
-sub __numerify {
-    return $_[0]->numerify;
+# Smart matching.
+sub matches {
+    my ($self, $that) = @_;
+
+    if (ref $that eq 'ARRAY') {
+        return $self->with( '-isa' => $that );
+    }
+    elsif (ref $that eq 'HASH') {
+        return $self->with( %{ $that } );
+    }
+    elsif (ref $that eq 'Regexp' or ref $that eq 'CODE' or not defined $that) {
+        return $self->with( $that );
+    }
+    elsif (ref $that) {
+        return '';
+    }
+    elsif ($that =~ RE_NUM_INT) {
+        return $self->with( value => $that );
+    }
+    else {
+	return $self->with( $that );
+    }
 }
 
 
@@ -546,6 +616,7 @@ sub with {
     return unless @_;
 
     my $default_attribute = $self->{defaults}->{default_attribute};
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     # Odd number of arguments - first is default attribute
     if (scalar @_ % 2 == 1) {
@@ -554,42 +625,55 @@ sub with {
             my $arrret = 0;
             foreach my $arrval (@{ $val }) {
                 if (not defined $arrval) {
-                    $arrret = 1 if not defined $self->{$default_attribute};
+                    $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                 }
-                elsif (not defined $self->{$default_attribute}) {
+                elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
+                    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+                    no warnings 'numeric', 'uninitialized';
+                    $arrret = 1 if $self->{$numeric_attribute} == $arrval;
+                }
+                elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
                     next;
                 }
                 elsif (ref $arrval eq 'CODE') {
-                    local $_ = $self->{$default_attribute};
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                     $arrret = 1 if &$arrval;
                 }
                 elsif (ref $arrval eq 'Regexp') {
-                    local $_ = $self->{$default_attribute};
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
                     $arrret = 1 if /$arrval/;
                 }
                 else {
-                    $arrret = 1 if $self->{$default_attribute} eq $arrval;
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    $arrret = 1 if $_ eq $arrval;
                 }
                 last if $arrret;
             }
-            return 0 if not $arrret;
+            # Fail unless at least one condition is true
+            return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return 0 if defined $self->{$default_attribute};
+            return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
         }
-        elsif (not defined $self->{$default_attribute}) {
-            return 0;
+        elsif (not ref $val and $val =~ RE_NUM_INT) {
+            my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+            no warnings 'numeric', 'uninitialized';
+            return '' if $self->{$numeric_attribute} != $val;
+        }
+        elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
+            return '';
         }
         elsif (ref $val eq 'CODE') {
-            $_ = $self->{$default_attribute};
-            return 0 if not &$val;
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
-            $_ = $self->{$default_attribute};
-            return 0 if not /$val/;
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            return '' if not /$val/;
         }
         else {
-            return 0 if $self->{$default_attribute} ne $val;
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            return '' if $_ ne $val;
         }
         return 1 unless @_;
     }
@@ -597,10 +681,11 @@ sub with {
 
     my %args = @_;
     while (my($key,$val) = each %args) {
-        if (not defined $key) {
-            return 0;
+        if ($key eq '-default') {
+            $key = $default_attribute;
         }
-        elsif ($key eq '-isa') {
+
+        if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
                 foreach my $arrval (@{ $val }) {
@@ -608,10 +693,10 @@ sub with {
                     $arrret = 1 if $self->isa($arrval);
                     last if $arrret;
                 }
-                return 0 if not $arrret;
+                return '' if not $arrret;
             }
             else {
-                return 0 if not $self->isa($val);
+                return '' if not $self->isa($val);
             }
         }
         elsif ($key eq '-has') {
@@ -622,10 +707,10 @@ sub with {
                     $arrret = 1 if exists $self->ATTRS->{$arrval};
                     last if $arrret;
                 }
-                return 0 if not $arrret;
+                return '' if not $arrret;
             }
             else {
-                return 0 if not $self->ATTRS->{$val};
+                return '' if not $self->ATTRS->{$val};
             }
         }
         elsif (ref $val eq 'ARRAY') {
@@ -650,24 +735,28 @@ sub with {
                 }
                 last if $arrret;
             }
-            return 0 if not $arrret;
+            return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return 0 if exists $self->{$key} && defined $self->{$key};
+            return '' if exists $self->{$key} && defined $self->{$key};
+        }
+        elsif (not ref $val and $val =~ RE_NUM_INT) {
+            no warnings 'numeric', 'uninitialized';
+            return '' if $self->{$key} != $val;
         }
         elsif (not defined $self->{$key}) {
-            return 0;
+            return '';
         }
         elsif (ref $val eq 'CODE') {
-            $_ = $self->{$key};
-            return 0 if not &$val;
+            local $_ = $self->{$key};
+            return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
-            $_ = $self->{$key};
-            return 0 if not /$val/;
+            local $_ = $self->{$key};
+            return '' if not /$val/;
         }
         else {
-            return 0 if $self->{$key} ne $val;
+            return '' if $self->{$key} ne $val;
         }
     }
 
@@ -676,7 +765,6 @@ sub with {
 
 
 # Push the exception on error stack. Stolen from Exception::Class::TryCatch
-
 sub try ($;$) {
     # Can be used also as function
     my $self = shift if defined $_[0] and do { local $@; local $SIG{__DIE__}; eval { $_[0]->isa(__PACKAGE__) } };
@@ -733,7 +821,6 @@ sub catch (;$$) {
     if (scalar @_ > 0) {
         # Save object in argument, return only status
         $_[0] = $e;
-        shift @_;
         $want_object = 0;
     }
 
@@ -866,7 +953,7 @@ sub _skip_ignored_package {
     if (defined $ignore_package) {
         if (ref $ignore_package eq 'ARRAY') {
             if (@{ $ignore_package }) {
-                do { return 1 if ref $_ eq 'Regexp' and $package =~ $_ or ref $_ ne 'Regexp' and $package eq $_ } foreach @{ $ignore_package };
+                do { return 1 if defined $_ and (ref $_ eq 'Regexp' and $package =~ $_ or ref $_ ne 'Regexp' and $package eq $_) } foreach @{ $ignore_package };
             }
         }
         else {
@@ -884,7 +971,7 @@ sub _skip_ignored_package {
         }
     }
 
-    return 0;
+    return '';
 }
 
 
@@ -990,7 +1077,7 @@ sub _str_len_trim {
 
 
 # Modify default values for ATTRS
-sub _modify_default_value {
+sub _modify_default {
     my ($self, $key, $value, $modifier) = @_;
     my $class = ref $self ? ref $self : $self;
 
@@ -1057,6 +1144,7 @@ sub _make_accessors {
     no warnings 'uninitialized';
     my $attributes = $class->ATTRS;
     foreach my $key (keys %{ $attributes }) {
+        next if ref $attributes->{$key} ne 'HASH';
         if (not $class->can($key)) {
             if ($attributes->{$key}->{is} eq 'rw') {
                 *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
@@ -1118,6 +1206,59 @@ __init;
 
 
 __END__
+
+=begin umlwiki
+
+= Class Diagram =
+
+[                       <<exception>>
+                       Exception::Base
+ -----------------------------------------------------------------------------
+ +ignore_class : ArrayRef                                                {new}
+ +ignore_level : Int = 0                                                 {new}
+ +ignore_package : ArrayRef                                              {new}
+ +max_arg_len : Int = 64                                                 {new}
+ +max_arg_nums : Int = 8                                                 {new}
+ +max_eval_len : Int = 0                                                 {new}
+ +message : Str = "Unknown exception"                                    {new}
+ +value : Int = 0                                                        {new}
+ +verbosity : Int = 2                                                    {new}
+ +caller_stack : ArrayRef
+ +egid : Int
+ +euid : Int
+ +gid : Int
+ +pid : Int
+ +propagated_stack : ArrayRef
+ +tid : Int
+ +time : Int
+ +uid : Int
+ #defaults : HashRef
+ #default_attribute : Str = "message"
+ #numeric_attribute : Str = "value"
+ #eval_attribute : Str = "message"
+ #stringify_attributes : ArrayRef[Str] = ["message"]
+ -----------------------------------------------------------------------------
+ <<create>> +new( args : Hash = undef )
+ +catch( out variable : Exception::Base ) : Bool                      {export}
+ +catch() : Exception::Base                                           {export}
+ +throw( args : Hash = undef )                                        {export}
+ +throw( message : Str, args : Hash = undef )                         {export}
+ +try( value : ArrayRef ) : Array                                     {export}
+ +try( value : Value ) : Value                                        {export}
+ +matches( that : Any ) : Bool                                 {overload="~~"}
+ +numerify() : Num                                             {overload="0+"}
+ +stringify() : Str                                            {overload='""'}
+ +stringify( verbosity : Int, message : Str = undef ) : Str
+ +stringify( verbosity : Int = undef ) : Str
+ +with( args : Hash = undef ) : Bool
+ +with( message : Str, args : Hash = undef ) : Bool
+ #_collect_system_data()
+ #_make_accessors()                                                     {init}
+ #_make_caller_info_accessors()                                         {init}
+ <<constant>> +ATTRS() : HashRef
+ <<constant>> +RE_NUM_INT() : Regexp                                          ]
+
+=end umlwiki
 
 =head1 IMPORTS
 
@@ -1303,6 +1444,10 @@ attributes.
     print $e->{readwrite};                # = 2
     print $e->{defaults}->{readwrite};    # = "blah"
   }
+
+=item RE_NUM_INT
+
+Represents regexp for numeric integer value.
 
 =back
 
@@ -1523,18 +1668,27 @@ Meta-attribute contains the name of the default attribute.  This attribute
 will be set for one argument throw method.  This attribute has meaning for
 derived classes.
 
-  package Exception::My;
-  use base 'Exception::Base';
-  use constant ATTRS => {
-      %{Exception::Base->ATTRS},
-      myattr => { is => 'ro' },
-      default_attribute => 'myattr'
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      default_attribute => 'myattr',
   };
-  __PACKAGE__->_make_accessors;
 
-  package main;
   eval { Exception::My->throw("string") };
   print $@->myattr;    # "string"
+
+=item numeric_attribute (default: 'value')
+
+Meta-attribute contains the name of the attribute which contains numeric value
+of exception object.  This attribute will be used for representing exception
+in numeric context.
+
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      numeric_attribute => 'myattr',
+  };
+
+  eval { Exception::My->throw(myattr=>123) };
+  print 0 + $@;    # 123
 
 =item eval_attribute (default: 'message')
 
@@ -1542,38 +1696,75 @@ Meta-attribute contains the name of the attribute which is filled if error
 stack is empty.  This attribute will contain value of B<$@> variable.  This
 attribute has meaning for derived classes.
 
-  package Exception::My;
-  use base 'Exception::Base';
-  use constant ATTRS => {
-      %{Exception::Base->ATTRS},
-      myattr => { is => 'ro' },
-      eval_attribute => 'myattr' };
-  __PACKAGE__->_make_accessors;
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      eval_attribute => 'myattr'
+  };
 
-  package main;
   eval { die "string" };
   print $@->myattr;    # "string"
+
+=item stringify_attributes (default: ['message'])
+
+Meta-attribute contains the array of names of attributes with defined value
+which are joined to the string returned by stringify method.  If none of
+attributes are defined, the string is created from the first default value
+of attributes listed in the opposite order.
+
+  use Exception::Base 'Exception::My' => {
+      has => 'myattr',
+      myattr => 'default',
+      stringify_attributes => ['message', 'myattr'],
+  };
+
+  eval { Exception::My->throw( message=>"string", myattr=>"foo" ) };
+  print $@->myattr;    # "string: foo"
+
+  eval { Exception::My->throw() };
+  print $@->myattr;    # "default"
 
 =back
 
 =head1 OVERLOADS
 
-The object returns:
-
 =over
 
-=item For boolean context
+=item Boolean context
 
 True value.
 
-=item For numeric context
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  if ($@) {
+     # the exception object is always true
+  }
 
-Content of B<value> attribute which is also output of B<numerify> method.
+=item Numeric context
 
-=item For string context
+Content of attribute pointed by B<numeric_attribute> attribute.  See
+B<numerify> method.
 
-The output of B<stringify> method.  It is usually the content of B<message>
-attribute with additional informations, depended on B<verbosity> setting.
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print 0+$@;           # 123
+
+=item String context
+
+Content of attribute which is combined from B<stringify_attributes> attributes
+with additional informations, depended on B<verbosity> setting.  See
+B<stringify> method.
+
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print "$@";           # "Message at -e line 1.\n"
+
+=item "~~"
+
+Smart matching operator.  See B<matches> method.
+
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print $@ ~~ "Message";                          # 1
+  print $@ ~~ qr/message/i;                       # 1
+  print $@ ~~ ['Exception::Base'];                # 1
+  print $@ ~~ 123;                                # 1
+  print $@ ~~ {message=>"Message", value=>123};   # 1
 
 =back
 
@@ -1663,8 +1854,12 @@ method can be used explicity and then the verbosity level can be used.
   print $@->stringify(4) if $VERY_VERBOSE;
 
 It also replaces any message stored in object with the I<message> argument if
-it exists.  This feature can be used by derived class overwriting B<stringify>
-method.
+it exists.  If message argument is an empty string, the default message is used.
+
+  eval { Exception::Base->throw( "Message" ); };
+  print $@->stringify(1);               # "Message"
+  print $@->stringify(1, "Overrided");  # "Overrided"
+  print $@->stringify(1, "");           # "Unknown exception"
 
 =item numerify
 
@@ -1673,34 +1868,101 @@ automatically if the exception object is used in numeric scalar context.  The
 method can be used explicity.
 
   eval { Exception::Base->throw( value => 42 ); };
+  print 0+$@;           # 42
   print $@->numerify;   # 42
+
+=item matches(I<that>)
+
+Checks if the exception object matches the given argument.  It is somewhat
+similar to the B<with> method but it takes only one argument.  The B<matches>
+method overloads B<~~> smart matching operator, so it can be used with
+B<given> keyword.
+
+  given ($e = Exception::Base->new( message=>"Message", value=>123 )) {
+    when( "Message" ) { ... }                             # matches
+    when( qr/message/i ) { ... }                          # matches
+    when( ["Exception::Base"] ) { ... }                   # matches
+    when( ["Exception::Foo", "Exception::Bar"] ) { ... }  # doesn't
+    when( { message=>"Message" } ) { ... }                # matches
+    when( { value=>123 } ) { ... }                        # matches
+    when( { message=>"Message", value=>45 } ) { ... }     # doesn't
+    when( { uid=>0 } ) { ... }  # matches if runs with root privileges
+  }
+
+If the argument is a reference to array, it is checked if the object is a
+given class.
+
+  use Exception::Base
+    'Exception::Simple',
+    'Exception::Complex' => { isa => 'Exception::Simple };
+  eval { Exception::Complex->throw() };
+  print $@ ~~ ['Exception::Base'];                        # matches
+  print $@ ~~ ['Exception::Simple', 'Exception::Other'];  # matches
+  print $@ ~~ ['NullObject'];                             # doesn't
+
+If the argument is a reference to hash, attributes of the exception
+object is matched.
+
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print $@ ~~ { message=>"Message" };             # matches
+  print $@ ~~ { value=>123 };                     # matches
+  print $@ ~~ { message=>"Message", value=>45 };  # doesn't
+
+If the argument is a single string, regexp or code reference or is undefined,
+the default attribute of the exception object is matched (usually it is a
+"message" attribute).
+
+  eval { Exception::Base->throw( message=>"Message" ) };
+  print $@ ~~ "Message";                          # matches
+  print $@ ~~ qr/Message/;                        # matches
+  print $@ ~~ qr/[0-9]/;                          # doesn't
+  print $@ ~~ sub{/Message/};                     # matches
+  print $@ ~~ sub{0};                             # doesn't
+  print $@ ~~ undef;                              # doesn't
+
+If argument is a numeric value, the argument matches if B<value> attribute
+matches.
+
+  eval { Exception::Base->throw( value=>123, message=>456 ) };
+  print $@ ~~ 123;                                # matches
+  print $@ ~~ 456;                                # doesn't
 
 =item with(I<condition>)
 
 Checks if the exception object matches the given condition.  If the first
-argument is single value, the B<default_attribute> will be matched.  If the
-argument is a part of hash, an attribute of the exception object will be
-matched.  The B<with> method returns true value if all its arguments match.
+argument is single value, the message combined from B<stringify_attributes>
+attributes is matched.  If the argument is a part of hash, an attribute of the
+exception object is matched.  The B<with> method returns true value if all its
+arguments match.
 
-  $e = Exception::Base->new( message=>"Message", value=>123 );
-  $e->with( "Message" );             # matches
-  $e->with( value=>123 );            # matches
-  $e->with( "Message", value=>45 );  # doesn't match second
-  $e->with( uid=>0 );                # match if runs with root privileges
-  $e->with( message=>"Message" );    # matches
+  eval { Exception::Base->new( message=>"Message", value=>123 ) };
+  print $@->with( "Message" );                    # matches
+  print $@->with( value=>123 );                   # matches
+  print $@->with( "Message", value=>45 );         # doesn't
+  print $@->with( uid=>0 );               # matches if root
+  print $@->with( message=>"Message" );           # matches
 
 The argument (for message or attributes) can be simple string or code
 reference or regexp.
 
-  $e->with( "Message" );
-  $e->with( sub {/Message/} );
-  $e->with( qr/Message/ );
+  eval { Exception::Base->new( message=>"Message" ) };
+  print $@->with( "Message" );                    # matches
+  print $@->with( sub {/Message/} );              # matches
+  print $@->with( qr/Message/ );                  # matches
+
+If argument is a numeric value, the argument matches if attribute pointed by
+B<numeric_attribute> attribute matches.
+
+  eval { Exception::Base->new( value=>123, message=>456 ) };
+  print $@->with( 123 );                          # matches
+  print $@->with( 456 );                          # doesn't
 
 If argument is a reference to array, the argument matches if any of its
 element matches.
 
-  $e->with( message=>["Not", 123, 45, "Message"] );  # matches
-  $e->with( value=>[123, 45], message=>"Not" );      # doesn't match second
+  eval { Exception::Base->new( message=>"Message", value=>123 ) };
+  print $@->with( message=>["Not", 123, 45, "Message"] );  # matches
+  print $@->with( value=>[123, 45], message=>"Not" );      # doesn't
 
 The B<with> method matches for special keywords:
 
@@ -1708,15 +1970,25 @@ The B<with> method matches for special keywords:
 
 =item -isa
 
-Matches if the object is a given class.  The argument can be string only.
+Matches if the object is a given class.
 
-  $e->with( -isa=>"Exception::Base" );   # matches
+  eval { Exception::Base->new( message=>"Message" ) };
+  print $@->with( -isa=>"Exception::Base" );                   # matches
+  print $@->with( -isa=>["Some::Class", "Exception::Base"] );  # matches
 
 =item -has
 
-Matches if the object has a given attribute.  The argument can be string only.
+Matches if the object has a given attribute.
 
-  $e->with( -has=>"message" );           # matches
+  eval { Exception::Base->new( message=>"Message" ) };
+  print $@->with( -has=>"Message" );              # matches
+
+=item -default
+
+Matches against the default attribute, usually the B<message> attribute.
+
+  eval { Exception::Base->new( message=>"Message" ) };
+  print $@->with( -default=>"Message" );          # matches
 
 =back
 
@@ -1938,6 +2210,39 @@ The exception class which handle L<$SIG{__WARN__}|pervar/%SIG> hook and
 convert simple L<perlfunc/warn> into an exception object.
 
 =back
+
+=head1 EXAMPLES
+
+=head2 New exception classes
+
+The B<Exception::Base> module allows to create new exception classes easly.
+You can use B<import> interface or L<base> module to do it.
+
+The B<import> interface allows to create new class with new read-write
+attributes.
+
+  package Exception::Simple;
+  use Exception::Base (__PACKAGE__) => {
+    has => qw< reason method >,
+    stringify_attributes => qw< message reason method >,
+  };
+
+For more complex exceptions you can redefine B<ATTRS> constant.
+
+  package Exception::Complex;
+  use base 'Exception::Base';
+  use constant ATTRS => {
+    %{ Exception::Base->ATTRS },     # SUPER::ATTRS
+    hostname => { is => 'ro' },
+    stringify_attributes => qw< hostname message >,
+  };
+  sub _collect_system_data {
+    my $self = shift;
+    my $hostname = `hostname`;
+    chomp $hostname;
+    $self->{hostname} = $hostname;
+    return $self->SUPER::_collect_system_data(@_);
+  }
 
 =head1 PERFORMANCE
 

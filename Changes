@@ -1,4 +1,71 @@
 ------------------------------------------------------------------------
+0.18 | Piotr Roszatycki <dexter@debian.org> | 2008-10-08
+
+New:
+
+* New method "matches" and overloaded operator "~~" are similar to
+  "with" method and can be used with new "given" syntax.
+  
+  eval { Exception::Base->throw( message => "foo" ) };
+  if ($@) {
+    my $e = Exception::Base->catch;
+    given ($e) {
+      when ({ message => "foo" }) { warn "has a foo message"; }
+      when ("Exception::Base")    { warn "is an Exception::Base"; }
+    }
+  }
+
+* The exception class can be created with "import" interface in own package.
+
+  package Exception::My;
+  use Exception::Base (__PACKAGE__) =>
+    'has' => 'myattr',
+  };
+
+* New attribute "stringify_attributes" defines attributes which create
+  string returned by stringify method.
+
+  use Exception::Base 'Exception::WithReason' =>
+    'has' => 'reason',
+    stringify_attributes => ['message', 'reason'],
+  };
+  eval { Exception::WithReason->(
+    message => "My message",
+    reason  => "My reason",
+  );
+  print $@->stringify;  # "My message: My reason"
+
+* The default value for new attribute defined with "has" keyword with "import"
+  interface can be set in the same statement.
+
+  use Exception::Base 'Exception::WithDefaultValue' =>
+    'has' => 'value',
+    'value' => 'Default value',
+  };
+
+Changes:
+
+* The "with" and "try" methods return empty string instead "0" as false
+  value.
+
+* Removed private methods "__stringify" and "__numerify". The methods
+  "stringify" and "numerify" overloads "q{""}" and "0+" operators.
+
+* New meta-attribute "numeric_attribute" which contains the name of attribute  
+  which represents exception object in numeric context.
+
+* New constant RE_NUM_IN.
+
+* Updated bundled Test::Unit::Lite to 0.10.
+
+------------------------------------------------------------------------
+0.1702 | Piotr Roszatycki <dexter@debian.org> | 2008-05-28
+
+Fixed:
+
+* Fix some "undefined value" warning.
+
+------------------------------------------------------------------------
 0.1701 | Piotr Roszatycki <dexter@debian.org> | 2008-05-12
 
 * Corrected documentation.

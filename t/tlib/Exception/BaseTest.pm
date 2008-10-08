@@ -110,8 +110,7 @@ sub test_throw {
         $self->assert_not_equals('', ref $obj1);
         $self->assert($obj1->isa("Exception::Base"), '$obj1->isa("Exception::Base")');
         $self->assert_equals('Throw', $obj1->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj1->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj1->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
 
         # Rethrow
         eval {
@@ -121,8 +120,7 @@ sub test_throw {
         $self->assert_not_equals('', ref $obj2);
         $self->assert($obj2->isa("Exception::Base"), '$obj2->isa("Exception::Base")');
         $self->assert_equals('Throw', $obj2->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj2->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj2->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
 
         # Rethrow with overriden message
         eval {
@@ -132,8 +130,7 @@ sub test_throw {
         $self->assert_not_equals('', ref $obj3);
         $self->assert($obj3->isa("Exception::Base"), '$obj3->isa("Exception::Base")');
         $self->assert_equals('New throw', $obj3->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj3->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj3->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
         $self->assert_not_equals('ignored', $obj3->{pid});
 
         # Rethrow with overriden class
@@ -149,8 +146,7 @@ sub test_throw {
         $self->assert_not_equals('', ref $obj4);
         $self->assert($obj4->isa("Exception::Base"), '$obj4->isa("Exception::Base")');
         $self->assert_equals('New throw', $obj4->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj4->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj4->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
 
         # Throw and ignore levels (does not modify caller stack)
         eval {
@@ -160,8 +156,7 @@ sub test_throw {
         $self->assert_not_equals('', ref $obj7);
         $self->assert($obj7->isa("Exception::Base"), '$obj7->isa("Exception::Base")');
         $self->assert_equals('Throw', $obj7->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj7->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj7->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
 
         # Message only
         eval {
@@ -171,8 +166,7 @@ sub test_throw {
         $self->assert_not_equals('', ref $obj8);
         $self->assert($obj8->isa("Exception::Base"), '$obj8->isa("Exception::Base")');
         $self->assert_equals('Throw', $obj8->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj8->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj8->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
 
         # Message and hash only
         eval {
@@ -182,8 +176,7 @@ sub test_throw {
         $self->assert_not_equals('', ref $obj9);
         $self->assert($obj9->isa("Exception::Base"), '$obj9->isa("Exception::Base")');
         $self->assert_equals('Hash', $obj9->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj9->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj9->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
 
         eval q{
             package Exception::BaseTest::throw::Package1;
@@ -206,8 +199,7 @@ sub test_throw {
         $self->assert($obj10->isa("Exception::Base"), '$obj10->isa("Exception::Base")');
         $self->assert_equals('Throw', $obj10->{myattr});
         $self->assert_null($obj10->{message});
-        $self->assert_equals(__PACKAGE__ . '::test_throw', $obj8->{caller_stack}->[3]->[3]);
-        $self->assert_equals(ref $self, ref $obj8->{caller_stack}->[3]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
     };
     die "$@" if $@;
 }
@@ -227,6 +219,7 @@ sub test_stringify {
 
         $self->assert_equals('', $obj->stringify(0));
         $obj->{message} = 'Stringify';
+        $obj->{value} = 123;
         $self->assert_equals("Stringify\n", $obj->stringify(1));
         $self->assert_matches(qr/Stringify at .* line \d+.\n/s, $obj->stringify(2));
         $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->stringify(3));
@@ -451,12 +444,22 @@ END
 
         $obj->{defaults}->{verbosity} = 1;
         $obj->{verbosity} = undef;
-
         $self->assert_equals("Stringify\n", $obj->stringify);
         $self->assert_not_null(Exception::Base->ATTRS->{verbosity}->{default});
-
-        $self->assert_equals(3, $obj->{defaults}->{verbosity} = Exception::Base->ATTRS->{verbosity}->{default});
+        $self->assert_equals(2, $obj->{defaults}->{verbosity} = Exception::Base->ATTRS->{verbosity}->{default});
         $obj->{verbosity} = 1;
+
+        $obj->{defaults}->{stringify_attributes} = ['verbosity', 'message', 'value'];
+        $self->assert_equals("1: Stringify: 123\n", $obj->stringify);
+
+        $obj->{value} = '';
+        $self->assert_equals("1: Stringify\n", $obj->stringify);
+
+        $obj->{value} = undef;
+        $self->assert_equals("1: Stringify\n", $obj->stringify);
+
+        $self->assert_not_null(Exception::Base->ATTRS->{stringify_attributes}->{default});
+        $self->assert_deep_equals(['message'], $obj->{defaults}->{stringify_attributes} = Exception::Base->ATTRS->{stringify_attributes}->{default});
 
         $self->assert_equals("Stringify\n", $obj->stringify);
 
@@ -515,7 +518,101 @@ sub test_overload {
     $self->assert_num_equals(123, $obj);
 
     # stringify without $SIG{__DIE__}
-    $self->assert_matches(qr/^Exception::Base: String at /, $obj);
+    $self->assert_matches(qr/String at /, $obj);
+
+    # smart matching
+    if ($] >= 5.010) {
+	eval q{
+	    $self->assert_num_equals(1, $obj ~~ 'String');
+	    $self->assert_num_equals(1, $obj ~~ 123);
+	    $self->assert_num_equals(1, $obj ~~ ['Exception::Base']);
+	};
+	die "$@" if $@;
+    }
+}
+
+sub test_matches {
+    my $self = shift;
+
+    eval {
+        my $obj1 = Exception::Base->new;
+        $self->assert_num_equals(1, $obj1->matches);
+        $self->assert_num_equals(1, $obj1->matches(undef));
+        $self->assert_num_equals(0, $obj1->matches(sub {/Unknown/}));
+        $self->assert_num_equals(0, $obj1->matches(qr/Unknown/));
+        $self->assert_num_equals(0, $obj1->matches(sub {/False/}));
+        $self->assert_num_equals(0, $obj1->matches(qr/False/));
+        $self->assert_num_equals(1, $obj1->matches({tag=>undef}));
+        $self->assert_num_equals(0, $obj1->matches({tag=>'false'}));
+        $self->assert_num_equals(1, $obj1->matches({tag=>['False', qr//, sub {}, undef]}));
+        $self->assert_num_equals(0, $obj1->matches({tag=>['False', qr//, sub {}]}));
+        $self->assert_num_equals(0, $obj1->matches({tag=>[]}));
+        $self->assert_num_equals(1, $obj1->matches({tag=>[undef]}));
+        $self->assert_num_equals(1, $obj1->matches({message=>undef}));
+        $self->assert_num_equals(0, $obj1->matches({message=>'false'}));
+        $self->assert_num_equals(0, $obj1->matches({message=>sub{/false/}}));
+        $self->assert_num_equals(0, $obj1->matches({message=>qr/false/}));
+        $self->assert_num_equals(0, $obj1->matches({message=>[]}));
+        $self->assert_num_equals(1, $obj1->matches({message=>[undef]}));
+        $self->assert_num_equals(1, $obj1->matches({message=>['False', qr//, sub {}, undef]}));
+        $self->assert_num_equals(0, $obj1->matches({message=>['False', qr//, sub {}]}));
+        $self->assert_num_equals(0, $obj1->matches('False'));
+        $self->assert_num_equals(0, $obj1->matches('Exception::Base'));
+        $self->assert_num_equals(1, $obj1->matches(0));
+        $self->assert_num_equals(0, $obj1->matches(1));
+        $self->assert_num_equals(0, $obj1->matches(123));
+        $self->assert_num_equals(0, $obj1->matches(['False', 'False', 'False']));
+        $self->assert_num_equals(1, $obj1->matches(['False', 'Exception::Base', 'False']));
+        $self->assert_num_equals(0, $obj1->matches(\1));
+
+        my $obj2 = Exception::Base->new(message=>'Message', value=>123);
+        $self->assert_num_equals(0, $obj2->matches(undef));
+        $self->assert_num_equals(1, $obj2->matches(sub {/Message/}));
+        $self->assert_num_equals(0, $obj2->matches(sub {/False/}));
+        $self->assert_num_equals(1, $obj2->matches(qr/Message/));
+        $self->assert_num_equals(0, $obj2->matches(qr/False/));
+        $self->assert_num_equals(1, $obj2->matches({value=>123}));
+        $self->assert_num_equals(0, $obj2->matches({value=>'false'}));
+        $self->assert_num_equals(1, $obj2->matches({value=>sub {/123/}}));
+        $self->assert_num_equals(1, $obj2->matches({value=>qr/123/}));
+        $self->assert_num_equals(0, $obj2->matches({value=>sub {/false/}}));
+        $self->assert_num_equals(0, $obj2->matches({value=>qr/false/}));
+        $self->assert_num_equals(0, $obj2->matches({value=>undef}));
+        $self->assert_num_equals(0, $obj2->matches({value=>[]}));
+        $self->assert_num_equals(0, $obj2->matches({value=>[undef]}));
+        $self->assert_num_equals(0, $obj2->matches({value=>['False', qr/False/, sub {/False/}, undef]}));
+        $self->assert_num_equals(1, $obj2->matches({value=>['123', qr/False/, sub {/False/}, undef]}));
+        $self->assert_num_equals(1, $obj2->matches({value=>['False', qr/123/, sub {/False/}, undef]}));
+        $self->assert_num_equals(1, $obj2->matches({value=>['False', qr/False/, sub {/123/}, undef]}));
+        $self->assert_num_equals(0, $obj2->matches({false=>'false'}));
+        $self->assert_num_equals(1, $obj2->matches({false=>undef}));
+        $self->assert_num_equals(1, $obj2->matches({message=>'Message', value=>123}));
+        $self->assert_num_equals(1, $obj2->matches({message=>sub {/Message/}, value=>sub {/123/}}));
+        $self->assert_num_equals(1, $obj2->matches({message=>qr/Message/, value=>qr/123/}));
+        $self->assert_num_equals(0, $obj2->matches({message=>undef}));
+        $self->assert_num_equals(1, $obj2->matches({message=>'Message'}));
+        $self->assert_num_equals(0, $obj2->matches({message=>'false'}));
+        $self->assert_num_equals(1, $obj2->matches({message=>sub{/Message/}}));
+        $self->assert_num_equals(1, $obj2->matches({message=>qr/Message/}));
+        $self->assert_num_equals(0, $obj2->matches({message=>sub{/false/}}));
+        $self->assert_num_equals(0, $obj2->matches({message=>qr/false/}));
+        $self->assert_num_equals(0, $obj2->matches({message=>[]}));
+        $self->assert_num_equals(0, $obj2->matches({message=>[undef]}));
+        $self->assert_num_equals(0, $obj2->matches({message=>['False', qr/False/, sub {/False/}, undef]}));
+        $self->assert_num_equals(1, $obj2->matches({message=>['Message', qr/False/, sub {/False/}, undef]}));
+        $self->assert_num_equals(1, $obj2->matches({message=>['False', qr/Message/, sub {/False/}, undef]}));
+        $self->assert_num_equals(1, $obj2->matches({message=>['False', qr/False/, sub {/Message/}, undef]}));
+        $self->assert_num_equals(0, $obj2->matches('False'));
+        $self->assert_num_equals(0, $obj2->matches('Exception::Base'));
+        $self->assert_num_equals(1, $obj2->matches('Message'));
+        $self->assert_num_equals(0, $obj2->matches(0));
+        $self->assert_num_equals(0, $obj2->matches(1));
+        $self->assert_num_equals(1, $obj2->matches(123));
+        $self->assert_num_equals(0, $obj2->matches(['False', 'False', 'False']));
+        $self->assert_num_equals(1, $obj2->matches(['False', 'Exception::Base', 'False']));
+        $self->assert_num_equals(0, $obj2->matches(\1));
+    };
+    die "$@" if $@;
 }
 
 sub test_with {
@@ -524,123 +621,176 @@ sub test_with {
     eval {
         my $obj1 = Exception::Base->new;
         $self->assert_null($obj1->with);
-        $self->assert_equals(1, $obj1->with(undef));
-        $self->assert_equals(0, $obj1->with('Unknown'));
-        $self->assert_equals(0, $obj1->with('False'));
-        $self->assert_equals(0, $obj1->with(sub {/Unknown/}));
-        $self->assert_equals(0, $obj1->with(qr/Unknown/));
-        $self->assert_equals(0, $obj1->with(sub {/False/}));
-        $self->assert_equals(0, $obj1->with(qr/False/));
-        $self->assert_equals(0, $obj1->with([]));
-        $self->assert_equals(1, $obj1->with([undef]));
-        $self->assert_equals(1, $obj1->with(['False', qr//, sub {}, undef]));
-        $self->assert_equals(0, $obj1->with(['False', qr//, sub {}]));
-        $self->assert_equals(1, $obj1->with(tag=>undef));
-        $self->assert_equals(0, $obj1->with(tag=>'false'));
-        $self->assert_equals(1, $obj1->with(tag=>['False', qr//, sub {}, undef]));
-        $self->assert_equals(0, $obj1->with(tag=>['False', qr//, sub {}]));
-        $self->assert_equals(0, $obj1->with(tag=>[]));
-        $self->assert_equals(1, $obj1->with(tag=>[undef]));
-        $self->assert_equals(1, $obj1->with(message=>undef));
-        $self->assert_equals(0, $obj1->with(message=>'false'));
-        $self->assert_equals(0, $obj1->with(message=>sub{/false/}));
-        $self->assert_equals(0, $obj1->with(message=>qr/false/));
-        $self->assert_equals(0, $obj1->with(message=>[]));
-        $self->assert_equals(1, $obj1->with(message=>[undef]));
-        $self->assert_equals(1, $obj1->with(message=>['False', qr//, sub {}, undef]));
-        $self->assert_equals(0, $obj1->with(message=>['False', qr//, sub {}]));
-        $self->assert_equals(0, $obj1->with(-isa=>'False'));
-        $self->assert_equals(1, $obj1->with(-isa=>'Exception::Base'));
-        $self->assert_equals(0, $obj1->with(-isa=>['False', 'False', 'False']));
-        $self->assert_equals(1, $obj1->with(-isa=>['False', 'Exception::Base', 'False']));
-        $self->assert_equals(0, $obj1->with(-has=>'False'));
-        $self->assert_equals(1, $obj1->with(-has=>'message'));
-        $self->assert_equals(0, $obj1->with(-has=>['False', 'False', 'False']));
-        $self->assert_equals(1, $obj1->with(-has=>['False', 'message', 'False']));
+        $self->assert_num_equals(1, $obj1->with(undef));
+        $self->assert_num_equals(1, $obj1->with(0));
+        $self->assert_num_equals(0, $obj1->with(123));
+        $self->assert_num_equals(0, $obj1->with('Unknown'));
+        $self->assert_num_equals(0, $obj1->with('False'));
+        $self->assert_num_equals(0, $obj1->with(sub {/Unknown/}));
+        $self->assert_num_equals(0, $obj1->with(qr/Unknown/));
+        $self->assert_num_equals(0, $obj1->with(sub {/False/}));
+        $self->assert_num_equals(0, $obj1->with(qr/False/));
+        $self->assert_num_equals(0, $obj1->with([]));
+        $self->assert_num_equals(1, $obj1->with([undef]));
+        $self->assert_num_equals(1, $obj1->with([0]));
+        $self->assert_num_equals(1, $obj1->with(['False', qr//, sub {}, 123, undef]));
+        $self->assert_num_equals(0, $obj1->with(['False', qr//, sub {}, 123]));
+        $self->assert_num_equals(1, $obj1->with(tag=>undef));
+        $self->assert_num_equals(0, $obj1->with(tag=>'false'));
+        $self->assert_num_equals(1, $obj1->with(tag=>['False', qr//, sub {}, undef]));
+        $self->assert_num_equals(0, $obj1->with(tag=>['False', qr//, sub {}]));
+        $self->assert_num_equals(0, $obj1->with(tag=>[]));
+        $self->assert_num_equals(1, $obj1->with(tag=>[undef]));
+        $self->assert_num_equals(1, $obj1->with(message=>undef));
+        $self->assert_num_equals(0, $obj1->with(message=>'false'));
+        $self->assert_num_equals(0, $obj1->with(message=>sub{/false/}));
+        $self->assert_num_equals(0, $obj1->with(message=>qr/false/));
+        $self->assert_num_equals(0, $obj1->with(message=>[]));
+        $self->assert_num_equals(1, $obj1->with(message=>[undef]));
+        $self->assert_num_equals(1, $obj1->with(message=>['False', qr//, sub {}, undef]));
+        $self->assert_num_equals(0, $obj1->with(message=>['False', qr//, sub {}]));
+        $self->assert_num_equals(0, $obj1->with(-isa=>'False'));
+        $self->assert_num_equals(1, $obj1->with(-isa=>'Exception::Base'));
+        $self->assert_num_equals(0, $obj1->with(-isa=>['False', 'False', 'False']));
+        $self->assert_num_equals(1, $obj1->with(-isa=>['False', 'Exception::Base', 'False']));
+        $self->assert_num_equals(0, $obj1->with(-has=>'False'));
+        $self->assert_num_equals(1, $obj1->with(-has=>'message'));
+        $self->assert_num_equals(0, $obj1->with(-has=>['False', 'False', 'False']));
+        $self->assert_num_equals(1, $obj1->with(-has=>['False', 'message', 'False']));
+        $self->assert_num_equals(1, $obj1->with(-default=>undef));
+        $self->assert_num_equals(0, $obj1->with(-default=>'false'));
 
         my $obj2 = Exception::Base->new(message=>'Message', value=>123);
-        $self->assert_equals(0, $obj2->with(undef));
-        $self->assert_equals(1, $obj2->with('Message'));
-        $self->assert_equals(0, $obj2->with('False'));
-        $self->assert_equals(1, $obj2->with(sub {/Message/}));
-        $self->assert_equals(0, $obj2->with(sub {/False/}));
-        $self->assert_equals(1, $obj2->with(qr/Message/));
-        $self->assert_equals(0, $obj2->with(qr/False/));
-        $self->assert_equals(0, $obj2->with([]));
-        $self->assert_equals(0, $obj2->with([undef]));
-        $self->assert_equals(0, $obj2->with(['False', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(['Message', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(['False', qr/Message/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(['False', qr/False/, sub {/Message/}, undef]));
-        $self->assert_equals(1, $obj2->with(value=>123));
-        $self->assert_equals(0, $obj2->with(value=>'false'));
-        $self->assert_equals(1, $obj2->with(value=>sub {/123/}));
-        $self->assert_equals(1, $obj2->with(value=>qr/123/));
-        $self->assert_equals(0, $obj2->with(value=>sub {/false/}));
-        $self->assert_equals(0, $obj2->with(value=>qr/false/));
-        $self->assert_equals(0, $obj2->with(value=>undef));
-        $self->assert_equals(0, $obj2->with(value=>[]));
-        $self->assert_equals(0, $obj2->with(value=>[undef]));
-        $self->assert_equals(0, $obj2->with(value=>['False', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(value=>['123', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(value=>['False', qr/123/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(value=>['False', qr/False/, sub {/123/}, undef]));
-        $self->assert_equals(0, $obj2->with(false=>'false'));
-        $self->assert_equals(1, $obj2->with(false=>undef));
-        $self->assert_equals(1, $obj2->with('Message', value=>123));
-        $self->assert_equals(1, $obj2->with(sub {/Message/}, value=>sub {/123/}));
-        $self->assert_equals(1, $obj2->with(qr/Message/, value=>qr/123/));
-        $self->assert_equals(0, $obj2->with(message=>undef));
-        $self->assert_equals(1, $obj2->with(message=>'Message'));
-        $self->assert_equals(0, $obj2->with(message=>'false'));
-        $self->assert_equals(1, $obj2->with(message=>sub{/Message/}));
-        $self->assert_equals(1, $obj2->with(message=>qr/Message/));
-        $self->assert_equals(0, $obj2->with(message=>sub{/false/}));
-        $self->assert_equals(0, $obj2->with(message=>qr/false/));
-        $self->assert_equals(0, $obj2->with(message=>[]));
-        $self->assert_equals(0, $obj2->with(message=>[undef]));
-        $self->assert_equals(0, $obj2->with(message=>['False', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(message=>['Message', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(message=>['False', qr/Message/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj2->with(message=>['False', qr/False/, sub {/Message/}, undef]));
+        $self->assert_num_equals(0, $obj2->with(undef));
+        $self->assert_num_equals(0, $obj2->with(0));
+        $self->assert_num_equals(1, $obj2->with(123));
+        $self->assert_num_equals(1, $obj2->with('Message'));
+        $self->assert_num_equals(0, $obj2->with('False'));
+        $self->assert_num_equals(1, $obj2->with(sub {/Message/}));
+        $self->assert_num_equals(0, $obj2->with(sub {/False/}));
+        $self->assert_num_equals(1, $obj2->with(qr/Message/));
+        $self->assert_num_equals(0, $obj2->with(qr/False/));
+        $self->assert_num_equals(0, $obj2->with([]));
+        $self->assert_num_equals(0, $obj2->with([undef]));
+        $self->assert_num_equals(0, $obj2->with([0]));
+        $self->assert_num_equals(1, $obj2->with([123]));
+        $self->assert_num_equals(0, $obj2->with(['False', qr/False/, sub {/False/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['Message', qr/False/, sub {/False/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['False', qr/Message/, sub {/False/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['False', qr/False/, sub {/Message/}, 0, undef]));
+        $self->assert_num_equals(1, $obj2->with(['False', qr/False/, sub {/False/}, 123, undef]));
+        $self->assert_num_equals(1, $obj2->with(value=>123));
+        $self->assert_num_equals(0, $obj2->with(value=>'false'));
+        $self->assert_num_equals(1, $obj2->with(value=>sub {/123/}));
+        $self->assert_num_equals(1, $obj2->with(value=>qr/123/));
+        $self->assert_num_equals(0, $obj2->with(value=>sub {/false/}));
+        $self->assert_num_equals(0, $obj2->with(value=>qr/false/));
+        $self->assert_num_equals(0, $obj2->with(value=>undef));
+        $self->assert_num_equals(0, $obj2->with(value=>[]));
+        $self->assert_num_equals(0, $obj2->with(value=>[undef]));
+        $self->assert_num_equals(0, $obj2->with(value=>['False', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj2->with(value=>['123', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj2->with(value=>['False', qr/123/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj2->with(value=>['False', qr/False/, sub {/123/}, undef]));
+        $self->assert_num_equals(0, $obj2->with(false=>'false'));
+        $self->assert_num_equals(1, $obj2->with(false=>undef));
+        $self->assert_num_equals(1, $obj2->with('Message', value=>123));
+        $self->assert_num_equals(1, $obj2->with(sub {/Message/}, value=>sub {/123/}));
+        $self->assert_num_equals(1, $obj2->with(qr/Message/, value=>qr/123/));
+        $self->assert_num_equals(0, $obj2->with(message=>undef));
+        $self->assert_num_equals(1, $obj2->with(message=>'Message'));
+        $self->assert_num_equals(0, $obj2->with(message=>'false'));
+        $self->assert_num_equals(1, $obj2->with(message=>sub{/Message/}));
+        $self->assert_num_equals(1, $obj2->with(message=>qr/Message/));
+        $self->assert_num_equals(0, $obj2->with(message=>sub{/false/}));
+        $self->assert_num_equals(0, $obj2->with(message=>qr/false/));
+        $self->assert_num_equals(0, $obj2->with(message=>[]));
+        $self->assert_num_equals(0, $obj2->with(message=>[undef]));
+        $self->assert_num_equals(0, $obj2->with(message=>['False', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj2->with(message=>['Message', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj2->with(message=>['False', qr/Message/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj2->with(message=>['False', qr/False/, sub {/Message/}, undef]));
+        $self->assert_num_equals(0, $obj2->with(-default=>undef));
+        $self->assert_num_equals(1, $obj2->with(-default=>'Message'));
 
         my $obj3 = Exception::Base->new(message=>'Message');
-        $self->assert_equals(0, $obj3->with(undef));
-        $self->assert_equals(0, $obj3->with(message=>undef));
-        $self->assert_equals(1, $obj3->with('Message'));
-        $self->assert_equals(0, $obj3->with(['False', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj3->with(['Message', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj3->with(['False', qr/Message/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj3->with(['False', qr/False/, sub {/Message/}, undef]));
-        $self->assert_equals(1, $obj3->with(message=>'Message'));
-        $self->assert_equals(1, $obj3->with(message=>sub {/Message/}));
-        $self->assert_equals(0, $obj3->with(message=>sub {/false/}));
-        $self->assert_equals(1, $obj3->with(message=>qr/Message/));
-        $self->assert_equals(0, $obj3->with(message=>qr/false/));
-        $self->assert_equals(0, $obj3->with(message=>[]));
-        $self->assert_equals(0, $obj3->with(message=>[undef]));
-        $self->assert_equals(0, $obj3->with(message=>['False', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj3->with(message=>['Message', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj3->with(message=>['False', qr/Message/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj3->with(message=>['False', qr/False/, sub {/Message/}, undef]));
+        $self->assert_num_equals(0, $obj3->with(undef));
+        $self->assert_num_equals(0, $obj3->with(message=>undef));
+        $self->assert_num_equals(1, $obj3->with('Message'));
+        $self->assert_num_equals(0, $obj3->with(['False', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj3->with(['Message', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj3->with(['False', qr/Message/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj3->with(['False', qr/False/, sub {/Message/}, undef]));
+        $self->assert_num_equals(1, $obj3->with(message=>'Message'));
+        $self->assert_num_equals(1, $obj3->with(message=>sub {/Message/}));
+        $self->assert_num_equals(0, $obj3->with(message=>sub {/false/}));
+        $self->assert_num_equals(1, $obj3->with(message=>qr/Message/));
+        $self->assert_num_equals(0, $obj3->with(message=>qr/false/));
+        $self->assert_num_equals(0, $obj3->with(message=>[]));
+        $self->assert_num_equals(0, $obj3->with(message=>[undef]));
+        $self->assert_num_equals(0, $obj3->with(message=>['False', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj3->with(message=>['Message', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj3->with(message=>['False', qr/Message/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj3->with(message=>['False', qr/False/, sub {/Message/}, undef]));
 
         my $obj4 = Exception::Base->new(message=>undef);
-        $self->assert_equals(1, $obj4->with(undef));
-        $self->assert_equals(1, $obj4->with(message=>undef));
-        $self->assert_equals(0, $obj4->with('false'));
-        $self->assert_equals(0, $obj4->with([]));
-        $self->assert_equals(1, $obj4->with([undef]));
-        $self->assert_equals(1, $obj4->with(['False', qr//, sub {}, undef]));
-        $self->assert_equals(0, $obj4->with(['False', qr//, sub {}]));
-        $self->assert_equals(0, $obj4->with(message=>'false'));
-        $self->assert_equals(0, $obj4->with(message=>sub {/false/}));
-        $self->assert_equals(0, $obj4->with(message=>qr/false/));
-        $self->assert_equals(0, $obj4->with(message=>[]));
-        $self->assert_equals(1, $obj4->with(message=>[undef]));
-        $self->assert_equals(1, $obj4->with(message=>['False', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj4->with(message=>['Message', qr/False/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj4->with(message=>['False', qr/Message/, sub {/False/}, undef]));
-        $self->assert_equals(1, $obj4->with(message=>['False', qr/False/, sub {/Message/}, undef]));
+        $self->assert_num_equals(1, $obj4->with(undef));
+        $self->assert_num_equals(1, $obj4->with(message=>undef));
+        $self->assert_num_equals(0, $obj4->with('false'));
+        $self->assert_num_equals(0, $obj4->with([]));
+        $self->assert_num_equals(1, $obj4->with([undef]));
+        $self->assert_num_equals(1, $obj4->with(['False', qr//, sub {}, undef]));
+        $self->assert_num_equals(0, $obj4->with(['False', qr//, sub {}]));
+        $self->assert_num_equals(0, $obj4->with(message=>'false'));
+        $self->assert_num_equals(0, $obj4->with(message=>sub {/false/}));
+        $self->assert_num_equals(0, $obj4->with(message=>qr/false/));
+        $self->assert_num_equals(0, $obj4->with(message=>[]));
+        $self->assert_num_equals(1, $obj4->with(message=>[undef]));
+        $self->assert_num_equals(1, $obj4->with(message=>['False', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj4->with(message=>['Message', qr/False/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj4->with(message=>['False', qr/Message/, sub {/False/}, undef]));
+        $self->assert_num_equals(1, $obj4->with(message=>['False', qr/False/, sub {/Message/}, undef]));
+
+        eval q{
+            package Exception::BaseTest::with::Package1;
+            use base 'Exception::Base';
+            use constant ATTRS => {
+                %{ Exception::Base->ATTRS },
+                stringify_attributes => { default => [ 'message', 'strattr' ] },
+                numeric_attribute    => { default => 'numattr' },
+                strattr => { is => 'rw' },
+                numattr => { is => 'rw' },
+            };
+        };
+        $self->assert_equals('', $@);
+
+        my $obj5 = Exception::BaseTest::with::Package1->new;
+        $self->assert_num_equals(1, $obj5->with(undef));
+        $self->assert_num_equals(1, $obj5->with([undef]));
+        $self->assert_num_equals(1, $obj5->with(0));
+        $self->assert_num_equals(1, $obj5->with([0]));
+
+        my $obj6 = Exception::BaseTest::with::Package1->new(message=>'Message', value=>123);
+        $self->assert_num_equals(0, $obj6->with(undef));
+        $self->assert_num_equals(1, $obj6->with('Message'));
+        $self->assert_num_equals(1, $obj6->with(qr/Message/));
+        $self->assert_num_equals(1, $obj6->with(sub{qr/Message/}));
+        $self->assert_num_equals(1, $obj6->with(['Message']));
+        $self->assert_num_equals(1, $obj6->with([qr/Message/]));
+        $self->assert_num_equals(1, $obj6->with([sub{qr/Message/}]));
+        $self->assert_num_equals(1, $obj6->with(0));
+        $self->assert_num_equals(1, $obj6->with([0]));
+
+        my $obj7 = Exception::BaseTest::with::Package1->new(message=>'Message', strattr=>'String', value=>123, numattr=>456);
+        $self->assert_num_equals(0, $obj7->with(undef));
+        $self->assert_num_equals(1, $obj7->with('Message: String'));
+        $self->assert_num_equals(1, $obj7->with(qr/Message: String/));
+        $self->assert_num_equals(1, $obj7->with(sub{qr/Message: String/}));
+        $self->assert_num_equals(1, $obj7->with(['Message: String']));
+        $self->assert_num_equals(1, $obj7->with([qr/Message: String/]));
+        $self->assert_num_equals(1, $obj7->with([sub{qr/Message: String/}]));
+        $self->assert_num_equals(1, $obj7->with(456));
+        $self->assert_num_equals(1, $obj7->with([456]));
     };
     die "$@" if $@;
 }
@@ -665,8 +815,7 @@ sub test_catch {
         $self->assert($obj2->isa("Exception::Base"), '$obj2->isa("Exception::Base")');
         $self->assert_equals("Die 2", $obj2->{message});
         $self->assert($obj2->isa("Exception::Base"), '$obj2->isa("Exception::Base")');
-        $self->assert_equals(__PACKAGE__ . '::test_catch', $obj2->{caller_stack}->[2]->[3]);
-        $self->assert_equals($self, $obj2->{caller_stack}->[2]->[8]);
+        $self->assert_equals('Exception::BaseTest', $obj2->{caller_stack}->[0]->[0]);
 
         Exception::Base::try eval { die "Die 3\n"; };
         my $obj3 = Exception::Base->catch;
@@ -952,7 +1101,7 @@ sub test_import_keywords {
 
         eval 'Exception::Base->unimport();';
         eval 'throw "Exception::Base";';
-        $self->assert_matches(qr/String found/, "$@");
+        $self->assert_matches(qr/(String found|syntax error)/, "$@");
         $self->assert_equals('SCALAR', $try);
 
         eval 'Exception::Base::import::Test1->throw;';
@@ -1096,6 +1245,14 @@ sub test_import_class {
         eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => "VERSION"});';
         $self->assert_matches(qr/can not be defined/, "$@");
 
+        eval 'package Exception::Base::import::Test18; Exception::Base->import("Exception::Base::import::Test18" => {version=>2.18});';
+        $self->assert_equals('', "$@");
+        eval 'Exception::Base::import::Test18->throw;';
+        my $obj18 = $@;
+        $self->assert($obj18->isa("Exception::Base::import::Test18"), '$obj18->isa("Exception::Base::import::Test18")');
+        $self->assert($obj18->isa("Exception::Base"), '$obj18->isa("Exception::Base")');
+        $self->assert_equals('2.18', $obj18->VERSION);
+
         eval 'Exception::Base->import("Exception::BaseTest::SyntaxError");';
         $self->assert_matches(qr/Can not load/, "$@");
 
@@ -1197,7 +1354,7 @@ sub test_import_defaults {
             eval sprintf 'Exception::Base->import("%s" => undef);', $_;
         }
         elsif (ref $defaults_orig{$_} eq 'ARRAY') {
-            eval sprintf 'Exception::Base->import("%s" => [ ]);', $_;
+            eval sprintf 'Exception::Base->import("%s" => [%s]);', $_, join(',', map { "'$_'" } @{ $defaults_orig{$_} });
         }
         elsif ($defaults_orig{$_} =~ /^\d+$/) {
             eval sprintf 'Exception::Base->import("%s" => %s);', $_, $defaults_orig{$_};
