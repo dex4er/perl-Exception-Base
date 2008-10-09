@@ -21,5 +21,6 @@ t/profile_eval.pl
 t/profile_try.pl
 t/test.pl
 t/tlib/Exception/BaseTest.pm
+t/tlib/Exception/BaseTest/LoadedException.pm
 t/tlib/Exception/BaseTest/MissingVersion.pm
 t/tlib/Exception/BaseTest/SyntaxError.pm
