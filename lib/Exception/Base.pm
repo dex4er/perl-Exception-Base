@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.19;
+our $VERSION = 0.19_01;
 
 =head1 NAME
 
@@ -1146,6 +1146,7 @@ sub _make_accessors {
     foreach my $key (keys %{ $attributes }) {
         next if ref $attributes->{$key} ne 'HASH';
         if (not $class->can($key)) {
+            next if not defined $attributes->{$key}->{is};
             if ($attributes->{$key}->{is} eq 'rw') {
                 *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
