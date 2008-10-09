@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.18;
+our $VERSION = 0.19;
 
 =head1 NAME
 
@@ -197,8 +197,8 @@ use overload 'bool'   => sub () { 1; },
 # Overload smart matching for Perl 5.10.  Don't "use if" not available for base Perl 5.6.
 BEGIN {
     eval q{
-	use overload
-    	     '~~'     => 'matches',
+        use overload
+             '~~'     => 'matches',
              fallback => 1;
     } if ($] >= 5.010);
 }
@@ -273,18 +273,16 @@ sub import {
         else {
             # Try to use external module
             my $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
+
             my $version = defined $param->{version} ? $param->{version} : 0;
             my $mod_version = do { local $SIG{__DIE__}; eval { $name->VERSION } } || 0;
-            my $this_package = caller eq $name;
-            my $need_create;
 
-            if ($this_package) {
-                $need_create = 1;
-            }
-            elsif (not $mod_version or $version > $mod_version) {
+            if (caller ne $name) {
+                next if $mod_version and $mod_version >= $version;
+
                 # Package is needed
-                do { local $SIG{__DIE__}; eval "use $name $version;" } unless $this_package;
-                if ($this_package or $@) {
+                do { local $SIG{__DIE__}; eval "use $name $version;" };
+                if ($@) {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
                         Exception::Base->throw(
@@ -293,83 +291,86 @@ sub import {
                         );
                     }
                 }
-                $need_create = 1;
+                else {
+                    # Module is loaded: go to next
+                    next;
+                }
             }
 
-            if ($need_create) {
-                # Package not found so it have to be created
-                if ($pkg ne __PACKAGE__) {
-                    Exception::Base->throw(
-                        message => "Exceptions can only be created with " . __PACKAGE__ . " class",
-                        verbosity => 1
-                    );
-                }
-                my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
-                $version = 0.01 if not $version;
-                my $has = defined $param->{has} ? $param->{has} : [ ];
-                $has = [ $has ] if ref $has ne 'ARRAY';
+            next if $name eq __PACKAGE__;
 
-                # Base class is needed
-                {
-                    if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
-                        eval "use $isa;";
-                        if ($@) {
-                            Exception::Base->throw(
-                                message => "Base class $isa for class $name can not be found",
-                                verbosity => 1
-                            );
-                        }
-                    }
-                }
+            # Package not found so it have to be created
+            if ($pkg ne __PACKAGE__) {
+                Exception::Base->throw(
+                    message => "Exceptions can only be created with " . __PACKAGE__ . " class",
+                    verbosity => 1
+                );
+            }
+            my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
+            $version = 0.01 if not $version;
+            my $has = defined $param->{has} ? $param->{has} : [ ];
+            $has = [ $has ] if ref $has ne 'ARRAY';
 
-                # Handle defaults for object attributes
-                my $attributes;
-                do { local $SIG{__DIE__}; eval { $attributes = $isa->ATTRS } };
-                if ($@) {
-                    Exception::Base->throw(
-                        message => "$name class is based on $isa class which does not implement ATTRS",
-                        verbosity => 1
-                    );
-                }
-
-                # Create the hash with overriden attributes
-                my %overriden_attributes;
-                # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
-                foreach my $attribute (@{ $has }) {
-                    if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+            # Base class is needed
+            {
+                if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
+                    eval "use $isa;";
+                    if ($@) {
                         Exception::Base->throw(
-                            message => "Attribute name `$attribute' can not be defined for $name class"
-                        );
-                    }
-                    $overriden_attributes{$attribute} = { is => 'rw' };
-                }
-                # Class => { message => "overriden default", ... }
-                foreach my $attribute (keys %{ $param }) {
-                    next if $attribute =~ /^(isa|version|has)$/;
-                    if (not exists $attributes->{$attribute}->{default}
-                        and not exists $overriden_attributes{$attribute})
-                    {
-                        Exception::Base->throw(
-                            message => "$isa class does not implement default value for `$attribute' attribute",
+                            message => "Base class $isa for class $name can not be found",
                             verbosity => 1
                         );
                     }
-                    $overriden_attributes{$attribute} = {};
-                    $overriden_attributes{$attribute}->{default} = $param->{$attribute};
-                    foreach my $property (keys %{ $attributes->{$attribute} }) {
-                        next if $property eq 'default';
-                        $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
-                    }
                 }
-
-                # Create the new package
-                ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
-                @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
-                *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
-                    return { %{ $isa->ATTRS }, %overriden_attributes };
-                };
-                $name->_make_accessors;
             }
+
+            # Handle defaults for object attributes
+            my $attributes;
+            do { local $SIG{__DIE__}; eval { $attributes = $isa->ATTRS } };
+            if ($@) {
+                Exception::Base->throw(
+                    message => "$name class is based on $isa class which does not implement ATTRS",
+                    verbosity => 1
+                );
+            }
+
+            # Create the hash with overriden attributes
+            my %overriden_attributes;
+            # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
+            foreach my $attribute (@{ $has }) {
+                if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+                    Exception::Base->throw(
+                        message => "Attribute name `$attribute' can not be defined for $name class"
+                    );
+                }
+                $overriden_attributes{$attribute} = { is => 'rw' };
+            }
+            # Class => { message => "overriden default", ... }
+            foreach my $attribute (keys %{ $param }) {
+                next if $attribute =~ /^(isa|version|has)$/;
+                if (not exists $attributes->{$attribute}->{default}
+                    and not exists $overriden_attributes{$attribute})
+                {
+                    Exception::Base->throw(
+                        message => "$isa class does not implement default value for `$attribute' attribute",
+                        verbosity => 1
+                    );
+                }
+                $overriden_attributes{$attribute} = {};
+                $overriden_attributes{$attribute}->{default} = $param->{$attribute};
+                foreach my $property (keys %{ $attributes->{$attribute} }) {
+                    next if $property eq 'default';
+                    $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
+                }
+            }
+
+            # Create the new package
+            ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
+            @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
+            *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
+                return { %{ $isa->ATTRS }, %overriden_attributes };
+            };
+            $name->_make_accessors;
         }
     }
 
@@ -605,7 +606,7 @@ sub matches {
         return $self->with( value => $that );
     }
     else {
-	return $self->with( $that );
+        return $self->with( $that );
     }
 }
 
@@ -616,7 +617,6 @@ sub with {
     return unless @_;
 
     my $default_attribute = $self->{defaults}->{default_attribute};
-    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     # Odd number of arguments - first is default attribute
     if (scalar @_ % 2 == 1) {
