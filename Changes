@@ -7,6 +7,10 @@ Fixes:
 
 * Added missing test file to manifest.
 
+Changes:
+
+* Updated bundled Test::Unit::Lite to 0.1002.
+
 ------------------------------------------------------------------------
 0.19 | Piotr Roszatycki <dexter@debian.org> | 2008-10-08
 
