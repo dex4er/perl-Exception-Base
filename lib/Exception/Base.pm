@@ -1443,8 +1443,8 @@ attributes.
     throw 'Exception::My' => readwrite=>2;
   };
   if (catch my $e) {
-    print $e->{readwrite};                # = 2
-    print $e->{defaults}->{readwrite};    # = "blah"
+    print $e->readwrite;                # = 2
+    print $e->defaults->{readwrite};    # = "blah"
   }
 
 =item RE_NUM_INT
@@ -1466,7 +1466,7 @@ Contains the message of the exception.  It is the part of the string
 representing the exception object.
 
   eval { Exception::Base->throw( message=>"Message" ); };
-  print $@->{message} if $@;
+  print $@->message if $@;
 
 =item value (rw, default: 0)
 
@@ -1585,7 +1585,7 @@ Contains the timestamp of the thrown exception.  Collected if the verbosity on
 throwing exception was greater than 1.
 
   eval { Exception::Base->throw( message=>"Message" ); };
-  print scalar localtime $@->{time};
+  print scalar localtime $@->time;
 
 =item pid (ro)
 
@@ -1593,7 +1593,7 @@ Contains the PID of the Perl process at time of thrown exception.  Collected
 if the verbosity on throwing exception was greater than 1.
 
   eval { Exception::Base->throw( message=>"Message" ); };
-  kill 10, $@->{pid};
+  kill 10, $@->pid;
 
 =item tid (ro)
 
@@ -1623,7 +1623,7 @@ caller stack if the verbosity was lower than 3.
 
   eval { Exception::Base->throw( message=>"Message" ); };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
-  $evaltext, $is_require, @args) = $@->{caller_stack}->[0];
+  $evaltext, $is_require, @args) = $@->caller_stack->[0];
 
 =item propagated_stack (ro)
 
@@ -1798,12 +1798,12 @@ defaults values for the class are also stored in internal cache.
 Creates the exception object and immediately throws it with B<die> system
 function.
 
-  open FILE, $file
+  open my $fh, $file
     or Exception::Base->throw( message=>"Can not open file: $file" );
 
 The B<throw> is also exported as a function.
 
-  open FILE, $file
+  open my $fh, $file
     or throw 'Exception::Base' => message=>"Can not open file: $file";
 
 =back
@@ -1825,7 +1825,7 @@ existing exception object.
   $e->throw( message=>"thrown exception with overriden message" );
 
   eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
-  $@->throw if $@->{value};
+  $@->throw if $@->value;
 
 =item throw(I<message>, [%I<args>])
 
@@ -2127,16 +2127,6 @@ each derived class which defines new attributes.
   package Exception::My;
   # (...)
   __PACKAGE__->_make_accessors;
-
-=item __stringify
-
-Method called by L<overload>'s B<q{""}> operator.  It have to be reimplemented
-in derived class if it has B<stringify> method implemented.
-
-=item __numerify
-
-Method called by L<overload>'s B<0+> operator.  It have to be reimplemented in
-derived class if it has B<numerify> method implemented.
 
 =back
 
