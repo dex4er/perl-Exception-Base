@@ -7,6 +7,8 @@ Fixes:
 
 * Added missing test file to manifest.
 
+* Some POD errors fixed.
+
 Changes:
 
 * Updated bundled Test::Unit::Lite to 0.1002.

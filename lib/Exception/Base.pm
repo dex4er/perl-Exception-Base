@@ -35,16 +35,17 @@ Exception::Base - Lightweight exceptions
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->with(value=>9)) { warn "something happened"; }
-    elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
+    elsif ($e->matches({value=>9})) { warn "something happened"; }
+    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
   # alternative syntax for Perl 5.10
+  use feature 'switch';
   if ($@) {
     given (my $e = Exception::Base->catch) {
-      when ('Exception::IO') { warn "IO problem"; }
-      when ('Exception::Eval') { warn "eval died"; }
-      when ('Exception::Runtime') { warn "some runtime was caught"; }
+      when (['Exception::IO']) { warn "IO problem"; }
+      when (['Exception::Eval']) { warn "eval died"; }
+      when (['Exception::Runtime']) { warn "some runtime was caught"; }
       when ({value=>9}) { warn "something happened"; }
       when (qr/^Error/) { warn "some error based on regex"; }
       default { $e->throw; } # rethrow the exception
@@ -64,8 +65,8 @@ Exception::Base - Lightweight exceptions
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->with(value=>9)) { warn "something happened"; }
-    elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
+    elsif ($e->matches({value=>9})) { warn "something happened"; }
+    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
 
@@ -2296,6 +2297,8 @@ trace and higher verbosity.
 You can find the benchmark script in this package distribution.
 
 =head1 BUGS
+
+The B<with> method is planned to be removed from further version.
 
 If you find the bug, please report it.
 
