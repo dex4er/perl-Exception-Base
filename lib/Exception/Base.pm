@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.19;
+our $VERSION = 0.19_01;
 
 =head1 NAME
 
@@ -35,16 +35,17 @@ Exception::Base - Lightweight exceptions
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->with(value=>9)) { warn "something happened"; }
-    elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
+    elsif ($e->matches({value=>9})) { warn "something happened"; }
+    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
   # alternative syntax for Perl 5.10
+  use feature 'switch';
   if ($@) {
     given (my $e = Exception::Base->catch) {
-      when ('Exception::IO') { warn "IO problem"; }
-      when ('Exception::Eval') { warn "eval died"; }
-      when ('Exception::Runtime') { warn "some runtime was caught"; }
+      when (['Exception::IO']) { warn "IO problem"; }
+      when (['Exception::Eval']) { warn "eval died"; }
+      when (['Exception::Runtime']) { warn "some runtime was caught"; }
       when ({value=>9}) { warn "something happened"; }
       when (qr/^Error/) { warn "some error based on regex"; }
       default { $e->throw; } # rethrow the exception
@@ -64,8 +65,8 @@ Exception::Base - Lightweight exceptions
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
     elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
     elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->with(value=>9)) { warn "something happened"; }
-    elsif ($e->with(qr/^Error/)) { warn "some error based on regex"; }
+    elsif ($e->matches({value=>9})) { warn "something happened"; }
+    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
     else { $e->throw; } # rethrow the exception
   }
 
@@ -1146,6 +1147,7 @@ sub _make_accessors {
     foreach my $key (keys %{ $attributes }) {
         next if ref $attributes->{$key} ne 'HASH';
         if (not $class->can($key)) {
+            next if not defined $attributes->{$key}->{is};
             if ($attributes->{$key}->{is} eq 'rw') {
                 *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
@@ -1441,8 +1443,8 @@ attributes.
     throw 'Exception::My' => readwrite=>2;
   };
   if (catch my $e) {
-    print $e->{readwrite};                # = 2
-    print $e->{defaults}->{readwrite};    # = "blah"
+    print $e->readwrite;                # = 2
+    print $e->defaults->{readwrite};    # = "blah"
   }
 
 =item RE_NUM_INT
@@ -1464,7 +1466,7 @@ Contains the message of the exception.  It is the part of the string
 representing the exception object.
 
   eval { Exception::Base->throw( message=>"Message" ); };
-  print $@->{message} if $@;
+  print $@->message if $@;
 
 =item value (rw, default: 0)
 
@@ -1583,7 +1585,7 @@ Contains the timestamp of the thrown exception.  Collected if the verbosity on
 throwing exception was greater than 1.
 
   eval { Exception::Base->throw( message=>"Message" ); };
-  print scalar localtime $@->{time};
+  print scalar localtime $@->time;
 
 =item pid (ro)
 
@@ -1591,7 +1593,7 @@ Contains the PID of the Perl process at time of thrown exception.  Collected
 if the verbosity on throwing exception was greater than 1.
 
   eval { Exception::Base->throw( message=>"Message" ); };
-  kill 10, $@->{pid};
+  kill 10, $@->pid;
 
 =item tid (ro)
 
@@ -1621,7 +1623,7 @@ caller stack if the verbosity was lower than 3.
 
   eval { Exception::Base->throw( message=>"Message" ); };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
-  $evaltext, $is_require, @args) = $@->{caller_stack}->[0];
+  $evaltext, $is_require, @args) = $@->caller_stack->[0];
 
 =item propagated_stack (ro)
 
@@ -1796,12 +1798,12 @@ defaults values for the class are also stored in internal cache.
 Creates the exception object and immediately throws it with B<die> system
 function.
 
-  open FILE, $file
+  open my $fh, $file
     or Exception::Base->throw( message=>"Can not open file: $file" );
 
 The B<throw> is also exported as a function.
 
-  open FILE, $file
+  open my $fh, $file
     or throw 'Exception::Base' => message=>"Can not open file: $file";
 
 =back
@@ -1823,7 +1825,7 @@ existing exception object.
   $e->throw( message=>"thrown exception with overriden message" );
 
   eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
-  $@->throw if $@->{value};
+  $@->throw if $@->value;
 
 =item throw(I<message>, [%I<args>])
 
@@ -2126,16 +2128,6 @@ each derived class which defines new attributes.
   # (...)
   __PACKAGE__->_make_accessors;
 
-=item __stringify
-
-Method called by L<overload>'s B<q{""}> operator.  It have to be reimplemented
-in derived class if it has B<stringify> method implemented.
-
-=item __numerify
-
-Method called by L<overload>'s B<0+> operator.  It have to be reimplemented in
-derived class if it has B<numerify> method implemented.
-
 =back
 
 =head1 SEE ALSO
@@ -2295,6 +2287,8 @@ trace and higher verbosity.
 You can find the benchmark script in this package distribution.
 
 =head1 BUGS
+
+The B<with> method is planned to be removed from further version.
 
 If you find the bug, please report it.
 

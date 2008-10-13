@@ -1,4 +1,19 @@
 ------------------------------------------------------------------------
+0.1901 | Piotr Roszatycki <dexter@debian.org> | 2008-10-13
+
+Fixes:
+
+* Some warnings disabled.
+
+* Added missing test file to manifest.
+
+* Some POD errors fixed.
+
+Changes:
+
+* Updated bundled Test::Unit::Lite to 0.1002.
+
+------------------------------------------------------------------------
 0.19 | Piotr Roszatycki <dexter@debian.org> | 2008-10-08
 
 Fixes:
