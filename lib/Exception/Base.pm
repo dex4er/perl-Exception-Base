@@ -158,7 +158,7 @@ use utf8;
 
 
 # Safe operations on symbol stash
-BEGIN { 
+BEGIN {
     eval {
         require Symbol;
         Symbol::qualify_to_ref('qualify_to_ref');
@@ -503,10 +503,12 @@ sub to_string {
 
     my $string;
     if ($verbosity == 1) {
+        return $message if $message =~ /\n$/;
+
         return $message . "\n";
     }
     elsif ($verbosity == 2) {
-        return $message if $message =~ /\n$/s;
+        return $message if $message =~ /\n$/;
 
         my @stacktrace = $self->get_caller_stacktrace;
         return $message . $stacktrace[0] . ".\n";
@@ -521,7 +523,7 @@ sub to_string {
 
 # Convert an exception to number
 sub to_number {
-    my ($self, %args) = @_;
+    my ($self) = @_;
     my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     no warnings 'numeric';
@@ -542,6 +544,9 @@ sub matches {
     my ($self, $that) = @_;
     my @args;
 
+    my $default_attribute = $self->{defaults}->{default_attribute};
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+
     if (ref $that eq 'ARRAY') {
         @args = ( '-isa' => $that );
     }
@@ -555,15 +560,13 @@ sub matches {
         return '';
     }
     elsif ($that =~ RE_NUM_INT) {
-        @args = ( value => $that );
+        @args = ( $numeric_attribute => $that );
     }
     else {
         @args = ( $that );
     }
 
     return '' unless @args;
-
-    my $default_attribute = $self->{defaults}->{default_attribute};
 
     # Odd number of arguments - first is default attribute
     if (scalar @args % 2 == 1) {
@@ -575,7 +578,6 @@ sub matches {
                     $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                 }
                 elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
-                    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
                     no warnings 'numeric', 'uninitialized';
                     $arrret = 1 if $self->{$numeric_attribute} == $arrval;
                 }
@@ -603,7 +605,6 @@ sub matches {
             return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
         }
         elsif (not ref $val and $val =~ RE_NUM_INT) {
-            my $numeric_attribute = $self->{defaults}->{numeric_attribute};
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$numeric_attribute} != $val;
         }
@@ -716,7 +717,7 @@ sub catch {
     my $self = shift;
 
     # Recover class from object or set the default
-    my $class = ref $self || $self;
+    my $class = ref $self || $self || __PACKAGE__;
 
     my $e;
     my $new_e;
@@ -739,7 +740,7 @@ sub catch {
         $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $new_e = $class->new;
         my $eval_attribute = $new_e->{defaults}->{eval_attribute};
-        $e->{$eval_attribute} = $e;
+        $new_e->{$eval_attribute} = $e;
     };
 
     return $new_e;
@@ -803,7 +804,7 @@ sub get_caller_stacktrace {
 
     # Skip some packages for first line
     my $level = 0;
-    while (my %c = $self->_caller_info(++$level)) {
+    while (my %c = $self->_caller_info($level++)) {
         next if $self->_skip_ignored_package($c{package});
         # Skip ignored levels
         if ($ignore_level > 0) {
@@ -1967,7 +1968,7 @@ success scenario.
 
 =item L<Class::Throwable>
 
-Elegant OO exceptions similar to B<Exception::Class> and B<Exception::Base>. 
+Elegant OO exceptions similar to B<Exception::Class> and B<Exception::Base>.
 It might be missing some features found in B<Exception::Base> and
 L<Exception::Class>.
 
