@@ -1959,7 +1959,8 @@ It doesn't collect system data and stack trace on error.
 =item L<Exception::Class>
 
 More perl-ish way to do OO exceptions.  It is similar to B<Exception::Base>
-module and provides similar features.
+module and provides similar features but it is 10x slower for failure
+scenario.
 
 =item L<Exception::Class::TryCatch>
 
@@ -2058,25 +2059,21 @@ are following:
   -----------------------------------------------------------------------
   | Module                              | Success       | Failure       |
   -----------------------------------------------------------------------
-  | eval/die string                     |      818638/s |      237975/s |
+  | eval/die string                     |      859644/s |      232952/s |
   -----------------------------------------------------------------------
-  | eval/die object                     |      849686/s |      124853/s |
+  | eval/die object                     |      891294/s |      125992/s |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if             |      848593/s |        8356/s |
+  | Exception::Base eval/if             |      886204/s |        7585/s |
   -----------------------------------------------------------------------
-  | Exception::Base try/catch           |       56639/s |        9218/s |
+  | Exception::Base eval/if verbosity=1 |      882376/s |       13778/s |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if verbosity=1 |      849180/s |       14899/s |
+  | Error                               |       85800/s |       19723/s |
   -----------------------------------------------------------------------
-  | Exception::Base try/catch verbos.=1 |       56986/s |       18232/s |
+  | Class::Throwable                    |      878963/s |        7461/s |
   -----------------------------------------------------------------------
-  | Error                               |       88123/s |       19782/s |
+  | Exception::Class                    |      345114/s |        1278/s |
   -----------------------------------------------------------------------
-  | Class::Throwable                    |      844204/s |        7545/s |
-  -----------------------------------------------------------------------
-  | Exception::Class                    |      344124/s |        1311/s |
-  -----------------------------------------------------------------------
-  | Exception::Class::TryCatch          |      223822/s |        1270/s |
+  | Exception::Class::TryCatch          |      210389/s |        1259/s |
   -----------------------------------------------------------------------
 
 The B<Exception::Base> module was written to be as fast as it is
