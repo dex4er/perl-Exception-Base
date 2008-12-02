@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.19_01;
+our $VERSION = 0.20;
 
 =head1 NAME
 
@@ -20,7 +20,7 @@ Exception::Base - Lightweight exceptions
          isa => 'Exception::IO',        # create new based on previous
          message => 'File not found',   # override default message
          has => [ 'filename' ],         # define new rw attribute
-         stringify_attributes => [ 'message', 'filename' ],
+         string_attributes => [ 'message', 'filename' ],
      };                                 # output message and filename
 
   # eval/$@ (fastest method)
@@ -183,16 +183,32 @@ use utf8;
 BEGIN { *Symbol::fetch_glob = sub ($) { no strict 'refs'; \*{$_[0]} } unless defined &Symbol::fetch_glob; }
 
 
+# Use weaken ref on stack if available
+BEGIN {
+    eval {
+        require Scalar::Util;
+        my $ref = \1;
+        Scalar::Util::weaken($ref);
+    };
+    if (not $@) {
+        *HAVE_SCALAR_UTIL_WEAKEN = sub () { 1 };
+    }
+    else {
+        *HAVE_SCALAR_UTIL_WEAKEN = sub () { 0 };
+    };
+};
+
+
 # Syntactic sugar
 use Exporter ();
 our @EXPORT_OK = qw< try catch throw >;
 our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
 
-# Overload the stringify operation
-use overload 'bool'   => sub () { 1; },
-             '0+'     => 'numerify',
-             '""'     => sub () { $_[0]->stringify() },
+# Overload the cast operations
+use overload 'bool'   => 'to_bool',
+             '0+'     => 'to_number',
+             '""'     => 'to_string',
              fallback => 1;
 
 # Overload smart matching for Perl 5.10.  Don't "use if" not available for base Perl 5.6.
@@ -215,7 +231,7 @@ use constant ATTRS => {
     default_attribute    => { default => 'message' },
     numeric_attribute    => { default => 'value' },
     eval_attribute       => { default => 'message' },
-    stringify_attributes => { default => [ 'message' ] },
+    string_attributes    => { default => [ 'message' ] },
     message              => { is => 'rw', default => 'Unknown exception' },
     value                => { is => 'rw', default => 0 },
     caller_stack         => { is => 'ro' },
@@ -534,57 +550,56 @@ sub PROPAGATE {
 
 
 # Convert an exception to string
-sub stringify {
-    my ($self, $verbosity, $message) = @_;
+sub to_string {
+    my ($self) = @_;
 
-    $verbosity = defined $self->{verbosity}
-               ? $self->{verbosity}
-               : $self->{defaults}->{verbosity}
-        if not defined $verbosity;
+    my $verbosity = defined $self->{verbosity}
+                    ? $self->{verbosity}
+                    : $self->{defaults}->{verbosity};
 
-    my $string;
-
-    if (not defined $message) {
-        $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
-    }
+    my $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
 
     if ($message eq '') {
-        foreach (reverse @{ $self->{defaults}->{stringify_attributes} }) {
+        foreach (reverse @{ $self->{defaults}->{string_attributes} }) {
             $message = $self->{defaults}->{$_};
             last if defined $message;
-        }
-    }
+        };
+    };
 
+    my $string;
     if ($verbosity == 1) {
-        $string  = $message . "\n";
+        return $message . "\n";
     }
     elsif ($verbosity == 2) {
-        $string  = $message;
-        $string .= $self->_caller_backtrace($verbosity);
+        return $message if $message =~ /\n$/s;
+
+        my @stacktrace = $self->get_caller_stacktrace;
+        return $message . $stacktrace[0] . ".\n";
     }
     elsif ($verbosity >= 3) {
-        $string  = sprintf "%s: %s", ref $self, $message;
-        $string .= $self->_caller_backtrace($verbosity);
-        $string .= $self->_propagated_backtrace($verbosity);
-    }
-    else {
-        $string  = "";
-    }
+        return ref($self) . ": " . $message . $self->get_caller_stacktrace;
+    };
 
-    return $string;
-}
+    return "";
+};
 
 
 # Convert an exception to number
-sub numerify {
-    my $self = shift;
+sub to_number {
+    my ($self, %args) = @_;
     my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     no warnings 'numeric';
     return 0+ $self->{$numeric_attribute} if defined $self->{$numeric_attribute};
     return 0+ $self->{defaults}->{$numeric_attribute} if defined $self->{defaults}->{$numeric_attribute};
     return 0;
-}
+};
+
+
+# Convert an exception to bool (always true)
+sub to_bool {
+    return !! 1;
+};
 
 
 # Smart matching.
@@ -626,26 +641,26 @@ sub with {
             my $arrret = 0;
             foreach my $arrval (@{ $val }) {
                 if (not defined $arrval) {
-                    $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                 }
                 elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
                     my $numeric_attribute = $self->{defaults}->{numeric_attribute};
                     no warnings 'numeric', 'uninitialized';
                     $arrret = 1 if $self->{$numeric_attribute} == $arrval;
                 }
-                elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
+                elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} }) {
                     next;
                 }
                 elsif (ref $arrval eq 'CODE') {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                     $arrret = 1 if &$arrval;
                 }
                 elsif (ref $arrval eq 'Regexp') {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                     $arrret = 1 if /$arrval/;
                 }
                 else {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                     $arrret = 1 if $_ eq $arrval;
                 }
                 last if $arrret;
@@ -654,26 +669,26 @@ sub with {
             return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
         }
         elsif (not ref $val and $val =~ RE_NUM_INT) {
             my $numeric_attribute = $self->{defaults}->{numeric_attribute};
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$numeric_attribute} != $val;
         }
-        elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
+        elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} }) {
             return '';
         }
         elsif (ref $val eq 'CODE') {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if not /$val/;
         }
         else {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if $_ ne $val;
         }
         return 1 unless @_;
@@ -836,10 +851,10 @@ sub _collect_system_data {
     # Collect system data only if verbosity is meaning
     my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
     if ($verbosity >= 2) {
-        $self->{time}  = CORE::time();
-        $self->{tid}   = threads->tid if defined &threads::tid;
-        @{$self}{qw < pid uid euid gid egid >}
-              = (     $$, $<, $>,  $(, $)    );
+        $self->{time} = CORE::time();
+        $self->{tid}  = threads->tid if defined &threads::tid;
+        @{$self}{qw < pid uid euid gid egid >} =
+                (     $$, $<, $>,  $(, $)    );
 
         # Collect stack info
         my @caller_stack;
@@ -848,96 +863,91 @@ sub _collect_system_data {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
             # Collect the caller stack
-            push @caller_stack, [ @c[0 .. 7], @DB::args ];
+            use Scalar::Util;
+            my @args = @DB::args;
+            if (HAVE_SCALAR_UTIL_WEAKEN) {
+                foreach (@args) {
+                    Scalar::Util::weaken($_) if ref $_;
+                };
+            };
+            my $stacktrace_element = [ @c[0 .. 7], @args ];
+            push @caller_stack, $stacktrace_element;
             # Collect only one entry if verbosity is lower than 3
             last if $verbosity == 2;
-        }
+        };
         $self->{caller_stack} = \@caller_stack;
-    }
+    };
 
     return $self;
 }
 
 
 # Stringify caller backtrace. Stolen from Carp
-sub _caller_backtrace {
-    my ($self, $verbosity) = @_;
-    my $message;
+sub get_caller_stacktrace {
+    my ($self) = @_;
+    my @stacktrace;
 
     my $tid_msg = '';
     $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
 
-    $verbosity = defined $self->{verbosity}
-                  ? $self->{verbosity}
-                  : $self->{defaults}->{verbosity}
-        if not defined $verbosity;
+    my $verbosity = defined $self->{verbosity}
+                    ? $self->{verbosity}
+                    : $self->{defaults}->{verbosity};
 
     my $ignore_level = defined $self->{ignore_level}
-                     ? $self->{ignore_level}
-                     : defined $self->{defaults}->{ignore_level}
-                       ? $self->{defaults}->{ignore_level}
-                       : 0;
+                       ? $self->{ignore_level}
+                       : defined $self->{defaults}->{ignore_level}
+                         ? $self->{defaults}->{ignore_level}
+                         : 0;
 
     # Skip some packages for first line
     my $level = 0;
-    while (my %c = $self->_caller_info($level++)) {
+    while (my %c = $self->_caller_info(++$level)) {
         next if $self->_skip_ignored_package($c{package});
         # Skip ignored levels
         if ($ignore_level > 0) {
-            $ignore_level --;
+            --$ignore_level;
             next;
-        }
-        $message = sprintf " at %s line %s$tid_msg%s\n",
-                   defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
-                   $c{line} || 0,
-                   $verbosity <= 2 ? '.' : "";
+        };
+        push @stacktrace, sprintf " at %s line %s%s",
+                              defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
+                              $c{line} || 0,
+                              $tid_msg;
         last;
-    }
+    };
     # First line have to be filled even if everything was skipped
-    if (not defined $message) {
+    if (not @stacktrace) {
         my %c = $self->_caller_info(0);
-        $message = sprintf " at %s line %s$tid_msg%s\n",
-                   defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
-                   $c{line} || 0,
-                   $verbosity <= 2 ? '.' : "";
-    }
+        push @stacktrace, sprintf " at %s line %s%s",
+                              defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
+                              $c{line} || 0,
+                              $tid_msg;
+    };
     if ($verbosity >= 3) {
         # Reset the stack trace level only if needed
         if ($verbosity >= 4) {
             $level = 0;
-        }
-        # Dump the stack
+        };
+        # Dump the caller stack
         while (my %c = $self->_caller_info($level++)) {
             next if $verbosity == 3 and $self->_skip_ignored_package($c{package});
-            $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}\n";
-        }
-    }
-    return $message || " at unknown line 0$tid_msg\n";
+            push @stacktrace, "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}";
+        };
+        # Dump the propagated stack
+        foreach (@{ $self->{propagated_stack} }) {
+            my ($package, $file, $line) = @$_;
+            # Skip ignored package
+            next if $verbosity <= 3 and $self->_skip_ignored_package($package);
+            push @stacktrace, sprintf "\t...propagated in package %s at %s line %d.",
+                                  $package,
+                                  defined $file && $file ne '' ? $file : 'unknown',
+                                  $line || 0;
+        };
+    };
+
+    return wantarray ? @stacktrace : join("\n", @stacktrace) . "\n";
 }
 
-
-# Stringify propagated backtrace.
-sub _propagated_backtrace {
-    my ($self, $verbosity) = @_;
-
-    $verbosity = defined $self->{verbosity}
-                  ? $self->{verbosity}
-                  : $self->{defaults}->{verbosity}
-        if not defined $verbosity;
-
-    my $message = "";
-    foreach (@{ $self->{propagated_stack} }) {
-        my ($package, $file, $line) = @$_;
-        # Skip ignored package
-        next if $verbosity <= 3 and $self->_skip_ignored_package($package);
-        $message .= sprintf "\t...propagated in package %s at %s line %d.\n",
-            $package,
-            defined $file && $file ne '' ? $file : 'unknown',
-            $line || 0;
-    }
-
-    return $message;
-}
 
 # Check if package should be ignored
 sub _skip_ignored_package {
@@ -1238,7 +1248,7 @@ __END__
  #default_attribute : Str = "message"
  #numeric_attribute : Str = "value"
  #eval_attribute : Str = "message"
- #stringify_attributes : ArrayRef[Str] = ["message"]
+ #string_attributes : ArrayRef[Str] = ["message"]
  -----------------------------------------------------------------------------
  <<create>> +new( args : Hash = undef )
  +catch( out variable : Exception::Base ) : Bool                      {export}
@@ -1248,17 +1258,18 @@ __END__
  +try( value : ArrayRef ) : Array                                     {export}
  +try( value : Value ) : Value                                        {export}
  +matches( that : Any ) : Bool                                 {overload="~~"}
- +numerify() : Num                                             {overload="0+"}
- +stringify() : Str                                            {overload='""'}
- +stringify( verbosity : Int, message : Str = undef ) : Str
- +stringify( verbosity : Int = undef ) : Str
+ +to_bool() : Bool                                           {overload="bool"}
+ +to_number() : Num                                            {overload="0+"}
+ +to_string() : Str                                            {overload='""'}
  +with( args : Hash = undef ) : Bool
  +with( message : Str, args : Hash = undef ) : Bool
+ +get_caller_stacktrace() : Array[Str]|Str
  #_collect_system_data()
  #_make_accessors()                                                     {init}
  #_make_caller_info_accessors()                                         {init}
  <<constant>> +ATTRS() : HashRef
- <<constant>> +RE_NUM_INT() : Regexp                                          ]
+ <<constant>> +RE_NUM_INT() : Regexp
+ <<constant>> +HAVE_SCALAR_UTIL_WEAKEN()                                      ]
 
 =end umlwiki
 
@@ -1451,6 +1462,10 @@ attributes.
 
 Represents regexp for numeric integer value.
 
+=item HAVE_SCALAR_UTIL_WEAKEN
+
+Returns 1 if C<L<Scalar::Util>::weaken> function is available.
+
 =back
 
 =head1 ATTRIBUTES
@@ -1621,6 +1636,9 @@ and are the arguments of called function.  Collected if the verbosity on
 throwing exception was greater than 1.  Contains only the first element of
 caller stack if the verbosity was lower than 3.
 
+If the arguments of called function are references and
+C<L<Scalar::Util>::weaken> function is available then reference is weakened.
+
   eval { Exception::Base->throw( message=>"Message" ); };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
   $evaltext, $is_require, @args) = $@->caller_stack->[0];
@@ -1706,17 +1724,17 @@ attribute has meaning for derived classes.
   eval { die "string" };
   print $@->myattr;    # "string"
 
-=item stringify_attributes (default: ['message'])
+=item string_attributes (default: ['message'])
 
 Meta-attribute contains the array of names of attributes with defined value
-which are joined to the string returned by stringify method.  If none of
-attributes are defined, the string is created from the first default value
-of attributes listed in the opposite order.
+which are joined to the string returned by B<to_string> method.  If none of
+attributes are defined, the string is created from the first default value of
+attributes listed in the opposite order.
 
   use Exception::Base 'Exception::My' => {
       has => 'myattr',
       myattr => 'default',
-      stringify_attributes => ['message', 'myattr'],
+      string_attributes => ['message', 'myattr'],
   };
 
   eval { Exception::My->throw( message=>"string", myattr=>"foo" ) };
@@ -1733,7 +1751,7 @@ of attributes listed in the opposite order.
 
 =item Boolean context
 
-True value.
+True value.  See B<to_bool> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   if ($@) {
@@ -1743,16 +1761,16 @@ True value.
 =item Numeric context
 
 Content of attribute pointed by B<numeric_attribute> attribute.  See
-B<numerify> method.
+B<to_number> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print 0+$@;           # 123
 
 =item String context
 
-Content of attribute which is combined from B<stringify_attributes> attributes
+Content of attribute which is combined from B<string_attributes> attributes
 with additional informations, depended on B<verbosity> setting.  See
-B<stringify> method.
+B<to_string> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print "$@";           # "Message at -e line 1.\n"
@@ -1844,26 +1862,19 @@ Immediately rethrows an existing exception object as an other exception class.
   # convert Exception::System into Exception::Base
   Exception::Base->throw($@);
 
-=item stringify([$I<verbosity>[, $I<message>]])
+=item to_string
 
 Returns the string representation of exception object.  It is called
 automatically if the exception object is used in string scalar context.  The
-method can be used explicity and then the verbosity level can be used.
+method can be used explicity.
 
   eval { Exception::Base->throw; };
   $@->{verbosity} = 1;
   print "$@";
-  print $@->stringify(4) if $VERY_VERBOSE;
+  $@->verbosity = 4;
+  print $@->to_string;
 
-It also replaces any message stored in object with the I<message> argument if
-it exists.  If message argument is an empty string, the default message is used.
-
-  eval { Exception::Base->throw( "Message" ); };
-  print $@->stringify(1);               # "Message"
-  print $@->stringify(1, "Overrided");  # "Overrided"
-  print $@->stringify(1, "");           # "Unknown exception"
-
-=item numerify
+=item to_number
 
 Returns the numeric representation of exception object.  It is called
 automatically if the exception object is used in numeric scalar context.  The
@@ -1871,7 +1882,17 @@ method can be used explicity.
 
   eval { Exception::Base->throw( value => 42 ); };
   print 0+$@;           # 42
-  print $@->numerify;   # 42
+  print $@->to_number;  # 42
+
+=item to_bool
+
+Returns the boolean representation of exception object.  It is called
+automatically if the exception object is used in boolean context.  The method
+can be used explicity.
+
+  eval { Exception::Base->throw; };
+  print "ok" if $@;           # ok
+  print "ok" if $@->to_bool;  # ok
 
 =item matches(I<that>)
 
@@ -1932,7 +1953,7 @@ matches.
 =item with(I<condition>)
 
 Checks if the exception object matches the given condition.  If the first
-argument is single value, the message combined from B<stringify_attributes>
+argument is single value, the message combined from B<string_attributes>
 attributes is matched.  If the argument is a part of hash, an attribute of the
 exception object is matched.  The B<with> method returns true value if all its
 arguments match.
@@ -2032,7 +2053,7 @@ the method argument.
   eval { Exception::Base->throw; };
   if ($@) {
       my $e = Exception::Base->catch;
-      print $e->stringify(1);
+      print $e->to_string;
   }
 
 If the error stack is empty, the B<catch> method recovers B<$@> variable and
@@ -2067,7 +2088,7 @@ then the I<CLASS> is Exception::Base by default.
   try eval { throw 'Exception::Base' => message=>"method"; };
   Exception::Base->import( 'catch' );
   catch my $e;  # the same as Exception::Base->catch( my $e );
-  print $e->stringify;
+  print $e->to_string;
 
 =item PROPAGATE
 
@@ -2216,7 +2237,7 @@ attributes.
   package Exception::Simple;
   use Exception::Base (__PACKAGE__) => {
     has => qw< reason method >,
-    stringify_attributes => qw< message reason method >,
+    string_attributes => qw< message reason method >,
   };
 
 For more complex exceptions you can redefine B<ATTRS> constant.
@@ -2226,7 +2247,7 @@ For more complex exceptions you can redefine B<ATTRS> constant.
   use constant ATTRS => {
     %{ Exception::Base->ATTRS },     # SUPER::ATTRS
     hostname => { is => 'ro' },
-    stringify_attributes => qw< hostname message >,
+    string_attributes => qw< hostname message >,
   };
   sub _collect_system_data {
     my $self = shift;

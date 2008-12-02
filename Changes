@@ -1,4 +1,19 @@
 ------------------------------------------------------------------------
+0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-02
+
+New:
+
+* Major API changes.
+
+* New methods: to_bool, to_number, to_string, get_caller_stacktrace.
+
+* Removed methods: numerify, stringify, _caller_backtrace.
+
+Changes:
+
+* Reference arguments stored as caller_stack are weakened if it is possible.
+
+------------------------------------------------------------------------
 0.1901 | Piotr Roszatycki <dexter@debian.org> | 2008-10-13
 
 Fixes:

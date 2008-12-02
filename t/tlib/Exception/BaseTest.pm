@@ -212,12 +212,19 @@ sub test_stringify {
     $self->assert_equals("Unknown exception\n", $obj->stringify(1));
     $self->assert_matches(qr/Unknown exception at .* line \d+.\n/s, $obj->stringify(2));
 
-    $self->assert_equals('', $obj->stringify(0));
     $obj->{message} = 'Stringify';
     $obj->{value} = 123;
+    $self->assert_equals('', $obj->stringify(0));
     $self->assert_equals("Stringify\n", $obj->stringify(1));
     $self->assert_matches(qr/Stringify at .* line \d+.\n/s, $obj->stringify(2));
     $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->stringify(3));
+
+    $obj->{message} = "Ends with EOL\n";
+    $obj->{value} = 123;
+    $self->assert_equals('', $obj->stringify(0));
+    $self->assert_equals("Ends with EOL\n", $obj->stringify(1));
+    $self->assert_equals("Ends with EOL\n", $obj->stringify(2));
+    $self->assert_matches(qr/Exception::Base: Ends with EOL\n at .* line \d+\n/s, $obj->stringify(3));
 
     $obj->{verbosity} = 2;
     $obj->{ignore_packages} = [ ];
@@ -444,7 +451,7 @@ END
     $self->assert_equals(2, $obj->{defaults}->{verbosity} = Exception::Base->ATTRS->{verbosity}->{default});
     $obj->{verbosity} = 1;
 
-    $obj->{defaults}->{stringify_attributes} = ['verbosity', 'message', 'value'];
+    $obj->{defaults}->{string_attributes} = ['verbosity', 'message', 'value'];
     $self->assert_equals("1: Stringify: 123\n", $obj->stringify);
 
     $obj->{value} = '';
@@ -453,8 +460,8 @@ END
     $obj->{value} = undef;
     $self->assert_equals("1: Stringify\n", $obj->stringify);
 
-    $self->assert_not_null(Exception::Base->ATTRS->{stringify_attributes}->{default});
-    $self->assert_deep_equals(['message'], $obj->{defaults}->{stringify_attributes} = Exception::Base->ATTRS->{stringify_attributes}->{default});
+    $self->assert_not_null(Exception::Base->ATTRS->{string_attributes}->{default});
+    $self->assert_deep_equals(['message'], $obj->{defaults}->{string_attributes} = Exception::Base->ATTRS->{string_attributes}->{default});
 
     $self->assert_equals("Stringify\n", $obj->stringify);
 
@@ -743,7 +750,7 @@ sub test_with {
         use base 'Exception::Base';
         use constant ATTRS => {
             %{ Exception::Base->ATTRS },
-            stringify_attributes => { default => [ 'message', 'strattr' ] },
+            string_attributes => { default => [ 'message', 'strattr' ] },
             numeric_attribute    => { default => 'numattr' },
             strattr => { is => 'rw' },
             numattr => { is => 'rw' },
