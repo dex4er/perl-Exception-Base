@@ -180,7 +180,18 @@ use utf8;
 
 
 # Safe operations on symbol stash
-BEGIN { *Symbol::fetch_glob = sub ($) { no strict 'refs'; \*{$_[0]} } unless defined &Symbol::fetch_glob; }
+BEGIN { 
+    eval {
+        require Symbol;
+        Symbol::qualify_to_ref('qualify_to_ref');
+    };
+    if (not $@) {
+        *qualify_to_ref = \*Symbol::qualify_to_ref;
+    }
+    else {
+        *qualify_to_ref = sub ($;) { no strict 'refs'; \*{ $_[0] } };
+    };
+};
 
 
 # Use weaken ref on stack if available
@@ -191,10 +202,10 @@ BEGIN {
         Scalar::Util::weaken($ref);
     };
     if (not $@) {
-        *HAVE_SCALAR_UTIL_WEAKEN = sub () { 1 };
+        *HAVE_SCALAR_UTIL_WEAKEN = sub () { !! 1 };
     }
     else {
-        *HAVE_SCALAR_UTIL_WEAKEN = sub () { 0 };
+        *HAVE_SCALAR_UTIL_WEAKEN = sub () { ! 1 };
     };
 };
 
@@ -382,9 +393,9 @@ sub import {
             }
 
             # Create the new package
-            ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
-            @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
-            *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
+            ${ *{qualify_to_ref($name . '::VERSION')} } = $version;
+            @{ *{qualify_to_ref($name . '::ISA')} } = ($isa);
+            *{qualify_to_ref($name . '::ATTRS')} = sub {
                 return { %{ $isa->ATTRS }, %overriden_attributes };
             };
             $name->_make_accessors;
@@ -413,16 +424,16 @@ sub unimport {
             unshift @export, @EXPORT_OK;
         }
         elsif ($name =~ /^(try|catch|throw)$/) {
-            if (defined *{Symbol::fetch_glob($callpkg . '::' . $name)}{CODE}) {
+            if (defined *{qualify_to_ref($callpkg . '::' . $name)}{CODE}) {
                 # Store and restore other typeglobs than CODE
                 my %glob;
                 foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-                    $glob{$type} = *{Symbol::fetch_glob($callpkg . '::' . $name)}{$type}
-                        if defined *{Symbol::fetch_glob($callpkg . '::' . $name)}{$type};
+                    $glob{$type} = *{qualify_to_ref($callpkg . '::' . $name)}{$type}
+                        if defined *{qualify_to_ref($callpkg . '::' . $name)}{$type};
                 }
-                undef *{Symbol::fetch_glob($callpkg . '::' . $name)};
+                undef *{qualify_to_ref($callpkg . '::' . $name)};
                 foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-                    *{Symbol::fetch_glob($callpkg . '::' . $name)} = $glob{$type}
+                    *{qualify_to_ref($callpkg . '::' . $name)} = $glob{$type}
                         if defined $glob{$type};
                 }
             }
@@ -1159,13 +1170,13 @@ sub _make_accessors {
         if (not $class->can($key)) {
             next if not defined $attributes->{$key}->{is};
             if ($attributes->{$key}->{is} eq 'rw') {
-                *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
+                *{qualify_to_ref($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
                            : $_[0]->{$key};
                 };
             }
             else {
-                *{Symbol::fetch_glob($class . '::' . $key)} = sub {
+                *{qualify_to_ref($class . '::' . $key)} = sub {
                     $_[0]->{$key};
                 };
             }
@@ -1181,7 +1192,7 @@ sub _make_caller_info_accessors {
 
     foreach my $key (qw< package file line subroutine >) {
         if (not $class->can($key)) {
-            *{Symbol::fetch_glob($class . '::' . $key)} = sub {
+            *{qualify_to_ref($class . '::' . $key)} = sub {
                 my $self = shift;
                 my $ignore_level = defined $self->{ignore_level}
                                  ? $self->{ignore_level}
@@ -1267,6 +1278,7 @@ __END__
  #_collect_system_data()
  #_make_accessors()                                                     {init}
  #_make_caller_info_accessors()                                         {init}
+ <<utility>> +qualify_to_ref( name : Str ) : CodeRef
  <<constant>> +ATTRS() : HashRef
  <<constant>> +RE_NUM_INT() : Regexp
  <<constant>> +HAVE_SCALAR_UTIL_WEAKEN()                                      ]

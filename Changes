@@ -13,6 +13,8 @@ Changes:
 
 * Reference arguments stored as caller_stack are weakened if it is possible.
 
+* Used Symbol::qualify_to_ref() if it is possible.
+
 ------------------------------------------------------------------------
 0.1901 | Piotr Roszatycki <dexter@debian.org> | 2008-10-13
 
