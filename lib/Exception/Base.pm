@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.20;
+our $VERSION = '0.20';
 
 =head1 NAME
 
@@ -1850,7 +1850,7 @@ Matches against the default attribute, usually the B<message> attribute.
 
 =back
 
-=item I<CLASS>-E<gt>catch([$I<variable>])
+=item I<CLASS>-E<gt>catch
 
 The exception is recovered from B<$@> variable and method returns an exception
 object if exception is caught or undefined value otherwise.  The B<$@>
@@ -1870,6 +1870,11 @@ of line (LF).
   eval { die "Died\n"; };
   my $e = Exception::Base->catch;
   print ref $e;   # "Exception::Base"
+
+=item get_caller_stacktrace
+
+Returns an array of strings or string with caller stack trace.  It is
+implicity used by B<to_string> method.
 
 =item PROPAGATE
 
@@ -1929,6 +1934,16 @@ each derived class which defines new attributes.
   package Exception::My;
   # (...)
   __PACKAGE__->_make_accessors;
+
+=back
+
+=head1 FUNCTIONS
+
+=over
+
+=item qualify_to_ref
+
+See C<L<Symbol>::qualify_to_ref> function.
 
 =back
 
