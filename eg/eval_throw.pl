@@ -1,9 +1,9 @@
-#!/usr/bin/perl -l -I../lib
+#!/usr/bin/perl -I../lib
 
 use strict;
 use warnings;
 
-use Exception::Base ':all';
+use Exception::Base;
 
 eval {
     eval { open my $file, "<", "/badmodeexample"
