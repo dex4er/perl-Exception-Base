@@ -11,17 +11,18 @@ New:
 
 * New method: to_bool.
 
-* Removed method try.
-
-* Removed export of try/catch/throw methods.
-
 * New internal function qualify_to_ref() which uses Symbol module if it is
   possible.
+
+Removed:
+
+* Removed methods: try, with.
+
+* Removed export of try/catch/throw methods and :all tag.
 
 Changes:
 
 * Reference arguments stored as caller_stack are weakened if it is possible.
-
 
 ------------------------------------------------------------------------
 0.1901 | Piotr Roszatycki <dexter@debian.org> | 2008-10-13

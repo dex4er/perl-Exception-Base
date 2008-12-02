@@ -47,7 +47,7 @@ BEGIN {
         };
         if ($@) {
 	    my $e = Exception::Base->catch;
-            if ($e->isa('Exception::My') and $e->with('Message')) {
+            if ($e->isa('Exception::My') and $e->matches('Message')) {
                 1;
             }
         }
@@ -63,7 +63,7 @@ BEGIN {
         };
         if ($@) {
 	    my $e = Exception::Base->catch;
-            if ($e->isa('Exception::My') and $e->with('Message')) {
+            if ($e->isa('Exception::My') and $e->matches('Message')) {
                 1;
             }
         }

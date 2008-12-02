@@ -540,38 +540,34 @@ sub to_bool {
 # Smart matching.
 sub matches {
     my ($self, $that) = @_;
+    my @args;
 
     if (ref $that eq 'ARRAY') {
-        return $self->with( '-isa' => $that );
+        @args = ( '-isa' => $that );
     }
     elsif (ref $that eq 'HASH') {
-        return $self->with( %{ $that } );
+        @args = %$that;
     }
     elsif (ref $that eq 'Regexp' or ref $that eq 'CODE' or not defined $that) {
-        return $self->with( $that );
+        @args = ( $that );
     }
     elsif (ref $that) {
         return '';
     }
     elsif ($that =~ RE_NUM_INT) {
-        return $self->with( value => $that );
+        @args = ( value => $that );
     }
     else {
-        return $self->with( $that );
+        @args = ( $that );
     }
-}
 
-
-# Check if an exception object has some attributes
-sub with {
-    my $self = shift;
-    return unless @_;
+    return '' unless @args;
 
     my $default_attribute = $self->{defaults}->{default_attribute};
 
     # Odd number of arguments - first is default attribute
-    if (scalar @_ % 2 == 1) {
-        my $val = shift @_;
+    if (scalar @args % 2 == 1) {
+        my $val = shift @args;
         if (ref $val eq 'ARRAY') {
             my $arrret = 0;
             foreach my $arrval (@{ $val }) {
@@ -626,11 +622,11 @@ sub with {
             local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if $_ ne $val;
         }
-        return 1 unless @_;
+        return 1 unless @args;
     }
 
 
-    my %args = @_;
+    my %args = @args;
     while (my($key,$val) = each %args) {
         if ($key eq '-default') {
             $key = $default_attribute;
@@ -1164,8 +1160,6 @@ __END__
  +to_bool() : Bool                                           {overload="bool"}
  +to_number() : Num                                            {overload="0+"}
  +to_string() : Str                                            {overload='""'}
- +with( args : Hash = undef ) : Bool
- +with( message : Str, args : Hash = undef ) : Bool
  +get_caller_stacktrace() : Array[Str]|Str
  #_collect_system_data()
  #_make_accessors()                                                     {init}
@@ -1774,12 +1768,12 @@ can be used explicity.
 
 =item matches(I<that>)
 
-Checks if the exception object matches the given argument.  It is somewhat
-similar to the B<with> method but it takes only one argument.  The B<matches>
+Checks if the exception object matches the given argument.  The B<matches>
 method overloads B<~~> smart matching operator, so it can be used with
 B<given> keyword.
 
-  given ($e = Exception::Base->new( message=>"Message", value=>123 )) {
+  my $e = Exception::Base->new( message=>"Message", value=>123 );
+  given ($e) {
     when( "Message" ) { ... }                             # matches
     when( qr/message/i ) { ... }                          # matches
     when( ["Exception::Base"] ) { ... }                   # matches
@@ -1828,44 +1822,7 @@ matches.
   print $@ ~~ 123;                                # matches
   print $@ ~~ 456;                                # doesn't
 
-=item with(I<condition>)
-
-Checks if the exception object matches the given condition.  If the first
-argument is single value, the message combined from B<string_attributes>
-attributes is matched.  If the argument is a part of hash, an attribute of the
-exception object is matched.  The B<with> method returns true value if all its
-arguments match.
-
-  eval { Exception::Base->new( message=>"Message", value=>123 ) };
-  print $@->with( "Message" );                    # matches
-  print $@->with( value=>123 );                   # matches
-  print $@->with( "Message", value=>45 );         # doesn't
-  print $@->with( uid=>0 );               # matches if root
-  print $@->with( message=>"Message" );           # matches
-
-The argument (for message or attributes) can be simple string or code
-reference or regexp.
-
-  eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( "Message" );                    # matches
-  print $@->with( sub {/Message/} );              # matches
-  print $@->with( qr/Message/ );                  # matches
-
-If argument is a numeric value, the argument matches if attribute pointed by
-B<numeric_attribute> attribute matches.
-
-  eval { Exception::Base->new( value=>123, message=>456 ) };
-  print $@->with( 123 );                          # matches
-  print $@->with( 456 );                          # doesn't
-
-If argument is a reference to array, the argument matches if any of its
-element matches.
-
-  eval { Exception::Base->new( message=>"Message", value=>123 ) };
-  print $@->with( message=>["Not", 123, 45, "Message"] );  # matches
-  print $@->with( value=>[123, 45], message=>"Not" );      # doesn't
-
-The B<with> method matches for special keywords:
+The B<match> method matches for special keywords:
 
 =over
 
@@ -1874,22 +1831,22 @@ The B<with> method matches for special keywords:
 Matches if the object is a given class.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( -isa=>"Exception::Base" );                   # matches
-  print $@->with( -isa=>["Some::Class", "Exception::Base"] );  # matches
+  print $@ ~~ { -isa=>"Exception::Base" };            # matches
+  print $@ ~~ { -isa=>["X::Y", "Exception::Base"] };  # matches
 
 =item -has
 
 Matches if the object has a given attribute.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( -has=>"Message" );              # matches
+  print $@ ~~ { -has=>"Message" };                    # matches
 
 =item -default
 
 Matches against the default attribute, usually the B<message> attribute.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( -default=>"Message" );          # matches
+  print $@ ~~ { -default=>"Message" };                # matches
 
 =back
 
