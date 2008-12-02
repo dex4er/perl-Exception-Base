@@ -765,7 +765,6 @@ sub _collect_system_data {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
             # Collect the caller stack
-            use Scalar::Util;
             my @args = @DB::args;
             if (HAVE_SCALAR_UTIL_WEAKEN) {
                 foreach (@args) {
