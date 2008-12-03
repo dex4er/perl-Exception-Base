@@ -164,10 +164,10 @@ BEGIN {
         Symbol::qualify_to_ref('qualify_to_ref');
     };
     if (not $@) {
-        *qualify_to_ref = \*Symbol::qualify_to_ref;
+        *_qualify_to_ref = \*Symbol::qualify_to_ref;
     }
     else {
-        *qualify_to_ref = sub ($;) { no strict 'refs'; \*{ $_[0] } };
+        *_qualify_to_ref = sub ($;) { no strict 'refs'; \*{ $_[0] } };
     };
 };
 
@@ -180,10 +180,10 @@ BEGIN {
         Scalar::Util::weaken($ref);
     };
     if (not $@) {
-        *HAVE_SCALAR_UTIL_WEAKEN = sub () { !! 1 };
+        *_HAVE_SCALAR_UTIL_WEAKEN = sub () { !! 1 };
     }
     else {
-        *HAVE_SCALAR_UTIL_WEAKEN = sub () { ! 1 };
+        *_HAVE_SCALAR_UTIL_WEAKEN = sub () { ! 1 };
     };
 };
 
@@ -201,11 +201,11 @@ BEGIN {
              '~~'     => 'matches',
              fallback => 1;
     } if ($] >= 5.010);
-}
+};
 
 
 # Constant regexp for numerify value check
-use constant RE_NUM_INT  => qr/^[+-]?\d+$/;
+use constant _RE_NUM_INT  => qr/^[+-]?\d+$/;
 
 
 # List of class attributes (name => { is=>ro|rw, default=>value })
@@ -271,7 +271,7 @@ sub import {
                 next if $mod_version and $mod_version >= $version;
 
                 # Package is needed
-                do { local $SIG{__DIE__}; eval "use $name $version;" };
+                do { local $SIG{__DIE__}; eval { $pkg->_load_package($name, $version); } };
                 if ($@) {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
@@ -304,7 +304,7 @@ sub import {
             # Base class is needed
             {
                 if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
-                    eval "use $isa;";
+                    eval { $pkg->_load_package($isa) };
                     if ($@) {
                         Exception::Base->throw(
                             message => "Base class $isa for class $name can not be found",
@@ -355,10 +355,10 @@ sub import {
             }
 
             # Create the new package
-            ${ *{qualify_to_ref($name . '::VERSION')} } = $version;
-            @{ *{qualify_to_ref($name . '::ISA')} } = ($isa);
-            *{qualify_to_ref($name . '::ATTRS')} = sub {
-                return { %{ $isa->ATTRS }, %overriden_attributes };
+            ${ *{_qualify_to_ref($name . '::VERSION')} } = $version;
+            @{ *{_qualify_to_ref($name . '::ISA')} } = ($isa);
+            *{_qualify_to_ref($name . '::ATTRS')} = sub () {
+                +{ %{ $isa->ATTRS }, %overriden_attributes };
             };
             $name->_make_accessors;
         }
@@ -466,76 +466,38 @@ sub throw {
 }
 
 
-# Propagate exception if it is rethrown
-sub PROPAGATE {
-    my ($self) = @_;
+# Recover $@ variable and return exception object
+sub catch {
+    my $self = shift;
 
-    # Fill propagate stack
-    my $level = 1;
-    while (my @c = caller($level++)) {
-            # Skip own package
-            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
-            # Collect the caller stack
-            push @{ $self->{propagated_stack} }, [ @c[0..2] ];
-            last;
+    # Recover class from object or set the default
+    my $class = ref $self || $self || __PACKAGE__;
+
+    my $e;
+    my $new_e;
+
+    # Recover exception from $@ and clear it
+    $e = $@;
+    $@ = '';
+
+    if (ref $e and do { local $@; local $SIG{__DIE__}; eval { $e->isa(__PACKAGE__) } }) {
+        # Caught exception
+        $new_e = $e;
     }
-
-    return $self;
-}
-
-
-# Convert an exception to string
-sub to_string {
-    my ($self) = @_;
-
-    my $verbosity = defined $self->{verbosity}
-                    ? $self->{verbosity}
-                    : $self->{defaults}->{verbosity};
-
-    my $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
-
-    if ($message eq '') {
-        foreach (reverse @{ $self->{defaults}->{string_attributes} }) {
-            $message = $self->{defaults}->{$_};
-            last if defined $message;
-        };
+    elsif ($e eq '') {
+        # No error in $@
+        $new_e = undef;
+    }
+    else {
+        # New exception based on error from $@. Clean up the message.
+        while ($e =~ s/\t\.\.\.propagated at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s) { }
+        $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
+        $new_e = $class->new;
+        my $eval_attribute = $new_e->{defaults}->{eval_attribute};
+        $new_e->{$eval_attribute} = $e;
     };
 
-    my $string;
-    if ($verbosity == 1) {
-        return $message if $message =~ /\n$/;
-
-        return $message . "\n";
-    }
-    elsif ($verbosity == 2) {
-        return $message if $message =~ /\n$/;
-
-        my @stacktrace = $self->get_caller_stacktrace;
-        return $message . $stacktrace[0] . ".\n";
-    }
-    elsif ($verbosity >= 3) {
-        return ref($self) . ": " . $message . $self->get_caller_stacktrace;
-    };
-
-    return "";
-};
-
-
-# Convert an exception to number
-sub to_number {
-    my ($self) = @_;
-    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
-
-    no warnings 'numeric';
-    return 0+ $self->{$numeric_attribute} if defined $self->{$numeric_attribute};
-    return 0+ $self->{defaults}->{$numeric_attribute} if defined $self->{defaults}->{$numeric_attribute};
-    return 0;
-};
-
-
-# Convert an exception to bool (always true)
-sub to_bool {
-    return !! 1;
+    return $new_e;
 };
 
 
@@ -559,7 +521,7 @@ sub matches {
     elsif (ref $that) {
         return '';
     }
-    elsif ($that =~ RE_NUM_INT) {
+    elsif ($that =~ _RE_NUM_INT) {
         @args = ( $numeric_attribute => $that );
     }
     else {
@@ -577,7 +539,7 @@ sub matches {
                 if (not defined $arrval) {
                     $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                 }
-                elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
+                elsif (not ref $arrval and $arrval =~ _RE_NUM_INT) {
                     no warnings 'numeric', 'uninitialized';
                     $arrret = 1 if $self->{$numeric_attribute} == $arrval;
                 }
@@ -604,7 +566,7 @@ sub matches {
         elsif (not defined $val) {
             return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
         }
-        elsif (not ref $val and $val =~ RE_NUM_INT) {
+        elsif (not ref $val and $val =~ _RE_NUM_INT) {
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$numeric_attribute} != $val;
         }
@@ -688,7 +650,7 @@ sub matches {
         elsif (not defined $val) {
             return '' if exists $self->{$key} && defined $self->{$key};
         }
-        elsif (not ref $val and $val =~ RE_NUM_INT) {
+        elsif (not ref $val and $val =~ _RE_NUM_INT) {
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$key} != $val;
         }
@@ -712,76 +674,59 @@ sub matches {
 }
 
 
-# Recover $@ variable and return exception object
-sub catch {
-    my $self = shift;
+# Convert an exception to string
+sub to_string {
+    my ($self) = @_;
 
-    # Recover class from object or set the default
-    my $class = ref $self || $self || __PACKAGE__;
+    my $verbosity = defined $self->{verbosity}
+                    ? $self->{verbosity}
+                    : $self->{defaults}->{verbosity};
 
-    my $e;
-    my $new_e;
+    my $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
 
-    # Recover exception from $@ and clear it
-    $e = $@;
-    $@ = '';
-
-    if (ref $e and do { local $@; local $SIG{__DIE__}; eval { $e->isa(__PACKAGE__) } }) {
-        # Caught exception
-        $new_e = $e;
-    }
-    elsif ($e eq '') {
-        # No error in $@
-        $new_e = undef;
-    }
-    else {
-        # New exception based on error from $@. Clean up the message.
-        while ($e =~ s/\t\.\.\.propagated at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s) { }
-        $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-        $new_e = $class->new;
-        my $eval_attribute = $new_e->{defaults}->{eval_attribute};
-        $new_e->{$eval_attribute} = $e;
+    if ($message eq '') {
+        foreach (reverse @{ $self->{defaults}->{string_attributes} }) {
+            $message = $self->{defaults}->{$_};
+            last if defined $message;
+        };
     };
 
-    return $new_e;
+    my $string;
+    if ($verbosity == 1) {
+        return $message if $message =~ /\n$/;
+
+        return $message . "\n";
+    }
+    elsif ($verbosity == 2) {
+        return $message if $message =~ /\n$/;
+
+        my @stacktrace = $self->get_caller_stacktrace;
+        return $message . $stacktrace[0] . ".\n";
+    }
+    elsif ($verbosity >= 3) {
+        return ref($self) . ": " . $message . $self->get_caller_stacktrace;
+    };
+
+    return "";
 };
 
 
-# Collect system data and fill the attributes and caller stack.
-sub _collect_system_data {
+# Convert an exception to number
+sub to_number {
     my ($self) = @_;
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
-    # Collect system data only if verbosity is meaning
-    my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
-    if ($verbosity >= 2) {
-        $self->{time} = CORE::time();
-        $self->{tid}  = threads->tid if defined &threads::tid;
-        @{$self}{qw < pid uid euid gid egid >} =
-                (     $$, $<, $>,  $(, $)    );
+    no warnings 'numeric';
+    return 0+ $self->{$numeric_attribute} if defined $self->{$numeric_attribute};
+    return 0+ $self->{defaults}->{$numeric_attribute} if defined $self->{defaults}->{$numeric_attribute};
+    return 0;
+};
 
-        # Collect stack info
-        my @caller_stack;
-        my $level = 1;
-        while (my @c = do { package DB; caller($level++) }) {
-            # Skip own package
-            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
-            # Collect the caller stack
-            my @args = @DB::args;
-            if (HAVE_SCALAR_UTIL_WEAKEN) {
-                foreach (@args) {
-                    Scalar::Util::weaken($_) if ref $_;
-                };
-            };
-            my $stacktrace_element = [ @c[0 .. 7], @args ];
-            push @caller_stack, $stacktrace_element;
-            # Collect only one entry if verbosity is lower than 3
-            last if $verbosity == 2;
-        };
-        $self->{caller_stack} = \@caller_stack;
-    };
 
-    return $self;
-}
+# Convert an exception to bool (always true)
+sub to_bool {
+    return !! 1;
+};
 
 
 # Stringify caller backtrace. Stolen from Carp
@@ -848,6 +793,61 @@ sub get_caller_stacktrace {
     };
 
     return wantarray ? @stacktrace : join("\n", @stacktrace) . "\n";
+}
+
+
+# Propagate exception if it is rethrown
+sub PROPAGATE {
+    my ($self) = @_;
+
+    # Fill propagate stack
+    my $level = 1;
+    while (my @c = caller($level++)) {
+            # Skip own package
+            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
+            # Collect the caller stack
+            push @{ $self->{propagated_stack} }, [ @c[0..2] ];
+            last;
+    }
+
+    return $self;
+}
+
+
+# Collect system data and fill the attributes and caller stack.
+sub _collect_system_data {
+    my ($self) = @_;
+
+    # Collect system data only if verbosity is meaning
+    my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
+    if ($verbosity >= 2) {
+        $self->{time} = CORE::time();
+        $self->{tid}  = threads->tid if defined &threads::tid;
+        @{$self}{qw < pid uid euid gid egid >} =
+                (     $$, $<, $>,  $(, $)    );
+
+        # Collect stack info
+        my @caller_stack;
+        my $level = 1;
+        while (my @c = do { package DB; caller($level++) }) {
+            # Skip own package
+            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
+            # Collect the caller stack
+            my @args = @DB::args;
+            if (_HAVE_SCALAR_UTIL_WEAKEN) {
+                foreach (@args) {
+                    Scalar::Util::weaken($_) if ref $_;
+                };
+            };
+            my $stacktrace_element = [ @c[0 .. 7], @args ];
+            push @caller_stack, $stacktrace_element;
+            # Collect only one entry if verbosity is lower than 3
+            last if $verbosity == 2;
+        };
+        $self->{caller_stack} = \@caller_stack;
+    };
+
+    return $self;
 }
 
 
@@ -980,7 +980,7 @@ sub _format_arg {
 
 # If a string is too long, trims it with ... . Stolen from Carp
 sub _str_len_trim {
-    my ($self, $str, $max) = @_;
+    my (undef, $str, $max) = @_;
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
         substr($str, $max - 3) = '...';
@@ -1051,8 +1051,8 @@ sub _modify_default {
 
 # Create accessors for this class
 sub _make_accessors {
-    my ($class) = @_;
-    $class = ref $class if ref $class;
+    my ($self) = @_;
+    my $class = ref $self ? ref $self : $self;
 
     no warnings 'uninitialized';
     my $attributes = $class->ATTRS;
@@ -1061,13 +1061,13 @@ sub _make_accessors {
         if (not $class->can($key)) {
             next if not defined $attributes->{$key}->{is};
             if ($attributes->{$key}->{is} eq 'rw') {
-                *{qualify_to_ref($class . '::' . $key)} = sub :lvalue {
+                *{_qualify_to_ref($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
                            : $_[0]->{$key};
                 };
             }
             else {
-                *{qualify_to_ref($class . '::' . $key)} = sub {
+                *{_qualify_to_ref($class . '::' . $key)} = sub {
                     $_[0]->{$key};
                 };
             }
@@ -1078,12 +1078,12 @@ sub _make_accessors {
 
 # Create caller_info() accessors for this class
 sub _make_caller_info_accessors {
-    my ($class) = @_;
-    $class = ref $class if ref $class;
+    my ($self) = @_;
+    my $class = ref $self ? ref $self : $self;
 
     foreach my $key (qw< package file line subroutine >) {
         if (not $class->can($key)) {
-            *{qualify_to_ref($class . '::' . $key)} = sub {
+            *{_qualify_to_ref($class . '::' . $key)} = sub {
                 my $self = shift;
                 my $ignore_level = defined $self->{ignore_level}
                                  ? $self->{ignore_level}
@@ -1106,14 +1106,30 @@ sub _make_caller_info_accessors {
 }
 
 
+# Load another module without eval q{}
+sub _load_package {
+    my (undef, $package, $version) = @_;
+    return unless $package;
+
+    my $file = $package . '.pm';
+    $file =~ s{::}{/}g;
+
+    require $file;
+
+    # Check version if first element on list is a version number.
+    if (defined $version and $version =~ m/^\d/) {
+        $package->VERSION($version);
+    };
+
+    return 1;
+};
+
+
 # Module initialization
-sub __init {
+UNITCHECK {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
-}
-
-
-__init;
+};
 
 
 1;
@@ -1152,22 +1168,20 @@ __END__
  #eval_attribute : Str = "message"
  #string_attributes : ArrayRef[Str] = ["message"]
  -----------------------------------------------------------------------------
- <<create>> +new( args : Hash = undef )
+ <<create>> +new( args : Hash )
+ <<create>> +throw( args : Hash = undef )
+ <<create>> +throw( message : Str, args : Hash = undef )
  +catch() : Exception::Base
- +throw( args : Hash = undef )
- +throw( message : Str, args : Hash = undef )
  +matches( that : Any ) : Bool                                 {overload="~~"}
- +to_bool() : Bool                                           {overload="bool"}
- +to_number() : Num                                            {overload="0+"}
  +to_string() : Str                                            {overload='""'}
+ +to_number() : Num                                            {overload="0+"}
+ +to_bool() : Bool                                           {overload="bool"}
  +get_caller_stacktrace() : Array[Str]|Str
+ +PROPAGATE()
  #_collect_system_data()
- #_make_accessors()                                                     {init}
- #_make_caller_info_accessors()                                         {init}
- <<utility>> +qualify_to_ref( name : Str ) : CodeRef
- <<constant>> +ATTRS() : HashRef
- <<constant>> +RE_NUM_INT() : Regexp
- <<constant>> +HAVE_SCALAR_UTIL_WEAKEN()                                      ]
+ #_make_accessors()                                                {unitcheck}
+ #_make_caller_info_accessors()                                    {unitcheck}
+ <<constant>> +ATTRS() : HashRef                                              ]
 
 =end umlwiki
 
@@ -1329,14 +1343,6 @@ attributes.
     print $e->readwrite;                # = 2
     print $e->defaults->{readwrite};    # = "blah"
   }
-
-=item RE_NUM_INT
-
-Represents regexp for numeric integer value.
-
-=item HAVE_SCALAR_UTIL_WEAKEN
-
-Returns 1 if C<L<Scalar::Util>::weaken> function is available.
 
 =back
 
@@ -1921,7 +1927,9 @@ derived class.
     $self->{special} = get_special_value();
     return $self;
   }
-  __PACKAGE__->_make_accessors;
+  INIT {
+    __PACKAGE__->_make_accessors;
+  }
   1;
 
 Method returns the reference to the self object.
@@ -1933,15 +1941,17 @@ each derived class which defines new attributes.
 
   package Exception::My;
   # (...)
-  __PACKAGE__->_make_accessors;
+  INIT {
+    __PACKAGE__->_make_accessors;
+  }
 
 =back
 
-=head1 FUNCTIONS
+=head1 PRIVATE FUNCTIONS
 
 =over
 
-=item qualify_to_ref
+=item _qualify_to_ref
 
 See C<L<Symbol>::qualify_to_ref> function.
 
