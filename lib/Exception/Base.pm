@@ -1031,7 +1031,7 @@ sub _modify_default {
         else {
             $attributes->{$key}->{default} .= $value;
         };
-    };
+    }
     elsif ($modifier eq '-') {
         my $old = $attributes->{$key}->{default};
         if (ref $old eq 'ARRAY' or ref $value eq 'Regexp') {
