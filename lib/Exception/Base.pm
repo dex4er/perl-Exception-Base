@@ -271,7 +271,12 @@ sub import {
                 next if $mod_version and $mod_version >= $version;
 
                 # Package is needed
-                do { local $SIG{__DIE__}; eval { $pkg->_load_package($name, $version); } };
+                {
+                    local $SIG{__DIE__};
+                    eval {
+                        $pkg->_load_package($name, $version);
+                    };
+                };
                 if ($@) {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
@@ -279,13 +284,13 @@ sub import {
                             message => "Can not load available $name class: $@",
                             verbosity => 1
                         );
-                    }
+                    };
                 }
                 else {
                     # Module is loaded: go to next
                     next;
-                }
-            }
+                };
+            };
 
             next if $name eq __PACKAGE__;
 
@@ -295,34 +300,39 @@ sub import {
                     message => "Exceptions can only be created with " . __PACKAGE__ . " class",
                     verbosity => 1
                 );
-            }
+            };
             my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
             $version = 0.01 if not $version;
             my $has = defined $param->{has} ? $param->{has} : [ ];
             $has = [ $has ] if ref $has ne 'ARRAY';
 
             # Base class is needed
-            {
-                if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
-                    eval { $pkg->_load_package($isa) };
-                    if ($@) {
-                        Exception::Base->throw(
-                            message => "Base class $isa for class $name can not be found",
-                            verbosity => 1
-                        );
-                    }
-                }
-            }
+            if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
+                eval {
+                    $pkg->_load_package($isa);
+                };
+                if ($@) {
+                    Exception::Base->throw(
+                        message => "Base class $isa for class $name can not be found",
+                        verbosity => 1
+                    );
+                };
+            };
 
             # Handle defaults for object attributes
             my $attributes;
-            do { local $SIG{__DIE__}; eval { $attributes = $isa->ATTRS } };
+            {
+                local $SIG{__DIE__};
+                eval {
+                    $attributes = $isa->ATTRS;
+                };
+            };
             if ($@) {
                 Exception::Base->throw(
                     message => "$name class is based on $isa class which does not implement ATTRS",
                     verbosity => 1
                 );
-            }
+            };
 
             # Create the hash with overriden attributes
             my %overriden_attributes;
@@ -332,9 +342,9 @@ sub import {
                     Exception::Base->throw(
                         message => "Attribute name `$attribute' can not be defined for $name class"
                     );
-                }
+                };
                 $overriden_attributes{$attribute} = { is => 'rw' };
-            }
+            };
             # Class => { message => "overriden default", ... }
             foreach my $attribute (keys %{ $param }) {
                 next if $attribute =~ /^(isa|version|has)$/;
@@ -345,14 +355,14 @@ sub import {
                         message => "$isa class does not implement default value for `$attribute' attribute",
                         verbosity => 1
                     );
-                }
+                };
                 $overriden_attributes{$attribute} = {};
                 $overriden_attributes{$attribute}->{default} = $param->{$attribute};
                 foreach my $property (keys %{ $attributes->{$attribute} }) {
                     next if $property eq 'default';
                     $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
-                }
-            }
+                };
+            };
 
             # Create the new package
             ${ *{_qualify_to_ref($name . '::VERSION')} } = $version;
@@ -364,8 +374,8 @@ sub import {
         }
     }
 
-    return 1;
-}
+    return $pkg;
+};
 
 
 # Constructor
@@ -388,7 +398,7 @@ sub new {
     else {
         $attributes = $Class_Attributes{$class};
         $defaults = $Class_Defaults{$class};
-    }
+    };
 
     my $self = {};
 
@@ -398,8 +408,8 @@ sub new {
     foreach my $key (keys %args) {
         if ($attributes->{$key}->{is} eq 'rw') {
             $self->{$key} = $args{$key};
-        }
-    }
+        };
+    };
 
     # Defaults for this object
     $self->{defaults} = { %$defaults };
@@ -410,7 +420,7 @@ sub new {
     $self->_collect_system_data;
 
     return $self;
-}
+};
 
 
 # Create the exception and throw it or rethrow existing
@@ -435,17 +445,17 @@ sub throw {
                 my $default_attribute = $e->{defaults}->{default_attribute};
                 $e->{$default_attribute} = $argument if not defined $e->{$default_attribute};
                 die $e;
-            }
+            };
         }
         else {
             # First argument is an old exception
             $old = shift;
-        }
+        };
     }
     else {
         # $e->throw
         $old = $self;
-    }
+    };
 
     # Rethrow old exception with replaced attributes
     no warnings 'uninitialized';
@@ -454,16 +464,16 @@ sub throw {
     foreach my $key (keys %args) {
         if ($attrs->{$key}->{is} eq 'rw') {
             $old->{$key} = $args{$key};
-        }
-    }
+        };
+    };
     $old->PROPAGATE;
     if (ref $old ne $class) {
         # Rebless old object for new class
         bless $old => $class;
-    }
+    };
 
     die $old;
-}
+};
 
 
 # Recover $@ variable and return exception object
@@ -490,7 +500,7 @@ sub catch {
     }
     else {
         # New exception based on error from $@. Clean up the message.
-        while ($e =~ s/\t\.\.\.propagated at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s) { }
+        while ($e =~ s/\t\.\.\.propagated at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s) { };
         $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
         $new_e = $class->new;
         my $eval_attribute = $new_e->{defaults}->{eval_attribute};
@@ -526,7 +536,7 @@ sub matches {
     }
     else {
         @args = ( $that );
-    }
+    };
 
     return '' unless @args;
 
@@ -557,9 +567,9 @@ sub matches {
                 else {
                     local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                     $arrret = 1 if $_ eq $arrval;
-                }
+                };
                 last if $arrret;
-            }
+            };
             # Fail unless at least one condition is true
             return '' if not $arrret;
         }
@@ -584,16 +594,15 @@ sub matches {
         else {
             local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if $_ ne $val;
-        }
+        };
         return 1 unless @args;
-    }
-
+    };
 
     my %args = @args;
     while (my($key,$val) = each %args) {
         if ($key eq '-default') {
             $key = $default_attribute;
-        }
+        };
 
         if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
@@ -602,12 +611,12 @@ sub matches {
                     next if not defined $arrval;
                     $arrret = 1 if $self->isa($arrval);
                     last if $arrret;
-                }
+                };
                 return '' if not $arrret;
             }
             else {
                 return '' if not $self->isa($val);
-            }
+            };
         }
         elsif ($key eq '-has') {
             if (ref $val eq 'ARRAY') {
@@ -616,12 +625,12 @@ sub matches {
                     next if not defined $arrval;
                     $arrret = 1 if exists $self->ATTRS->{$arrval};
                     last if $arrret;
-                }
+                };
                 return '' if not $arrret;
             }
             else {
                 return '' if not $self->ATTRS->{$val};
-            }
+            };
         }
         elsif (ref $val eq 'ARRAY') {
             my $arrret = 0;
@@ -642,9 +651,9 @@ sub matches {
                 }
                 else {
                     $arrret = 1 if $self->{$key} eq $arrval;
-                }
+                };
                 last if $arrret;
-            }
+            };
             return '' if not $arrret;
         }
         elsif (not defined $val) {
@@ -667,8 +676,8 @@ sub matches {
         }
         else {
             return '' if $self->{$key} ne $val;
-        }
-    }
+        };
+    };
 
     return 1;
 }
@@ -793,7 +802,7 @@ sub get_caller_stacktrace {
     };
 
     return wantarray ? @stacktrace : join("\n", @stacktrace) . "\n";
-}
+};
 
 
 # Propagate exception if it is rethrown
@@ -804,14 +813,16 @@ sub PROPAGATE {
     my $level = 1;
     while (my @c = caller($level++)) {
             # Skip own package
-            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
+            next if ! defined $Isa_Package{$c[0]}
+                      ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } }
+                      : $Isa_Package{$c[0]};
             # Collect the caller stack
             push @{ $self->{propagated_stack} }, [ @c[0..2] ];
             last;
-    }
+    };
 
     return $self;
-}
+};
 
 
 # Collect system data and fill the attributes and caller stack.
@@ -848,7 +859,7 @@ sub _collect_system_data {
     };
 
     return $self;
-}
+};
 
 
 # Check if package should be ignored
@@ -867,25 +878,25 @@ sub _skip_ignored_package {
         if (ref $ignore_package eq 'ARRAY') {
             if (@{ $ignore_package }) {
                 do { return 1 if defined $_ and (ref $_ eq 'Regexp' and $package =~ $_ or ref $_ ne 'Regexp' and $package eq $_) } foreach @{ $ignore_package };
-            }
+            };
         }
         else {
             return 1 if ref $ignore_package eq 'Regexp' ? $package =~ $ignore_package : $package eq $ignore_package;
-        }
+        };
     }
     if (defined $ignore_class) {
         if (ref $ignore_class eq 'ARRAY') {
             if (@{ $ignore_class }) {
                 return 1 if grep { do { local $@; local $SIG{__DIE__}; eval { $package->isa($_) } } } @{ $ignore_class };
-            }
+            };
         }
         else {
             return 1 if do { local $@; local $SIG{__DIE__}; eval { $package->isa($ignore_class) } };
-        }
-    }
+        };
+    };
 
     return '';
-}
+};
 
 
 # Return info about caller. Stolen from Carp
@@ -903,7 +914,7 @@ sub _caller_info {
 
     unless (defined $call_info{package}) {
         return ();
-    }
+    };
 
     my $sub_name = $self->_get_subname(\%call_info);
     if ($call_info{has_args}) {
@@ -912,7 +923,7 @@ sub _caller_info {
         if ($max_arg_nums > 0 and $#args+1 > $max_arg_nums) {
             $#args = $max_arg_nums - 2;
             push @args, '...';
-        }
+        };
         # Push the args onto the subroutine
         $sub_name .= '(' . join (', ', @args) . ')';
     }
@@ -921,7 +932,7 @@ sub _caller_info {
     $call_info{sub_name} = $sub_name;
     $call_info{wantarray} = $call_info{wantarray} ? '@_ = ' : '$_ = ';
     return wantarray() ? %call_info : \%call_info;
-}
+};
 
 
 # Figures out the name of the sub/require/eval. Stolen from Carp
@@ -938,10 +949,10 @@ sub _get_subname {
                 "eval '" .
                 $self->_str_len_trim($eval, defined $self->{max_eval_len} ? $self->{max_eval_len} : $self->{defaults}->{max_eval_len}) .
                 "'";
-        }
-    }
+        };
+    };
     return ($info->{subroutine} eq '(eval)') ? 'eval {...}' : $info->{subroutine};
-}
+};
 
 
 # Transform an argument to a function into a string. Stolen from Carp
@@ -952,7 +963,7 @@ sub _format_arg {
 
     if (do { local $@; local $SIG{__DIE__}; eval { $arg->isa(__PACKAGE__) } } or ref $arg) {
         return q{"} . overload::StrVal($arg) . q{"};
-    }
+    };
 
     $arg =~ s/\\/\\\\/g;
     $arg =~ s/"/\\"/g;
@@ -972,10 +983,10 @@ sub _format_arg {
     }
     else {
         $arg =~ s/([[:cntrl:]]|[[:^ascii:]])/sprintf("\\x{%02x}",ord($1))/eg;
-    }
+    };
 
     return $arg;
-}
+};
 
 
 # If a string is too long, trims it with ... . Stolen from Carp
@@ -984,9 +995,9 @@ sub _str_len_trim {
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
         substr($str, $max - 3) = '...';
-    }
+    };
     return $str;
-}
+};
 
 
 # Modify default values for ATTRS
@@ -1002,7 +1013,7 @@ sub _modify_default {
               message => "$class class does not implement default value for `$key' attribute",
               verbosity => 1
         );
-    }
+    };
 
     if ($modifier eq '+') {
         my $old = $attributes->{$key}->{default};
@@ -1011,7 +1022,7 @@ sub _modify_default {
             foreach my $v (ref $value eq 'ARRAY' ? @{ $value } : $value) {
                 next if grep { $v eq $_ } ref $old eq 'ARRAY' ? @{ $old } : $old;
                 push @new, $v;
-            }
+            };
             $attributes->{$key}->{default} = [ @new ];
         }
         elsif ($old =~ /^\d+$/) {
@@ -1019,15 +1030,15 @@ sub _modify_default {
         }
         else {
             $attributes->{$key}->{default} .= $value;
-        }
-    }
+        };
+    };
     elsif ($modifier eq '-') {
         my $old = $attributes->{$key}->{default};
         if (ref $old eq 'ARRAY' or ref $value eq 'Regexp') {
             my @new = ref $old eq 'ARRAY' ? @{ $old } : $old;
             foreach my $v (ref $value eq 'ARRAY' ? @{ $value } : $value) {
                 @new = grep { $v ne $_ } @new;
-            }
+            };
             $attributes->{$key}->{default} = [ @new ];
         }
         elsif ($old =~ /^\d+$/) {
@@ -1035,18 +1046,18 @@ sub _modify_default {
         }
         else {
             $attributes->{$key}->{default} = $value;
-        }
+        };
     }
     else {
         $attributes->{$key}->{default} = $value;
-    }
+    };
 
     if (exists $Class_Defaults{$class}) {
         $Class_Attributes{$class}->{$key}->{default}
         = $Class_Defaults{$class}->{$key}
         = $attributes->{$key}->{default};
-    }
-}
+    };
+};
 
 
 # Create accessors for this class
@@ -1070,10 +1081,10 @@ sub _make_accessors {
                 *{_qualify_to_ref($class . '::' . $key)} = sub {
                     $_[0]->{$key};
                 };
-            }
-        }
-    }
-}
+            };
+        };
+    };
+};
 
 
 # Create caller_info() accessors for this class
@@ -1097,13 +1108,13 @@ sub _make_caller_info_accessors {
                     if ($ignore_level > 0) {
                         $ignore_level --;
                         next;
-                    }
+                    };
                     return $c{$key};
-                }
+                };
             };
-        }
-    }
-}
+        };
+    };
+};
 
 
 # Load another module without eval q{}
@@ -1141,8 +1152,8 @@ __END__
 
 = Class Diagram =
 
-[                       <<exception>>
-                       Exception::Base
+[                           <<exception>>
+                           Exception::Base
  -----------------------------------------------------------------------------
  +ignore_class : ArrayRef                                                {new}
  +ignore_level : Int = 0                                                 {new}
