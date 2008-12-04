@@ -254,7 +254,10 @@ sub import {
 
     while (defined $_[0]) {
         my $name = shift @_;
-        if ($name =~ /^([+-]?)([a-z0-9_]+)$/) {
+        if ($name eq ':all') {
+            # do nothing for backward compatibility
+        }
+        elsif ($name =~ /^([+-]?)([a-z0-9_]+)$/) {
             # Lower case: change default
             my ($modifier, $key) = ($1, $2);
             my $value = shift;

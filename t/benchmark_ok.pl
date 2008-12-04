@@ -149,8 +149,5 @@ $tests{'07_ExceptionClass'}         = sub { My::ExceptionClass->test }       if 
 $tests{'08_ExceptionClassTC'}       = sub { My::ExceptionClassTC->test }     if eval { Exception::Class::TryCatch->VERSION };
 
 print "Benchmark for ", (My::Common::throw_something ? "FAIL" : "OK"), "\n";
-#foreach (keys %tests) {
-#    printf "%s = %d\n", $_, $tests{$_}->();
-#}
 my $result = timethese($ARGV[0] || -1, { %tests });
 cmpthese($result);

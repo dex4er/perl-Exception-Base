@@ -814,6 +814,15 @@ sub test_catch_non_exception {
     $self->assert_equals("Unknown message", $obj8->{message});
 }
 
+sub test_import_all {
+    my $self = shift;
+
+    local $SIG{__DIE__};
+
+    eval 'Exception::Base->import(":all");';
+    $self->assert_equals('', "$@");
+}
+
 sub test_import_class {
     my $self = shift;
 
