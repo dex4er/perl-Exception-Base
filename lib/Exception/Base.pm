@@ -383,8 +383,9 @@ sub import {
 
 # Constructor
 sub new {
-    my $class = shift;
-    $class = ref $class if ref $class;
+    my ($self, %args) = @_;
+
+    my $class = ref $self || $self;
 
     my $attributes;
     my $defaults;
@@ -403,26 +404,25 @@ sub new {
         $defaults = $Class_Defaults{$class};
     };
 
-    my $self = {};
+    my $e = {};
 
     # If the attribute is rw, initialize its value. Otherwise: ignore.
     no warnings 'uninitialized';
-    my %args = @_;
     foreach my $key (keys %args) {
         if ($attributes->{$key}->{is} eq 'rw') {
-            $self->{$key} = $args{$key};
+            $e->{$key} = $args{$key};
         };
     };
 
     # Defaults for this object
-    $self->{defaults} = { %$defaults };
+    $e->{defaults} = { %$defaults };
 
-    bless $self => $class;
+    bless $e => $class;
 
     # Collect system data and eval error
-    $self->_collect_system_data;
+    $e->_collect_system_data;
 
-    return $self;
+    return $e;
 };
 
 
@@ -430,8 +430,9 @@ sub new {
 sub throw {
     my $self = shift;
 
-    my $class = ref $self ? ref $self : $self;
-    my $old;
+    my $class = ref $self || $self;
+
+    my $old_e;
 
     if (not ref $self) {
         # CLASS->throw
@@ -452,39 +453,38 @@ sub throw {
         }
         else {
             # First argument is an old exception
-            $old = shift;
+            $old_e = shift;
         };
     }
     else {
         # $e->throw
-        $old = $self;
+        $old_e = $self;
     };
 
     # Rethrow old exception with replaced attributes
     no warnings 'uninitialized';
     my %args = @_;
-    my $attrs = $old->ATTRS;
+    my $attrs = $old_e->ATTRS;
     foreach my $key (keys %args) {
         if ($attrs->{$key}->{is} eq 'rw') {
-            $old->{$key} = $args{$key};
+            $old_e->{$key} = $args{$key};
         };
     };
-    $old->PROPAGATE;
-    if (ref $old ne $class) {
+    $old_e->PROPAGATE;
+    if (ref $old_e ne $class) {
         # Rebless old object for new class
-        bless $old => $class;
+        bless $old_e => $class;
     };
 
-    die $old;
+    die $old_e;
 };
 
 
 # Recover $@ variable and return exception object
 sub catch {
-    my $self = shift;
+    my ($self) = @_;
 
-    # Recover class from object or set the default
-    my $class = ref $self || $self || __PACKAGE__;
+    my $class = ref $self || $self;
 
     my $e;
     my $new_e;
@@ -517,6 +517,7 @@ sub catch {
 # Smart matching.
 sub matches {
     my ($self, $that) = @_;
+
     my @args;
 
     my $default_attribute = $self->{defaults}->{default_attribute};
@@ -726,6 +727,7 @@ sub to_string {
 # Convert an exception to number
 sub to_number {
     my ($self) = @_;
+
     my $numeric_attribute = $self->{defaults}->{numeric_attribute};
 
     no warnings 'numeric';
@@ -744,6 +746,7 @@ sub to_bool {
 # Stringify caller backtrace. Stolen from Carp
 sub get_caller_stacktrace {
     my ($self) = @_;
+
     my @stacktrace;
 
     my $tid_msg = '';
@@ -934,6 +937,7 @@ sub _caller_info {
     $call_info{line} = 0 unless $call_info{line};
     $call_info{sub_name} = $sub_name;
     $call_info{wantarray} = $call_info{wantarray} ? '@_ = ' : '$_ = ';
+
     return wantarray() ? %call_info : \%call_info;
 };
 
@@ -954,6 +958,7 @@ sub _get_subname {
                 "'";
         };
     };
+
     return ($info->{subroutine} eq '(eval)') ? 'eval {...}' : $info->{subroutine};
 };
 
@@ -999,6 +1004,7 @@ sub _str_len_trim {
     if ($max > 2 and $max < length($str)) {
         substr($str, $max - 3) = '...';
     };
+
     return $str;
 };
 
@@ -1006,7 +1012,8 @@ sub _str_len_trim {
 # Modify default values for ATTRS
 sub _modify_default {
     my ($self, $key, $value, $modifier) = @_;
-    my $class = ref $self ? ref $self : $self;
+
+    my $class = ref $self || $self;
 
     # Modify entry in ATTRS constant. Its elements are not constant.
     my $attributes = $class->ATTRS;
@@ -1060,13 +1067,16 @@ sub _modify_default {
         = $Class_Defaults{$class}->{$key}
         = $attributes->{$key}->{default};
     };
+
+    return $self;
 };
 
 
 # Create accessors for this class
 sub _make_accessors {
     my ($self) = @_;
-    my $class = ref $self ? ref $self : $self;
+
+    my $class = ref $self || $self;
 
     no warnings 'uninitialized';
     my $attributes = $class->ATTRS;
@@ -1087,13 +1097,16 @@ sub _make_accessors {
             };
         };
     };
+
+    return $self;
 };
 
 
 # Create caller_info() accessors for this class
 sub _make_caller_info_accessors {
     my ($self) = @_;
-    my $class = ref $self ? ref $self : $self;
+
+    my $class = ref $self || $self;
 
     foreach my $key (qw< package file line subroutine >) {
         if (not $class->can($key)) {
@@ -1117,12 +1130,15 @@ sub _make_caller_info_accessors {
             };
         };
     };
+
+    return $self;
 };
 
 
 # Load another module without eval q{}
 sub _load_package {
-    my (undef, $package, $version) = @_;
+    my ($self, $package, $version) = @_;
+
     return unless $package;
 
     my $file = $package . '.pm';
@@ -1135,7 +1151,7 @@ sub _load_package {
         $package->VERSION($version);
     };
 
-    return 1;
+    return $self;
 };
 
 
