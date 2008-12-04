@@ -161,7 +161,7 @@ use utf8;
 BEGIN {
     eval {
         require Symbol;
-        Symbol::qualify_to_ref('qualify_to_ref');
+        Symbol::qualify_to_ref('Symbol::qualify_to_ref');
     };
     if (not $@) {
         *_qualify_to_ref = \*Symbol::qualify_to_ref;
