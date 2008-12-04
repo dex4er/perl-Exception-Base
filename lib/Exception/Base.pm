@@ -1200,7 +1200,7 @@ __END__
 
 =over
 
-=item use Exception::Base 'I<attribute>' => I<value>;
+=item C<use Exception::Base 'I<attribute>' => I<value>;>
 
 Changes the default value for I<attribute>.  If the I<attribute> name has no
 special prefix, its default value is replaced with a new I<value>.
@@ -1238,7 +1238,7 @@ included.
 
 =back
 
-=item use Exception::Base 'I<Exception>', ...;
+=item C<use Exception::Base 'I<Exception>', ...;>
 
 Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
@@ -1247,7 +1247,7 @@ class will be based on B<Exception::Base> class.
   use Exception::Base qw< Exception::Custom Exception::SomethingWrong >;
   Exception::Custom->throw;
 
-=item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };
+=item C<use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };>
 
 Loads additional exception class module.  If the module's version is lower
 than given parameter or the module can't be loaded, creates the exception
@@ -1327,7 +1327,7 @@ defined.
 
 =back
 
-The read-write attributes can be set with B<new> constructor.  Read-only
+The read-write attributes can be set with C<new> constructor.  Read-only
 attributes and unknown attributes are ignored.
 
 The constant have to be defined in derivered class if it brings additional
@@ -1400,8 +1400,9 @@ Empty string
 
  Message at %s line %d.
 
-The same as the standard output of die() function.  This is the default
-option.
+The same as the standard output of die() function.  It doesn't include
+"at %s line %d." string if message ends with C<"\n"> character.  This is
+the default option.
 
 =item 3
 
@@ -1410,14 +1411,14 @@ option.
          ...propagated in package %s at %s line %d.
  ...
 
-The output contains full trace of error stack without first B<ignore_level>
-lines and those packages which are listed in B<ignore_package> and
-B<ignore_class> settings.
+The output contains full trace of error stack without first C<ignore_level>
+lines and those packages which are listed in C<ignore_package> and
+C<ignore_class> settings.
 
 =item 4
 
 The output contains full trace of error stack.  In this case the
-B<ignore_level>, B<ignore_package> and B<ignore_class> settings are meaning
+C<ignore_level>, C<ignore_package> and C<ignore_class> settings are meaning
 only for first line of exception's message.
 
 =back
@@ -1425,7 +1426,7 @@ only for first line of exception's message.
 If the verbosity is undef, then the default verbosity for exception objects is
 used.
 
-If the verbosity set with constructor (B<new> or B<throw>) is lower than 3,
+If the verbosity set with constructor (C<new> or C<throw>) is lower than 3,
 the full stack trace won't be collected.
 
 If the verbosity is lower than 2, the full system data (time, pid, tid, uid,
@@ -1520,7 +1521,7 @@ greater than 1.
 
 Contains the error stack as array of array with informations about caller
 functions.  The first 8 elements of the array's row are the same as first 8
-elements of the output of B<caller> function.  Further elements are optional
+elements of the output of C<caller> function.  Further elements are optional
 and are the arguments of called function.  Collected if the verbosity on
 throwing exception was greater than 1.  Contains only the first element of
 caller stack if the verbosity was lower than 3.
@@ -1536,7 +1537,7 @@ C<L<Scalar::Util>::weaken> function is available then reference is weakened.
 
 Contains the array of array which is used for generating "...propagated at"
 message.  The elements of the array's row are the same as first 3 elements of
-the output of B<caller> function.
+the output of C<caller> function.
 
 =item max_arg_len (rw, default: 64)
 
@@ -1602,7 +1603,7 @@ in numeric context.
 =item eval_attribute (default: 'message')
 
 Meta-attribute contains the name of the attribute which is filled if error
-stack is empty.  This attribute will contain value of B<$@> variable.  This
+stack is empty.  This attribute will contain value of C<$@> variable.  This
 attribute has meaning for derived classes.
 
   use Exception::Base 'Exception::My' => {
@@ -1616,7 +1617,7 @@ attribute has meaning for derived classes.
 =item string_attributes (default: ['message'])
 
 Meta-attribute contains the array of names of attributes with defined value
-which are joined to the string returned by B<to_string> method.  If none of
+which are joined to the string returned by C<to_string> method.  If none of
 attributes are defined, the string is created from the first default value of
 attributes listed in the opposite order.
 
@@ -1640,7 +1641,7 @@ attributes listed in the opposite order.
 
 =item Boolean context
 
-True value.  See B<to_bool> method.
+True value.  See C<to_bool> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   if ($@) {
@@ -1649,24 +1650,24 @@ True value.  See B<to_bool> method.
 
 =item Numeric context
 
-Content of attribute pointed by B<numeric_attribute> attribute.  See
-B<to_number> method.
+Content of attribute pointed by C<numeric_attribute> attribute.  See
+C<to_number> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print 0+$@;           # 123
 
 =item String context
 
-Content of attribute which is combined from B<string_attributes> attributes
-with additional informations, depended on B<verbosity> setting.  See
-B<to_string> method.
+Content of attribute which is combined from C<string_attributes> attributes
+with additional informations, depended on C<verbosity> setting.  See
+C<to_string> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print "$@";           # "Message at -e line 1.\n"
 
 =item "~~"
 
-Smart matching operator.  See B<matches> method.
+Smart matching operator.  See C<matches> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print $@ ~~ "Message";                          # 1
@@ -1684,7 +1685,7 @@ Smart matching operator.  See B<matches> method.
 =item new([%I<args>])
 
 Creates the exception object, which can be thrown later.  The system data
-attributes like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not
+attributes like C<time>, C<pid>, C<uid>, C<gid>, C<euid>, C<egid> are not
 filled.
 
 If the key of the argument is read-write attribute, this attribute will be
@@ -1700,28 +1701,28 @@ The constructor reads the list of class attributes from ATTRS constant
 function and stores it in the internal cache for performance reason.  The
 defaults values for the class are also stored in internal cache.
 
-=item throw([%I<args>]])
+=item C<CLASS>-E<gt>throw([%I<args>]])
 
-Creates the exception object and immediately throws it with B<die> system
+Creates the exception object and immediately throws it with C<die> system
 function.
 
   open my $fh, $file
     or Exception::Base->throw( message=>"Can not open file: $file" );
 
-The B<throw> is also exported as a function.
+The C<throw> is also exported as a function.
 
   open my $fh, $file
     or throw 'Exception::Base' => message=>"Can not open file: $file";
 
 =back
 
-The B<throw> can be also used as a method.
+The C<throw> can be also used as a method.
 
 =head1 METHODS
 
 =over
 
-=item throw([%I<args>])
+=item C<$obj>-E<gt>throw([%I<args>])
 
 Immediately throws exception object.  It can be used for rethrowing existing
 exception object.  Additional arguments will override the attributes in
@@ -1734,7 +1735,7 @@ existing exception object.
   eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
   $@->throw if $@->value;
 
-=item throw(I<message>, [%I<args>])
+=item C<$obj>-E<gt>throw(I<message>, [%I<args>])
 
 If the number of I<args> list for arguments is odd, the first argument is a
 message.  This message can be overriden by message from I<args> list.
@@ -1750,6 +1751,112 @@ Immediately rethrows an existing exception object as an other exception class.
   eval { open $f, "w", "/etc/passwd" or Exception::System->throw };
   # convert Exception::System into Exception::Base
   Exception::Base->throw($@);
+
+=item I<CLASS>-E<gt>catch
+
+The exception is recovered from C<$@> variable and method returns an exception
+object if exception is caught or undefined value otherwise.  The C<$@>
+variable is replaced with empty string to avoid endless loop.
+
+  eval { Exception::Base->throw; };
+  if ($@) {
+      my $e = Exception::Base->catch;
+      print $e->to_string;
+  }
+
+If the value is not empty and does not contain the B<Exception::Base> object,
+new exception object is created with class I<CLASS> and its message is based
+on previous value with removed C<" at file line 123."> string and the last end
+of line (LF).
+
+  eval { die "Died\n"; };
+  my $e = Exception::Base->catch;
+  print ref $e;   # "Exception::Base"
+
+=item matches(I<that>)
+
+Checks if the exception object matches the given argument.  The C<matches>
+method overloads C<~~> smart matching operator, so it can be used with
+C<given> keyword.
+
+  my $e = Exception::Base->new( message=>"Message", value=>123 );
+  use feature 'switch';
+  given ($e) {
+    when( "Message" ) { ... }                             # matches
+    when( qr/message/i ) { ... }                          # matches
+    when( ["Exception::Base"] ) { ... }                   # matches
+    when( ["Exception::Foo", "Exception::Bar"] ) { ... }  # doesn't
+    when( { message=>"Message" } ) { ... }                # matches
+    when( { value=>123 } ) { ... }                        # matches
+    when( { message=>"Message", value=>45 } ) { ... }     # doesn't
+    when( { uid=>0 } ) { ... }  # matches if runs with root privileges
+  }
+
+If the argument is a reference to array, it is checked if the object is a
+given class.
+
+  use Exception::Base
+    'Exception::Simple',
+    'Exception::Complex' => { isa => 'Exception::Simple };
+  eval { Exception::Complex->throw() };
+  print $@->matches( ['Exception::Base'] );                    # matches
+  print $@->matches( ['Exception::Simple', 'Exception::X'] );  # matches
+  print $@->matches( ['NullObject'] );                         # doesn't
+
+If the argument is a reference to hash, attributes of the exception
+object is matched.
+
+  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
+  print $@->matches( { message=>"Message" } );             # matches
+  print $@->matches( { value=>123 } );                     # matches
+  print $@->matches( { message=>"Message", value=>45 } );  # doesn't
+
+If the argument is a single string, regexp or code reference or is undefined,
+the default attribute of the exception object is matched (usually it is a
+"message" attribute).
+
+  eval { Exception::Base->throw( message=>"Message" ) };
+  print $@->matches( "Message" );                          # matches
+  print $@->matches( qr/Message/ );                        # matches
+  print $@->matches( qr/[0-9]/ );                          # doesn't
+  print $@->matches( sub{/Message/} );                     # matches
+  print $@->matches( sub{0} );                             # doesn't
+  print $@->matches( undef );                              # doesn't
+
+If argument is a numeric value, the argument matches if C<value> attribute
+matches.
+
+  eval { Exception::Base->throw( value=>123, message=>456 ) } );
+  print $@->matches( 123 );                                # matches
+  print $@->matches( 456 );                                # doesn't
+
+The C<match> method matches for special keywords:
+
+=over
+
+=item -isa
+
+Matches if the object is a given class.
+
+  eval { Exception::Base->new( message=>"Message" ) };
+  print $@->matches( { -isa=>"Exception::Base" } );            # matches
+  print $@->matches( { -isa=>["X::Y", "Exception::Base"] } );  # matches
+
+=item -has
+
+Matches if the object has a given attribute.
+
+  eval { Exception::Base->new( message=>"Message" ) };
+  print $@->matches( { -has=>"Message" } );                    # matches
+
+=item -default
+
+Matches against the default attribute, usually the C<message> attribute.
+
+  eval { Exception::Base->new( message=>"Message" ) };
+  print $@->matches( { -default=>"Message" } );                # matches
+
+=back
 
 =item to_string
 
@@ -1783,120 +1890,15 @@ can be used explicity.
   print "ok" if $@;           # ok
   print "ok" if $@->to_bool;  # ok
 
-=item matches(I<that>)
-
-Checks if the exception object matches the given argument.  The B<matches>
-method overloads B<~~> smart matching operator, so it can be used with
-B<given> keyword.
-
-  my $e = Exception::Base->new( message=>"Message", value=>123 );
-  given ($e) {
-    when( "Message" ) { ... }                             # matches
-    when( qr/message/i ) { ... }                          # matches
-    when( ["Exception::Base"] ) { ... }                   # matches
-    when( ["Exception::Foo", "Exception::Bar"] ) { ... }  # doesn't
-    when( { message=>"Message" } ) { ... }                # matches
-    when( { value=>123 } ) { ... }                        # matches
-    when( { message=>"Message", value=>45 } ) { ... }     # doesn't
-    when( { uid=>0 } ) { ... }  # matches if runs with root privileges
-  }
-
-If the argument is a reference to array, it is checked if the object is a
-given class.
-
-  use Exception::Base
-    'Exception::Simple',
-    'Exception::Complex' => { isa => 'Exception::Simple };
-  eval { Exception::Complex->throw() };
-  print $@ ~~ ['Exception::Base'];                        # matches
-  print $@ ~~ ['Exception::Simple', 'Exception::Other'];  # matches
-  print $@ ~~ ['NullObject'];                             # doesn't
-
-If the argument is a reference to hash, attributes of the exception
-object is matched.
-
-  eval { Exception::Base->throw( message=>"Message", value=>123 ) };
-  print $@ ~~ { message=>"Message" };             # matches
-  print $@ ~~ { value=>123 };                     # matches
-  print $@ ~~ { message=>"Message", value=>45 };  # doesn't
-
-If the argument is a single string, regexp or code reference or is undefined,
-the default attribute of the exception object is matched (usually it is a
-"message" attribute).
-
-  eval { Exception::Base->throw( message=>"Message" ) };
-  print $@ ~~ "Message";                          # matches
-  print $@ ~~ qr/Message/;                        # matches
-  print $@ ~~ qr/[0-9]/;                          # doesn't
-  print $@ ~~ sub{/Message/};                     # matches
-  print $@ ~~ sub{0};                             # doesn't
-  print $@ ~~ undef;                              # doesn't
-
-If argument is a numeric value, the argument matches if B<value> attribute
-matches.
-
-  eval { Exception::Base->throw( value=>123, message=>456 ) };
-  print $@ ~~ 123;                                # matches
-  print $@ ~~ 456;                                # doesn't
-
-The B<match> method matches for special keywords:
-
-=over
-
-=item -isa
-
-Matches if the object is a given class.
-
-  eval { Exception::Base->new( message=>"Message" ) };
-  print $@ ~~ { -isa=>"Exception::Base" };            # matches
-  print $@ ~~ { -isa=>["X::Y", "Exception::Base"] };  # matches
-
-=item -has
-
-Matches if the object has a given attribute.
-
-  eval { Exception::Base->new( message=>"Message" ) };
-  print $@ ~~ { -has=>"Message" };                    # matches
-
-=item -default
-
-Matches against the default attribute, usually the B<message> attribute.
-
-  eval { Exception::Base->new( message=>"Message" ) };
-  print $@ ~~ { -default=>"Message" };                # matches
-
-=back
-
-=item I<CLASS>-E<gt>catch
-
-The exception is recovered from B<$@> variable and method returns an exception
-object if exception is caught or undefined value otherwise.  The B<$@>
-variable is replaced with empty string to avoid endless loop.
-
-  eval { Exception::Base->throw; };
-  if ($@) {
-      my $e = Exception::Base->catch;
-      print $e->to_string;
-  }
-
-If the value is not empty and does not contain the B<Exception::Base> object,
-new exception object is created with class I<CLASS> and its message is based
-on previous value with removed C<" at file line 123."> string and the last end
-of line (LF).
-
-  eval { die "Died\n"; };
-  my $e = Exception::Base->catch;
-  print ref $e;   # "Exception::Base"
-
 =item get_caller_stacktrace
 
 Returns an array of strings or string with caller stack trace.  It is
-implicity used by B<to_string> method.
+implicity used by C<to_string> method.
 
 =item PROPAGATE
 
-Checks the caller stack and fills the B<propagated_stack> attribute.  It is
-usually used if B<die> system function was called without any arguments.
+Checks the caller stack and fills the C<propagated_stack> attribute.  It is
+usually used if C<die> system function was called without any arguments.
 
 =item package
 
@@ -1923,8 +1925,8 @@ Returns the subroutine name which thrown an exception.
 =item _collect_system_data
 
 Collects system data and fills the attributes of exception object.  This
-method is called automatically if exception if thrown.  It can be used by
-derived class.
+method is called automatically if exception if thrown or created by
+C<new> constructor.  It can be overriden by derived class.
 
   package Exception::Special;
   use base 'Exception::Base';
@@ -1938,7 +1940,7 @@ derived class.
     $self->{special} = get_special_value();
     return $self;
   }
-  INIT {
+  UNITCHECK {
     __PACKAGE__->_make_accessors;
   }
   1;
@@ -1952,7 +1954,7 @@ each derived class which defines new attributes.
 
   package Exception::My;
   # (...)
-  INIT {
+  UNITCHECK {
     __PACKAGE__->_make_accessors;
   }
 
@@ -2005,7 +2007,7 @@ success scenario.
 
 =item L<Class::Throwable>
 
-Elegant OO exceptions similar to B<Exception::Class> and B<Exception::Base>.
+Elegant OO exceptions similar to C<Exception::Class> and B<Exception::Base>.
 It might be missing some features found in B<Exception::Base> and
 L<Exception::Class>.
 
@@ -2027,7 +2029,7 @@ The B<Exception::Base> is also a base class for enchanced classes:
 
 =item L<Exception::System>
 
-The exception class for system or library calls which modifies B<$!> variable.
+The exception class for system or library calls which modifies C<$!> variable.
 
 =item L<Exception::Died>
 
@@ -2047,9 +2049,9 @@ convert simple L<perlfunc/warn> into an exception object.
 =head2 New exception classes
 
 The B<Exception::Base> module allows to create new exception classes easly.
-You can use B<import> interface or L<base> module to do it.
+You can use C<import> interface or L<base> module to do it.
 
-The B<import> interface allows to create new class with new read-write
+The C<import> interface allows to create new class with new read-write
 attributes.
 
   package Exception::Simple;
@@ -2058,7 +2060,7 @@ attributes.
     string_attributes => qw< message reason method >,
   };
 
-For more complex exceptions you can redefine B<ATTRS> constant.
+For more complex exceptions you can redefine C<ATTRS> constant.
 
   package Exception::Complex;
   use base 'Exception::Base';
