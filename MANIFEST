@@ -2,7 +2,6 @@ Build.PL
 Changes
 eg/eval_throw.pl
 eg/file-not-found_exception.pl
-eg/try_catch_throw.pl
 inc/Test/Unit/Lite.pm
 Incompatibilities
 lib/Exception/Base.pm
@@ -18,7 +17,6 @@ t/cover.sh
 t/pod.t
 t/pod_coverage.t
 t/profile_eval.pl
-t/profile_try.pl
 t/test.pl
 t/tlib/Exception/BaseTest.pm
 t/tlib/Exception/BaseTest/LoadedException.pm
