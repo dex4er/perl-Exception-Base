@@ -15,6 +15,24 @@
   print $e->to_string;
   print $e->to_number;
 
+* New attribute string_attributes replaced stringify_attributes.
+
+  Was:
+
+  use Exception::Base 'Exception::My' => {
+    has => 'myattr',
+    myattr => 'default',
+    stringify_attributes => ['message', 'myattr'],
+  };
+
+  Should be:
+
+  use Exception::Base 'Exception::My' => {
+    has => 'myattr',
+    myattr => 'default',
+    string_attributes => ['message', 'myattr'],
+  };
+
 * Removed export of try/catch/throw methods and :all tag.
 
   Was:
@@ -51,16 +69,15 @@
   elsif ($e->matches( { value => 9 } )) { warn "value" }
   elsif ($e->matches( qr/^Error/ )) { warn "regexp" }
 
-* catch method takes no arguments.
+* Method catch takes no arguments.
 
   Was:
 
-  $status = Exception::Base->catch( my $e );
+  my $status = Exception::Base->catch( my $e );
 
   Should be:
 
-  $e = Exception::Base->catch;
-  $status = !! $e;
+  my status = !!(my $e = Exception::Base->catch);
 
   or:
 
@@ -72,7 +89,8 @@
 
   Should be:
 
-  if ($@ and my $e = Exception::Base->catch) {
+  if ($@) {
+    my $e = Exception::Base->catch;
     ...
   }
 
