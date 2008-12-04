@@ -1137,7 +1137,7 @@ sub _load_package {
 
 
 # Module initialization
-UNITCHECK {
+BEGIN {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
 };
@@ -1190,8 +1190,8 @@ __END__
  +get_caller_stacktrace() : Array[Str]|Str
  +PROPAGATE()
  #_collect_system_data()
- #_make_accessors()                                                {unitcheck}
- #_make_caller_info_accessors()                                    {unitcheck}
+ #_make_accessors()                                                    {begin}
+ #_make_caller_info_accessors()                                        {begin}
  <<constant>> +ATTRS() : HashRef                                              ]
 
 =end umlwiki
@@ -1940,7 +1940,7 @@ C<new> constructor.  It can be overriden by derived class.
     $self->{special} = get_special_value();
     return $self;
   }
-  UNITCHECK {
+  BEGIN {
     __PACKAGE__->_make_accessors;
   }
   1;
@@ -1954,7 +1954,7 @@ each derived class which defines new attributes.
 
   package Exception::My;
   # (...)
-  UNITCHECK {
+  BEGIN {
     __PACKAGE__->_make_accessors;
   }
 
