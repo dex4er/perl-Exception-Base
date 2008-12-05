@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
-0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-02
+0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-05
 
 New:
 
@@ -13,6 +13,8 @@ New:
 
 * New internal function qualify_to_ref() which uses Symbol module if it is
   possible.
+
+* Read-only attributes can be defined with pragma interface.
 
 Removed:
 

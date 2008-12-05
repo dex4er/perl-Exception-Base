@@ -306,8 +306,19 @@ sub import {
             };
             my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
             $version = 0.01 if not $version;
-            my $has = defined $param->{has} ? $param->{has} : [ ];
-            $has = [ $has ] if ref $has ne 'ARRAY';
+
+            my $has = defined $param->{has} ? $param->{has} : { rw => [ ], ro => [ ] };
+            if (ref $has eq 'ARRAY') {
+                $has = { rw => $has, ro => [ ] };
+            }
+            elsif (not ref $has) {
+                $has = { rw => [ $has ], ro => [ ] };
+            };
+            foreach my $mode ('rw', 'ro') {
+                if (not ref $has->{$mode}) {
+                    $has->{$mode} = [ defined $has->{$mode} ? $has->{$mode} : () ];
+                };
+            };
 
             # Base class is needed
             if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
@@ -339,14 +350,16 @@ sub import {
 
             # Create the hash with overriden attributes
             my %overriden_attributes;
-            # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
-            foreach my $attribute (@{ $has }) {
-                if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
-                    Exception::Base->throw(
-                        message => "Attribute name `$attribute' can not be defined for $name class"
-                    );
+            # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
+            foreach my $mode ('rw', 'ro') {
+                foreach my $attribute (@{ $has->{$mode} }) {
+                    if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+                        Exception::Base->throw(
+                            message => "Attribute name `$attribute' can not be defined for $name class"
+                        );
+                    };
+                    $overriden_attributes{$attribute} = { is => $mode };
                 };
-                $overriden_attributes{$attribute} = { is => 'rw' };
             };
             # Class => { message => "overriden default", ... }
             foreach my $attribute (keys %{ $param }) {
@@ -1279,15 +1292,32 @@ given class and has the given $VERSION variable.
 
 The newly created class will be based on given class.
 
+  use Exception::Base
+    'Exception::My',
+    'Exception::Nested' => { isa => 'Exception::My };
+
 =item version
 
 The class will be created only if the module's version is lower than given
 parameter and will have the version given in the argument.
 
+  use Exception::Base
+    'Exception::My' => { version => 1.23 };
+
 =item has
 
-The class will contain new rw attibute (if parameter is a string) or
-attributes (if parameter is a reference to array of strings).
+The class will contain new rw attibute (if parameter is a string) or new rw
+attributes (if parameter is a reference to array of strings) or new rw or ro
+attributes (if parameter is a reference to hash of array of strings with rw
+and ro as hash key).
+
+  use Exception::Base
+    'Exception::Simple' => { has => 'field' },
+    'Exception::More' => { has => [ 'field1', 'field2' ] },
+    'Exception::Advanced' => { has => {
+        ro => [ 'field1', 'field2' ],
+        rw => [ 'field3' ]
+    } };
 
 =item message
 
@@ -1306,17 +1336,10 @@ The class will have the default property for the given attribute.
 =back
 
   use Exception::Base
-    'Exception::IO',
-    'Exception::FileNotFound' => { isa => 'Exception::IO',
-                                   has => [ 'filename' ] },
-    'Exception::My' => { version => 0.2 },
-    'Exception::WithDefault' => { message => 'Default message' };
-  eval { Exception::FileNotFound->throw( filename=>"/foo/bar" ); };
-  if ($@) {
-    my $e = Exception::Base->catch;
-    if ($e->isa('Exception::IO')) { warn "can be also FileNotFound"; }
-    if ($e->isa('Exception::My')) { print $e->VERSION; }
-  }
+    'Exception::WithDefault' => { message => 'Default message' },
+    'Exception::Reason' => {
+        has => [ 'reason' ],
+        string_attributes => [ 'message', 'reason' ] };
 
 =back
 

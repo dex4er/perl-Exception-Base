@@ -945,22 +945,33 @@ sub test_import_class {
     $self->assert_equals("attr3", $obj16->{attr3});
     $self->assert_equals("attr3", $obj16->attr3);
 
-    eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => "has"});';
-    $self->assert_matches(qr/can not be defined/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => "message"});';
-    $self->assert_matches(qr/can not be defined/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => "VERSION"});';
-    $self->assert_matches(qr/can not be defined/, "$@");
-
-    eval 'package Exception::Base::import::Test18; Exception::Base->import("Exception::Base::import::Test18" => {version=>2.18});';
+    eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => { rw => "attr4", ro => [ "attr5" ] } });';
     $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test18->throw;';
-    my $obj18 = $@;
-    $self->assert($obj18->isa("Exception::Base::import::Test18"), '$obj18->isa("Exception::Base::import::Test18")');
-    $self->assert($obj18->isa("Exception::Base"), '$obj18->isa("Exception::Base")');
-    $self->assert_equals('2.18', $obj18->VERSION);
+    eval 'Exception::Base::import::Test17->throw(attr4=>"attr4", attr5=>"attr5");';
+    my $obj17 = $@;
+    $self->assert($obj17->isa("Exception::Base::import::Test17"), '$obj17->isa("Exception::Base::import::Test17")');
+    $self->assert($obj17->isa("Exception::Base"), '$obj17->isa("Exception::Base")');
+    $self->assert_equals("attr4", $obj17->{attr4});
+    $self->assert_equals("attr4", $obj17->attr4);
+    $self->assert_null($obj17->{attr5});
+    $self->assert_null($obj17->attr5);
+
+    eval 'Exception::Base->import("Exception::Base::import::Test18" => {has => "has"});';
+    $self->assert_matches(qr/can not be defined/, "$@");
+
+    eval 'Exception::Base->import("Exception::Base::import::Test18" => {has => [ "message" ]});';
+    $self->assert_matches(qr/can not be defined/, "$@");
+
+    eval 'Exception::Base->import("Exception::Base::import::Test18" => {has => { ro => "VERSION" } });';
+    $self->assert_matches(qr/can not be defined/, "$@");
+
+    eval 'package Exception::Base::import::Test19; Exception::Base->import("Exception::Base::import::Test19" => {version=>2.19});';
+    $self->assert_equals('', "$@");
+    eval 'Exception::Base::import::Test19->throw;';
+    my $obj19 = $@;
+    $self->assert($obj19->isa("Exception::Base::import::Test19"), '$obj19->isa("Exception::Base::import::Test19")');
+    $self->assert($obj19->isa("Exception::Base"), '$obj19->isa("Exception::Base")');
+    $self->assert_equals('2.19', $obj19->VERSION);
 
     eval 'Exception::Base->import("Exception::BaseTest::SyntaxError");';
     $self->assert_matches(qr/Can not load/, "$@");
