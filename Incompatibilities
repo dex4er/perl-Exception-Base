@@ -1,3 +1,100 @@
+0.19 -> 0.20
+
+* New methods to_number/to_string replaced numerify/stringify.
+
+  Was:
+
+  my $e = Exception::Base->catch;
+  print $e->stringify(4);
+  print $e->numerify;
+
+  Should be:
+
+  my $e = Exception::Base->catch;
+  $e->verbosity = 4;  # or: local $e->{verbosity} = 4;
+  print $e->to_string;
+  print $e->to_number;
+
+* New attribute string_attributes replaced stringify_attributes.
+
+  Was:
+
+  use Exception::Base 'Exception::My' => {
+    has => 'myattr',
+    myattr => 'default',
+    stringify_attributes => ['message', 'myattr'],
+  };
+
+  Should be:
+
+  use Exception::Base 'Exception::My' => {
+    has => 'myattr',
+    myattr => 'default',
+    string_attributes => ['message', 'myattr'],
+  };
+
+* Removed export of try/catch/throw methods and :all tag.
+
+  Was:
+
+  use Exception::Base ':all';
+  try eval { do_something };
+  if (catch my $e) {
+    print $e->message;
+  }
+
+  Should be:
+
+  use Exception::Base;
+  eval { do_something };
+  if ($@ and my $e = Exception::Base->catch) {
+    print $e->message;
+  }
+
+* Removed method with.
+
+  Was:
+
+  my $e = Exception::Base->catch;
+  if ($e->with( 'message' )) { warn "default attribute" }
+  elsif ($e->with( -isa => ['Exception::Foo'] )) { warn "isa" }
+  elsif ($e->with( value => 9 )) { warn "value" }
+  elsif ($e->with( qr/^Error/ )) { warn "regexp" }
+
+  Should be:
+
+  my $e = Exception::Base->catch;
+  if ($e->matches( 'message' ) { warn "default attribute" }
+  elsif ($e->matches( ['Exception::Foo'] )) { warn "isa" }
+  elsif ($e->matches( { value => 9 } )) { warn "value" }
+  elsif ($e->matches( qr/^Error/ )) { warn "regexp" }
+
+* Method catch takes no arguments.
+
+  Was:
+
+  my $status = Exception::Base->catch( my $e );
+
+  Should be:
+
+  my status = !!(my $e = Exception::Base->catch);
+
+  or:
+
+  Was:
+
+  if (catch my $e) {
+    ...
+  };
+
+  Should be:
+
+  if ($@) {
+    my $e = Exception::Base->catch;
+    ...
+  }
+
+------------------------------------------------------------------------
 0.16 -> 0.17
 
 * The catch method doesn't rethrow a caught exception.  The class name of static

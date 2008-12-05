@@ -12,16 +12,17 @@ SYNOPSIS
              isa => 'Exception::IO',        # create new based on previous
              message => 'File not found',   # override default message
              has => [ 'filename' ],         # define new rw attribute
-             stringify_attributes => [ 'message', 'filename' ],
+             string_attributes => [ 'message', 'filename' ],
          };                                 # output message and filename
 
-      # eval/$@ (fastest method)
+      # eval is used as "try" block
       eval {
         open my $file, '/etc/passwd'
           or Exception::FileNotFound->throw(
                 message=>'Something wrong',
                 filename=>'/etc/passwd');
       };
+      # standard syntax for older Perl
       if ($@) {
         my $e = Exception::Base->catch;   # convert $@ into exception
         if ($e->isa('Exception::IO')) { warn "IO problem"; }
@@ -44,24 +45,6 @@ SYNOPSIS
         }
       }
 
-      # try/catch (15x slower)
-      use Exception::Base ':all';   # import try/catch/throw
-      try eval {
-        open my $file, '/etc/passwd'
-          or throw 'Exception::FileNotFound' =>
-                        message=>'Something wrong',
-                        filename=>'/etc/passwd';
-      };
-      if (catch my $e) {
-        # $e is an exception object so no need to check if is blessed
-        if ($e->isa('Exception::IO')) { warn "IO problem"; }
-        elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
-        elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-        elsif ($e->matches({value=>9})) { warn "something happened"; }
-        elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
-        else { $e->throw; } # rethrow the exception
-      }
-
       # $@ has to be recovered ASAP!
       eval { die "this die will be caught" };
       my $e = Exception::Base->catch;
@@ -70,19 +53,10 @@ SYNOPSIS
          (...)
       }
 
-      # try/catch can be separated with another eval
-      try eval { die "this die will be caught" };
-      do { eval { die "this die will be ignored" } };
-      catch my $e;   # only first die is recovered
-
       # the exception can be thrown later
       my $e = Exception::Base->new;
       # (...)
       $e->throw;
-
-      # try returns eval's value for scalar or array context
-      $v = try eval { do_something_returning_scalar(); };
-      @v = try [eval { do_something_returning_array(); }];
 
       # ignore our package in stack trace
       package My::Package;
@@ -114,8 +88,6 @@ DESCRIPTION
 
     * no external modules dependencies, requires core Perl modules only
 
-    * implements error stack, the try/catch blocks can be nested
-
     * the default behaviour of exception class can be changed globally or
       just for the thrown exception
 
@@ -130,6 +102,11 @@ DESCRIPTION
     * prints just an error message or dumps full stack trace
 
     * can propagate (rethrow) an exception
+
+    * can ignore some packages for stack trace output
+
+    * some defaults (i.e. verbosity) can be different for different
+      exceptions
 
 AUTHOR
     Piotr Roszatycki <dexter@debian.org>

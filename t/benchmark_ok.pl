@@ -40,29 +40,14 @@ BEGIN {
 
 {
     package My::ExceptionEval;
-    use Exception::Base ':all', 'Exception::My';
+    use Exception::Base 'Exception::My';
     sub test {
         eval {
             Exception::My->throw(message=>'Message') if My::Common::throw_something;
         };
         if ($@) {
 	    my $e = Exception::Base->catch;
-            if ($e->isa('Exception::My') and $e->with('Message')) {
-                1;
-            }
-        }
-    }
-}
-
-{
-    package My::ExceptionTry;
-    use Exception::Base ':all', 'Exception::My';
-    sub test {
-        try eval {
-            Exception::My->throw(message=>'Message') if My::Common::throw_something;
-        };
-        if (catch my $e) {
-            if ($e->isa('Exception::My') and $e->with('Message')) {
+            if ($e->isa('Exception::My') and $e->matches('Message')) {
                 1;
             }
         }
@@ -71,29 +56,14 @@ BEGIN {
 
 {
     package My::Exception1Eval;
-    use Exception::Base ':all', 'Exception::My';
+    use Exception::Base 'Exception::My';
     sub test {
         eval {
             Exception::My->throw(message=>'Message', verbosity=>1) if My::Common::throw_something;
         };
         if ($@) {
 	    my $e = Exception::Base->catch;
-            if ($e->isa('Exception::My') and $e->with('Message')) {
-                1;
-            }
-        }
-    }
-}
-
-{
-    package My::Exception1Try;
-    use Exception::Base ':all', 'Exception::My';
-    sub test {
-        try eval {
-            Exception::My->throw(message=>'Message', verbosity=>1) if My::Common::throw_something;
-        };
-        if (catch my $e) {
-            if ($e->isa('Exception::My') and $e->with('Message')) {
+            if ($e->isa('Exception::My') and $e->matches('Message')) {
                 1;
             }
         }
@@ -171,18 +141,13 @@ my %tests = (
     '01_EvalDieScalar'             => sub { My::EvalDieScalar->test },
     '02_EvalDieObject'             => sub { My::EvalDieObject->test },
     '03_ExceptionEval'             => sub { My::ExceptionEval->test },
-    '04_ExceptionTry'              => sub { My::ExceptionTry->test },
-    '05_Exception1Eval'            => sub { My::Exception1Eval->test },
-    '06_Exception1Try'             => sub { My::Exception1Try->test },
+    '04_Exception1Eval'            => sub { My::Exception1Eval->test },
 );
-$tests{'07_Error'}                  = sub { My::Error->test }                if eval { Error->VERSION };
-$tests{'08_ClassThrowable'}         = sub { My::ClassThrowable->test }       if eval { Class::Throwable->VERSION };
-$tests{'09_ExceptionClass'}         = sub { My::ExceptionClass->test }       if eval { Exception::Class->VERSION };
-$tests{'10_ExceptionClassTC'}       = sub { My::ExceptionClassTC->test }     if eval { Exception::Class::TryCatch->VERSION };
+$tests{'05_Error'}                  = sub { My::Error->test }                if eval { Error->VERSION };
+$tests{'06_ClassThrowable'}         = sub { My::ClassThrowable->test }       if eval { Class::Throwable->VERSION };
+$tests{'07_ExceptionClass'}         = sub { My::ExceptionClass->test }       if eval { Exception::Class->VERSION };
+$tests{'08_ExceptionClassTC'}       = sub { My::ExceptionClassTC->test }     if eval { Exception::Class::TryCatch->VERSION };
 
 print "Benchmark for ", (My::Common::throw_something ? "FAIL" : "OK"), "\n";
-#foreach (keys %tests) {
-#    printf "%s = %d\n", $_, $tests{$_}->();
-#}
 my $result = timethese($ARGV[0] || -1, { %tests });
 cmpthese($result);

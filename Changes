@@ -1,4 +1,34 @@
 ------------------------------------------------------------------------
+0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-05
+
+New:
+
+* Major API changes.
+
+* New methods to_number/to_string replaced numerify/stringify.
+
+* New method get_caller_stacktrace replaced _caller_backtrace.
+
+* New method: to_bool.
+
+* New internal function qualify_to_ref() which uses Symbol module if it is
+  possible.
+
+* Read-only attributes can be defined with pragma interface.
+
+Removed:
+
+* Removed methods: try, with.
+
+* Removed export of try/catch/throw methods and :all tag.
+
+Changes:
+
+* Reference arguments stored as caller_stack are weakened if it is possible.
+
+* catch method takes no arguments.
+
+------------------------------------------------------------------------
 0.1901 | Piotr Roszatycki <dexter@debian.org> | 2008-10-13
 
 Fixes:

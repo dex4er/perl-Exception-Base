@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = 0.19_01;
+our $VERSION = '0.20';
 
 =head1 NAME
 
@@ -20,16 +20,17 @@ Exception::Base - Lightweight exceptions
          isa => 'Exception::IO',        # create new based on previous
          message => 'File not found',   # override default message
          has => [ 'filename' ],         # define new rw attribute
-         stringify_attributes => [ 'message', 'filename' ],
+         string_attributes => [ 'message', 'filename' ],
      };                                 # output message and filename
 
-  # eval/$@ (fastest method)
+  # eval is used as "try" block
   eval {
     open my $file, '/etc/passwd'
       or Exception::FileNotFound->throw(
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
+  # standard syntax for older Perl
   if ($@) {
     my $e = Exception::Base->catch;   # convert $@ into exception
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
@@ -52,24 +53,6 @@ Exception::Base - Lightweight exceptions
     }
   }
 
-  # try/catch (15x slower)
-  use Exception::Base ':all';   # import try/catch/throw
-  try eval {
-    open my $file, '/etc/passwd'
-      or throw 'Exception::FileNotFound' =>
-                    message=>'Something wrong',
-                    filename=>'/etc/passwd';
-  };
-  if (catch my $e) {
-    # $e is an exception object so no need to check if is blessed
-    if ($e->isa('Exception::IO')) { warn "IO problem"; }
-    elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
-    elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->matches({value=>9})) { warn "something happened"; }
-    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
-    else { $e->throw; } # rethrow the exception
-  }
-
   # $@ has to be recovered ASAP!
   eval { die "this die will be caught" };
   my $e = Exception::Base->catch;
@@ -78,19 +61,10 @@ Exception::Base - Lightweight exceptions
      (...)
   }
 
-  # try/catch can be separated with another eval
-  try eval { die "this die will be caught" };
-  do { eval { die "this die will be ignored" } };
-  catch my $e;   # only first die is recovered
-
   # the exception can be thrown later
   my $e = Exception::Base->new;
   # (...)
   $e->throw;
-
-  # try returns eval's value for scalar or array context
-  $v = try eval { do_something_returning_scalar(); };
-  @v = try [eval { do_something_returning_array(); }];
 
   # ignore our package in stack trace
   package My::Package;
@@ -135,10 +109,6 @@ no external modules dependencies, requires core Perl modules only
 
 =item *
 
-implements error stack, the try/catch blocks can be nested
-
-=item *
-
 the default behaviour of exception class can be changed globally or just for
 the thrown exception
 
@@ -166,6 +136,14 @@ prints just an error message or dumps full stack trace
 
 can propagate (rethrow) an exception
 
+=item *
+
+can ignore some packages for stack trace output
+
+=item *
+
+some defaults (i.e. verbosity) can be different for different exceptions
+
 =back
 
 =for readme stop
@@ -180,19 +158,40 @@ use utf8;
 
 
 # Safe operations on symbol stash
-BEGIN { *Symbol::fetch_glob = sub ($) { no strict 'refs'; \*{$_[0]} } unless defined &Symbol::fetch_glob; }
+BEGIN {
+    eval {
+        require Symbol;
+        Symbol::qualify_to_ref('Symbol::qualify_to_ref');
+    };
+    if (not $@) {
+        *_qualify_to_ref = \*Symbol::qualify_to_ref;
+    }
+    else {
+        *_qualify_to_ref = sub ($;) { no strict 'refs'; \*{ $_[0] } };
+    };
+};
 
 
-# Syntactic sugar
-use Exporter ();
-our @EXPORT_OK = qw< try catch throw >;
-our %EXPORT_TAGS = (all => [@EXPORT_OK]);
+# Use weaken ref on stack if available
+BEGIN {
+    eval {
+        require Scalar::Util;
+        my $ref = \1;
+        Scalar::Util::weaken($ref);
+    };
+    if (not $@) {
+        *_HAVE_SCALAR_UTIL_WEAKEN = sub () { !! 1 };
+    }
+    else {
+        *_HAVE_SCALAR_UTIL_WEAKEN = sub () { ! 1 };
+    };
+};
 
 
-# Overload the stringify operation
-use overload 'bool'   => sub () { 1; },
-             '0+'     => 'numerify',
-             '""'     => sub () { $_[0]->stringify() },
+# Overload the cast operations
+use overload 'bool'   => 'to_bool',
+             '0+'     => 'to_number',
+             '""'     => 'to_string',
              fallback => 1;
 
 # Overload smart matching for Perl 5.10.  Don't "use if" not available for base Perl 5.6.
@@ -202,11 +201,11 @@ BEGIN {
              '~~'     => 'matches',
              fallback => 1;
     } if ($] >= 5.010);
-}
+};
 
 
 # Constant regexp for numerify value check
-use constant RE_NUM_INT  => qr/^[+-]?\d+$/;
+use constant _RE_NUM_INT  => qr/^[+-]?\d+$/;
 
 
 # List of class attributes (name => { is=>ro|rw, default=>value })
@@ -215,7 +214,7 @@ use constant ATTRS => {
     default_attribute    => { default => 'message' },
     numeric_attribute    => { default => 'value' },
     eval_attribute       => { default => 'message' },
-    stringify_attributes => { default => [ 'message' ] },
+    string_attributes    => { default => [ 'message' ] },
     message              => { is => 'rw', default => 'Unknown exception' },
     value                => { is => 'rw', default => 0 },
     caller_stack         => { is => 'ro' },
@@ -249,21 +248,14 @@ my %Class_Defaults;
 my %Isa_Package;
 
 
-# Exception stack for try/catch blocks
-my @Exception_Stack;
-
-
-# Export try/catch and create additional exception packages
+# Create additional exception packages
 sub import {
     my $pkg = shift;
 
-    my @export;
-
     while (defined $_[0]) {
         my $name = shift @_;
-        if ($name =~ /^(try|catch|throw|:all)$/) {
-            # Export our functions
-            push @export, $name;
+        if ($name eq ':all') {
+            # do nothing for backward compatibility
         }
         elsif ($name =~ /^([+-]?)([a-z0-9_]+)$/) {
             # Lower case: change default
@@ -282,7 +274,12 @@ sub import {
                 next if $mod_version and $mod_version >= $version;
 
                 # Package is needed
-                do { local $SIG{__DIE__}; eval "use $name $version;" };
+                {
+                    local $SIG{__DIE__};
+                    eval {
+                        $pkg->_load_package($name, $version);
+                    };
+                };
                 if ($@) {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
@@ -290,13 +287,13 @@ sub import {
                             message => "Can not load available $name class: $@",
                             verbosity => 1
                         );
-                    }
+                    };
                 }
                 else {
                     # Module is loaded: go to next
                     next;
-                }
-            }
+                };
+            };
 
             next if $name eq __PACKAGE__;
 
@@ -306,46 +303,64 @@ sub import {
                     message => "Exceptions can only be created with " . __PACKAGE__ . " class",
                     verbosity => 1
                 );
-            }
+            };
             my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
             $version = 0.01 if not $version;
-            my $has = defined $param->{has} ? $param->{has} : [ ];
-            $has = [ $has ] if ref $has ne 'ARRAY';
+
+            my $has = defined $param->{has} ? $param->{has} : { rw => [ ], ro => [ ] };
+            if (ref $has eq 'ARRAY') {
+                $has = { rw => $has, ro => [ ] };
+            }
+            elsif (not ref $has) {
+                $has = { rw => [ $has ], ro => [ ] };
+            };
+            foreach my $mode ('rw', 'ro') {
+                if (not ref $has->{$mode}) {
+                    $has->{$mode} = [ defined $has->{$mode} ? $has->{$mode} : () ];
+                };
+            };
 
             # Base class is needed
-            {
-                if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
-                    eval "use $isa;";
-                    if ($@) {
-                        Exception::Base->throw(
-                            message => "Base class $isa for class $name can not be found",
-                            verbosity => 1
-                        );
-                    }
-                }
-            }
+            if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
+                eval {
+                    $pkg->_load_package($isa);
+                };
+                if ($@) {
+                    Exception::Base->throw(
+                        message => "Base class $isa for class $name can not be found",
+                        verbosity => 1
+                    );
+                };
+            };
 
             # Handle defaults for object attributes
             my $attributes;
-            do { local $SIG{__DIE__}; eval { $attributes = $isa->ATTRS } };
+            {
+                local $SIG{__DIE__};
+                eval {
+                    $attributes = $isa->ATTRS;
+                };
+            };
             if ($@) {
                 Exception::Base->throw(
                     message => "$name class is based on $isa class which does not implement ATTRS",
                     verbosity => 1
                 );
-            }
+            };
 
             # Create the hash with overriden attributes
             my %overriden_attributes;
-            # Class => { has => [ "attr1", "attr2", "attr3", ... ] }
-            foreach my $attribute (@{ $has }) {
-                if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
-                    Exception::Base->throw(
-                        message => "Attribute name `$attribute' can not be defined for $name class"
-                    );
-                }
-                $overriden_attributes{$attribute} = { is => 'rw' };
-            }
+            # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
+            foreach my $mode ('rw', 'ro') {
+                foreach my $attribute (@{ $has->{$mode} }) {
+                    if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+                        Exception::Base->throw(
+                            message => "Attribute name `$attribute' can not be defined for $name class"
+                        );
+                    };
+                    $overriden_attributes{$attribute} = { is => $mode };
+                };
+            };
             # Class => { message => "overriden default", ... }
             foreach my $attribute (keys %{ $param }) {
                 next if $attribute =~ /^(isa|version|has)$/;
@@ -356,71 +371,34 @@ sub import {
                         message => "$isa class does not implement default value for `$attribute' attribute",
                         verbosity => 1
                     );
-                }
+                };
                 $overriden_attributes{$attribute} = {};
                 $overriden_attributes{$attribute}->{default} = $param->{$attribute};
                 foreach my $property (keys %{ $attributes->{$attribute} }) {
                     next if $property eq 'default';
                     $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
-                }
-            }
+                };
+            };
 
             # Create the new package
-            ${ *{Symbol::fetch_glob($name . '::VERSION')} } = $version;
-            @{ *{Symbol::fetch_glob($name . '::ISA')} } = ($isa);
-            *{Symbol::fetch_glob($name . '::ATTRS')} = sub {
-                return { %{ $isa->ATTRS }, %overriden_attributes };
+            ${ *{_qualify_to_ref($name . '::VERSION')} } = $version;
+            @{ *{_qualify_to_ref($name . '::ISA')} } = ($isa);
+            *{_qualify_to_ref($name . '::ATTRS')} = sub () {
+                +{ %{ $isa->ATTRS }, %overriden_attributes };
             };
             $name->_make_accessors;
         }
     }
 
-    if (@export) {
-        my $callpkg = caller;
-        Exporter::export($pkg, $callpkg, @export);
-    }
-
-    return 1;
-}
-
-
-# Unexport try/catch
-sub unimport {
-    my $pkg = shift;
-    my $callpkg = caller;
-
-    # Unexport all by default
-    my @export = scalar @_ ? @_ : ':all';
-
-    while (my $name = shift @export) {
-        if ($name eq ':all') {
-            unshift @export, @EXPORT_OK;
-        }
-        elsif ($name =~ /^(try|catch|throw)$/) {
-            if (defined *{Symbol::fetch_glob($callpkg . '::' . $name)}{CODE}) {
-                # Store and restore other typeglobs than CODE
-                my %glob;
-                foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-                    $glob{$type} = *{Symbol::fetch_glob($callpkg . '::' . $name)}{$type}
-                        if defined *{Symbol::fetch_glob($callpkg . '::' . $name)}{$type};
-                }
-                undef *{Symbol::fetch_glob($callpkg . '::' . $name)};
-                foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-                    *{Symbol::fetch_glob($callpkg . '::' . $name)} = $glob{$type}
-                        if defined $glob{$type};
-                }
-            }
-        }
-    }
-
-    return 1;
-}
+    return $pkg;
+};
 
 
 # Constructor
 sub new {
-    my $class = shift;
-    $class = ref $class if ref $class;
+    my ($self, %args) = @_;
+
+    my $class = ref $self || $self;
 
     my $attributes;
     my $defaults;
@@ -437,38 +415,37 @@ sub new {
     else {
         $attributes = $Class_Attributes{$class};
         $defaults = $Class_Defaults{$class};
-    }
+    };
 
-    my $self = {};
+    my $e = {};
 
     # If the attribute is rw, initialize its value. Otherwise: ignore.
     no warnings 'uninitialized';
-    my %args = @_;
     foreach my $key (keys %args) {
         if ($attributes->{$key}->{is} eq 'rw') {
-            $self->{$key} = $args{$key};
-        }
-    }
+            $e->{$key} = $args{$key};
+        };
+    };
 
     # Defaults for this object
-    $self->{defaults} = { %$defaults };
+    $e->{defaults} = { %$defaults };
 
-    bless $self => $class;
+    bless $e => $class;
 
     # Collect system data and eval error
-    $self->_collect_system_data;
+    $e->_collect_system_data;
 
-    return $self;
-}
+    return $e;
+};
 
 
 # Create the exception and throw it or rethrow existing
-sub throw (;$@) {
+sub throw {
     my $self = shift;
 
-    $self = __PACKAGE__ if not defined $self;
-    my $class = ref $self ? ref $self : $self;
-    my $old;
+    my $class = ref $self || $self;
+
+    my $old_e;
 
     if (not ref $self) {
         # CLASS->throw
@@ -485,206 +462,164 @@ sub throw (;$@) {
                 my $default_attribute = $e->{defaults}->{default_attribute};
                 $e->{$default_attribute} = $argument if not defined $e->{$default_attribute};
                 die $e;
-            }
+            };
         }
         else {
             # First argument is an old exception
-            $old = shift;
-        }
+            $old_e = shift;
+        };
     }
     else {
         # $e->throw
-        $old = $self;
-    }
+        $old_e = $self;
+    };
 
     # Rethrow old exception with replaced attributes
     no warnings 'uninitialized';
     my %args = @_;
-    my $attrs = $old->ATTRS;
+    my $attrs = $old_e->ATTRS;
     foreach my $key (keys %args) {
         if ($attrs->{$key}->{is} eq 'rw') {
-            $old->{$key} = $args{$key};
-        }
-    }
-    $old->PROPAGATE;
-    if (ref $old ne $class) {
+            $old_e->{$key} = $args{$key};
+        };
+    };
+    $old_e->PROPAGATE;
+    if (ref $old_e ne $class) {
         # Rebless old object for new class
-        bless $old => $class;
-    }
-    die $old;
-}
+        bless $old_e => $class;
+    };
+
+    die $old_e;
+};
 
 
-# Propagate exception if it is rethrown
-sub PROPAGATE {
+# Recover $@ variable and return exception object
+sub catch {
     my ($self) = @_;
 
-    # Fill propagate stack
-    my $level = 1;
-    while (my @c = caller($level++)) {
-            # Skip own package
-            next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
-            # Collect the caller stack
-            push @{ $self->{propagated_stack} }, [ @c[0..2] ];
-            last;
+    my $class = ref $self || $self;
+
+    my $e;
+    my $new_e;
+
+    # Recover exception from $@ and clear it
+    $e = $@;
+    $@ = '';
+
+    if (ref $e and do { local $@; local $SIG{__DIE__}; eval { $e->isa(__PACKAGE__) } }) {
+        # Caught exception
+        $new_e = $e;
     }
-
-    return $self;
-}
-
-
-# Convert an exception to string
-sub stringify {
-    my ($self, $verbosity, $message) = @_;
-
-    $verbosity = defined $self->{verbosity}
-               ? $self->{verbosity}
-               : $self->{defaults}->{verbosity}
-        if not defined $verbosity;
-
-    my $string;
-
-    if (not defined $message) {
-        $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
-    }
-
-    if ($message eq '') {
-        foreach (reverse @{ $self->{defaults}->{stringify_attributes} }) {
-            $message = $self->{defaults}->{$_};
-            last if defined $message;
-        }
-    }
-
-    if ($verbosity == 1) {
-        $string  = $message . "\n";
-    }
-    elsif ($verbosity == 2) {
-        $string  = $message;
-        $string .= $self->_caller_backtrace($verbosity);
-    }
-    elsif ($verbosity >= 3) {
-        $string  = sprintf "%s: %s", ref $self, $message;
-        $string .= $self->_caller_backtrace($verbosity);
-        $string .= $self->_propagated_backtrace($verbosity);
+    elsif ($e eq '') {
+        # No error in $@
+        $new_e = undef;
     }
     else {
-        $string  = "";
-    }
+        # New exception based on error from $@. Clean up the message.
+        while ($e =~ s/\t\.\.\.propagated at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s) { };
+        $e =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
+        $new_e = $class->new;
+        my $eval_attribute = $new_e->{defaults}->{eval_attribute};
+        $new_e->{$eval_attribute} = $e;
+    };
 
-    return $string;
-}
-
-
-# Convert an exception to number
-sub numerify {
-    my $self = shift;
-    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
-
-    no warnings 'numeric';
-    return 0+ $self->{$numeric_attribute} if defined $self->{$numeric_attribute};
-    return 0+ $self->{defaults}->{$numeric_attribute} if defined $self->{defaults}->{$numeric_attribute};
-    return 0;
-}
+    return $new_e;
+};
 
 
 # Smart matching.
 sub matches {
     my ($self, $that) = @_;
 
+    my @args;
+
+    my $default_attribute = $self->{defaults}->{default_attribute};
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+
     if (ref $that eq 'ARRAY') {
-        return $self->with( '-isa' => $that );
+        @args = ( '-isa' => $that );
     }
     elsif (ref $that eq 'HASH') {
-        return $self->with( %{ $that } );
+        @args = %$that;
     }
     elsif (ref $that eq 'Regexp' or ref $that eq 'CODE' or not defined $that) {
-        return $self->with( $that );
+        @args = ( $that );
     }
     elsif (ref $that) {
         return '';
     }
-    elsif ($that =~ RE_NUM_INT) {
-        return $self->with( value => $that );
+    elsif ($that =~ _RE_NUM_INT) {
+        @args = ( $numeric_attribute => $that );
     }
     else {
-        return $self->with( $that );
-    }
-}
+        @args = ( $that );
+    };
 
-
-# Check if an exception object has some attributes
-sub with {
-    my $self = shift;
-    return unless @_;
-
-    my $default_attribute = $self->{defaults}->{default_attribute};
+    return '' unless @args;
 
     # Odd number of arguments - first is default attribute
-    if (scalar @_ % 2 == 1) {
-        my $val = shift @_;
+    if (scalar @args % 2 == 1) {
+        my $val = shift @args;
         if (ref $val eq 'ARRAY') {
             my $arrret = 0;
             foreach my $arrval (@{ $val }) {
                 if (not defined $arrval) {
-                    $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                 }
-                elsif (not ref $arrval and $arrval =~ RE_NUM_INT) {
-                    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+                elsif (not ref $arrval and $arrval =~ _RE_NUM_INT) {
                     no warnings 'numeric', 'uninitialized';
                     $arrret = 1 if $self->{$numeric_attribute} == $arrval;
                 }
-                elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
+                elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} }) {
                     next;
                 }
                 elsif (ref $arrval eq 'CODE') {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                     $arrret = 1 if &$arrval;
                 }
                 elsif (ref $arrval eq 'Regexp') {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                     $arrret = 1 if /$arrval/;
                 }
                 else {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
                     $arrret = 1 if $_ eq $arrval;
-                }
+                };
                 last if $arrret;
-            }
+            };
             # Fail unless at least one condition is true
             return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
         }
-        elsif (not ref $val and $val =~ RE_NUM_INT) {
-            my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+        elsif (not ref $val and $val =~ _RE_NUM_INT) {
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$numeric_attribute} != $val;
         }
-        elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} }) {
+        elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} }) {
             return '';
         }
         elsif (ref $val eq 'CODE') {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if not &$val;
         }
         elsif (ref $val eq 'Regexp') {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if not /$val/;
         }
         else {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{stringify_attributes} };
+            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
             return '' if $_ ne $val;
-        }
-        return 1 unless @_;
-    }
+        };
+        return 1 unless @args;
+    };
 
-
-    my %args = @_;
+    my %args = @args;
     while (my($key,$val) = each %args) {
         if ($key eq '-default') {
             $key = $default_attribute;
-        }
+        };
 
         if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
@@ -693,12 +628,12 @@ sub with {
                     next if not defined $arrval;
                     $arrret = 1 if $self->isa($arrval);
                     last if $arrret;
-                }
+                };
                 return '' if not $arrret;
             }
             else {
                 return '' if not $self->isa($val);
-            }
+            };
         }
         elsif ($key eq '-has') {
             if (ref $val eq 'ARRAY') {
@@ -707,12 +642,12 @@ sub with {
                     next if not defined $arrval;
                     $arrret = 1 if exists $self->ATTRS->{$arrval};
                     last if $arrret;
-                }
+                };
                 return '' if not $arrret;
             }
             else {
                 return '' if not $self->ATTRS->{$val};
-            }
+            };
         }
         elsif (ref $val eq 'ARRAY') {
             my $arrret = 0;
@@ -733,15 +668,15 @@ sub with {
                 }
                 else {
                     $arrret = 1 if $self->{$key} eq $arrval;
-                }
+                };
                 last if $arrret;
-            }
+            };
             return '' if not $arrret;
         }
         elsif (not defined $val) {
             return '' if exists $self->{$key} && defined $self->{$key};
         }
-        elsif (not ref $val and $val =~ RE_NUM_INT) {
+        elsif (not ref $val and $val =~ _RE_NUM_INT) {
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$key} != $val;
         }
@@ -758,75 +693,155 @@ sub with {
         }
         else {
             return '' if $self->{$key} ne $val;
-        }
-    }
+        };
+    };
 
     return 1;
 }
 
 
-# Push the exception on error stack. Stolen from Exception::Class::TryCatch
-sub try ($;$) {
-    # Can be used also as function
-    my $self = shift if defined $_[0] and do { local $@; local $SIG{__DIE__}; eval { $_[0]->isa(__PACKAGE__) } };
+# Convert an exception to string
+sub to_string {
+    my ($self) = @_;
 
-    my ($v) = @_;
+    my $verbosity = defined $self->{verbosity}
+                    ? $self->{verbosity}
+                    : $self->{defaults}->{verbosity};
 
-    # Store $@ on stack and clear it
-    push @Exception_Stack, $@;
-    $@ = '';
+    my $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
 
-    return wantarray && ref $v eq 'ARRAY' ? @$v : $v;
-}
+    if ($message eq '') {
+        foreach (reverse @{ $self->{defaults}->{string_attributes} }) {
+            $message = $self->{defaults}->{$_};
+            last if defined $message;
+        };
+    };
 
+    my $string;
+    if ($verbosity == 1) {
+        return $message if $message =~ /\n$/;
 
-# Pop the exception on error stack. Stolen from Exception::Class::TryCatch
-sub catch (;$$) {
-    # Can be used also as function
-    my $self = shift if defined $_[0] and do { local $@; local $SIG{__DIE__}; eval { $_[0]->isa(__PACKAGE__) } };
-
-    # Recover class from object or set the default
-    my $class = defined $self ? (ref $self || $self) : __PACKAGE__;
-
-    # Will return exception object if no argument
-    my $want_object = 1;
-
-    my $e;
-    my $e_from_stack;
-    if (@Exception_Stack) {
-        # Recover exception from stack
-        $e_from_stack = pop @Exception_Stack;
+        return $message . "\n";
     }
-    else {
-        # Recover exception from $@ and clear it
-        $e_from_stack = $@;
-        $@ = '';
-    }
-    if (ref $e_from_stack and do { local $@; local $SIG{__DIE__}; eval { $e_from_stack->isa(__PACKAGE__) } }) {
-        # Caught exception
-        $e = $e_from_stack;
-    }
-    elsif ($e_from_stack eq '') {
-        # No error in $@
-        $e = undef;
-    }
-    else {
-        # New exception based on error from $@. Clean up the message.
-        while ($e_from_stack =~ s/\t\.\.\.propagated at (?!.*\bat\b.*).* line \d+( thread \d+)?\.\n$//s) { }
-        $e_from_stack =~ s/( at (?!.*\bat\b.*).* line \d+( thread \d+)?\.)?\n$//s;
-        $e = $class->new;
-        my $eval_attribute = $e->{defaults}->{eval_attribute};
-        $e->{$eval_attribute} = $e_from_stack;
-    }
+    elsif ($verbosity == 2) {
+        return $message if $message =~ /\n$/;
 
-    if (scalar @_ > 0) {
-        # Save object in argument, return only status
-        $_[0] = $e;
-        $want_object = 0;
+        my @stacktrace = $self->get_caller_stacktrace;
+        return $message . $stacktrace[0] . ".\n";
     }
+    elsif ($verbosity >= 3) {
+        return ref($self) . ": " . $message . $self->get_caller_stacktrace;
+    };
 
-    return $want_object ? $e : defined $e;
-}
+    return "";
+};
+
+
+# Convert an exception to number
+sub to_number {
+    my ($self) = @_;
+
+    my $numeric_attribute = $self->{defaults}->{numeric_attribute};
+
+    no warnings 'numeric';
+    return 0+ $self->{$numeric_attribute} if defined $self->{$numeric_attribute};
+    return 0+ $self->{defaults}->{$numeric_attribute} if defined $self->{defaults}->{$numeric_attribute};
+    return 0;
+};
+
+
+# Convert an exception to bool (always true)
+sub to_bool {
+    return !! 1;
+};
+
+
+# Stringify caller backtrace. Stolen from Carp
+sub get_caller_stacktrace {
+    my ($self) = @_;
+
+    my @stacktrace;
+
+    my $tid_msg = '';
+    $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
+
+    my $verbosity = defined $self->{verbosity}
+                    ? $self->{verbosity}
+                    : $self->{defaults}->{verbosity};
+
+    my $ignore_level = defined $self->{ignore_level}
+                       ? $self->{ignore_level}
+                       : defined $self->{defaults}->{ignore_level}
+                         ? $self->{defaults}->{ignore_level}
+                         : 0;
+
+    # Skip some packages for first line
+    my $level = 0;
+    while (my %c = $self->_caller_info($level++)) {
+        next if $self->_skip_ignored_package($c{package});
+        # Skip ignored levels
+        if ($ignore_level > 0) {
+            --$ignore_level;
+            next;
+        };
+        push @stacktrace, sprintf " at %s line %s%s",
+                              defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
+                              $c{line} || 0,
+                              $tid_msg;
+        last;
+    };
+    # First line have to be filled even if everything was skipped
+    if (not @stacktrace) {
+        my %c = $self->_caller_info(0);
+        push @stacktrace, sprintf " at %s line %s%s",
+                              defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
+                              $c{line} || 0,
+                              $tid_msg;
+    };
+    if ($verbosity >= 3) {
+        # Reset the stack trace level only if needed
+        if ($verbosity >= 4) {
+            $level = 0;
+        };
+        # Dump the caller stack
+        while (my %c = $self->_caller_info($level++)) {
+            next if $verbosity == 3 and $self->_skip_ignored_package($c{package});
+            push @stacktrace, "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}";
+        };
+        # Dump the propagated stack
+        foreach (@{ $self->{propagated_stack} }) {
+            my ($package, $file, $line) = @$_;
+            # Skip ignored package
+            next if $verbosity <= 3 and $self->_skip_ignored_package($package);
+            push @stacktrace, sprintf "\t...propagated in package %s at %s line %d.",
+                                  $package,
+                                  defined $file && $file ne '' ? $file : 'unknown',
+                                  $line || 0;
+        };
+    };
+
+    return wantarray ? @stacktrace : join("\n", @stacktrace) . "\n";
+};
+
+
+# Propagate exception if it is rethrown
+sub PROPAGATE {
+    my ($self) = @_;
+
+    # Fill propagate stack
+    my $level = 1;
+    while (my @c = caller($level++)) {
+            # Skip own package
+            next if ! defined $Isa_Package{$c[0]}
+                      ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } }
+                      : $Isa_Package{$c[0]};
+            # Collect the caller stack
+            push @{ $self->{propagated_stack} }, [ @c[0..2] ];
+            last;
+    };
+
+    return $self;
+};
 
 
 # Collect system data and fill the attributes and caller stack.
@@ -836,10 +851,10 @@ sub _collect_system_data {
     # Collect system data only if verbosity is meaning
     my $verbosity = defined $self->{verbosity} ? $self->{verbosity} : $self->{defaults}->{verbosity};
     if ($verbosity >= 2) {
-        $self->{time}  = CORE::time();
-        $self->{tid}   = threads->tid if defined &threads::tid;
-        @{$self}{qw < pid uid euid gid egid >}
-              = (     $$, $<, $>,  $(, $)    );
+        $self->{time} = CORE::time();
+        $self->{tid}  = threads->tid if defined &threads::tid;
+        @{$self}{qw < pid uid euid gid egid >} =
+                (     $$, $<, $>,  $(, $)    );
 
         # Collect stack info
         my @caller_stack;
@@ -848,96 +863,23 @@ sub _collect_system_data {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
             # Collect the caller stack
-            push @caller_stack, [ @c[0 .. 7], @DB::args ];
+            my @args = @DB::args;
+            if (_HAVE_SCALAR_UTIL_WEAKEN) {
+                foreach (@args) {
+                    Scalar::Util::weaken($_) if ref $_;
+                };
+            };
+            my $stacktrace_element = [ @c[0 .. 7], @args ];
+            push @caller_stack, $stacktrace_element;
             # Collect only one entry if verbosity is lower than 3
             last if $verbosity == 2;
-        }
+        };
         $self->{caller_stack} = \@caller_stack;
-    }
+    };
 
     return $self;
-}
+};
 
-
-# Stringify caller backtrace. Stolen from Carp
-sub _caller_backtrace {
-    my ($self, $verbosity) = @_;
-    my $message;
-
-    my $tid_msg = '';
-    $tid_msg = ' thread ' . $self->{tid} if $self->{tid};
-
-    $verbosity = defined $self->{verbosity}
-                  ? $self->{verbosity}
-                  : $self->{defaults}->{verbosity}
-        if not defined $verbosity;
-
-    my $ignore_level = defined $self->{ignore_level}
-                     ? $self->{ignore_level}
-                     : defined $self->{defaults}->{ignore_level}
-                       ? $self->{defaults}->{ignore_level}
-                       : 0;
-
-    # Skip some packages for first line
-    my $level = 0;
-    while (my %c = $self->_caller_info($level++)) {
-        next if $self->_skip_ignored_package($c{package});
-        # Skip ignored levels
-        if ($ignore_level > 0) {
-            $ignore_level --;
-            next;
-        }
-        $message = sprintf " at %s line %s$tid_msg%s\n",
-                   defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
-                   $c{line} || 0,
-                   $verbosity <= 2 ? '.' : "";
-        last;
-    }
-    # First line have to be filled even if everything was skipped
-    if (not defined $message) {
-        my %c = $self->_caller_info(0);
-        $message = sprintf " at %s line %s$tid_msg%s\n",
-                   defined $c{file} && $c{file} ne '' ? $c{file} : 'unknown',
-                   $c{line} || 0,
-                   $verbosity <= 2 ? '.' : "";
-    }
-    if ($verbosity >= 3) {
-        # Reset the stack trace level only if needed
-        if ($verbosity >= 4) {
-            $level = 0;
-        }
-        # Dump the stack
-        while (my %c = $self->_caller_info($level++)) {
-            next if $verbosity == 3 and $self->_skip_ignored_package($c{package});
-            $message .= "\t$c{wantarray}$c{sub_name} called in package $c{package} at $c{file} line $c{line}\n";
-        }
-    }
-    return $message || " at unknown line 0$tid_msg\n";
-}
-
-
-# Stringify propagated backtrace.
-sub _propagated_backtrace {
-    my ($self, $verbosity) = @_;
-
-    $verbosity = defined $self->{verbosity}
-                  ? $self->{verbosity}
-                  : $self->{defaults}->{verbosity}
-        if not defined $verbosity;
-
-    my $message = "";
-    foreach (@{ $self->{propagated_stack} }) {
-        my ($package, $file, $line) = @$_;
-        # Skip ignored package
-        next if $verbosity <= 3 and $self->_skip_ignored_package($package);
-        $message .= sprintf "\t...propagated in package %s at %s line %d.\n",
-            $package,
-            defined $file && $file ne '' ? $file : 'unknown',
-            $line || 0;
-    }
-
-    return $message;
-}
 
 # Check if package should be ignored
 sub _skip_ignored_package {
@@ -955,25 +897,25 @@ sub _skip_ignored_package {
         if (ref $ignore_package eq 'ARRAY') {
             if (@{ $ignore_package }) {
                 do { return 1 if defined $_ and (ref $_ eq 'Regexp' and $package =~ $_ or ref $_ ne 'Regexp' and $package eq $_) } foreach @{ $ignore_package };
-            }
+            };
         }
         else {
             return 1 if ref $ignore_package eq 'Regexp' ? $package =~ $ignore_package : $package eq $ignore_package;
-        }
+        };
     }
     if (defined $ignore_class) {
         if (ref $ignore_class eq 'ARRAY') {
             if (@{ $ignore_class }) {
                 return 1 if grep { do { local $@; local $SIG{__DIE__}; eval { $package->isa($_) } } } @{ $ignore_class };
-            }
+            };
         }
         else {
             return 1 if do { local $@; local $SIG{__DIE__}; eval { $package->isa($ignore_class) } };
-        }
-    }
+        };
+    };
 
     return '';
-}
+};
 
 
 # Return info about caller. Stolen from Carp
@@ -991,7 +933,7 @@ sub _caller_info {
 
     unless (defined $call_info{package}) {
         return ();
-    }
+    };
 
     my $sub_name = $self->_get_subname(\%call_info);
     if ($call_info{has_args}) {
@@ -1000,7 +942,7 @@ sub _caller_info {
         if ($max_arg_nums > 0 and $#args+1 > $max_arg_nums) {
             $#args = $max_arg_nums - 2;
             push @args, '...';
-        }
+        };
         # Push the args onto the subroutine
         $sub_name .= '(' . join (', ', @args) . ')';
     }
@@ -1008,8 +950,9 @@ sub _caller_info {
     $call_info{line} = 0 unless $call_info{line};
     $call_info{sub_name} = $sub_name;
     $call_info{wantarray} = $call_info{wantarray} ? '@_ = ' : '$_ = ';
+
     return wantarray() ? %call_info : \%call_info;
-}
+};
 
 
 # Figures out the name of the sub/require/eval. Stolen from Carp
@@ -1026,10 +969,11 @@ sub _get_subname {
                 "eval '" .
                 $self->_str_len_trim($eval, defined $self->{max_eval_len} ? $self->{max_eval_len} : $self->{defaults}->{max_eval_len}) .
                 "'";
-        }
-    }
+        };
+    };
+
     return ($info->{subroutine} eq '(eval)') ? 'eval {...}' : $info->{subroutine};
-}
+};
 
 
 # Transform an argument to a function into a string. Stolen from Carp
@@ -1040,7 +984,7 @@ sub _format_arg {
 
     if (do { local $@; local $SIG{__DIE__}; eval { $arg->isa(__PACKAGE__) } } or ref $arg) {
         return q{"} . overload::StrVal($arg) . q{"};
-    }
+    };
 
     $arg =~ s/\\/\\\\/g;
     $arg =~ s/"/\\"/g;
@@ -1060,27 +1004,29 @@ sub _format_arg {
     }
     else {
         $arg =~ s/([[:cntrl:]]|[[:^ascii:]])/sprintf("\\x{%02x}",ord($1))/eg;
-    }
+    };
 
     return $arg;
-}
+};
 
 
 # If a string is too long, trims it with ... . Stolen from Carp
 sub _str_len_trim {
-    my ($self, $str, $max) = @_;
+    my (undef, $str, $max) = @_;
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
         substr($str, $max - 3) = '...';
-    }
+    };
+
     return $str;
-}
+};
 
 
 # Modify default values for ATTRS
 sub _modify_default {
     my ($self, $key, $value, $modifier) = @_;
-    my $class = ref $self ? ref $self : $self;
+
+    my $class = ref $self || $self;
 
     # Modify entry in ATTRS constant. Its elements are not constant.
     my $attributes = $class->ATTRS;
@@ -1090,7 +1036,7 @@ sub _modify_default {
               message => "$class class does not implement default value for `$key' attribute",
               verbosity => 1
         );
-    }
+    };
 
     if ($modifier eq '+') {
         my $old = $attributes->{$key}->{default};
@@ -1099,7 +1045,7 @@ sub _modify_default {
             foreach my $v (ref $value eq 'ARRAY' ? @{ $value } : $value) {
                 next if grep { $v eq $_ } ref $old eq 'ARRAY' ? @{ $old } : $old;
                 push @new, $v;
-            }
+            };
             $attributes->{$key}->{default} = [ @new ];
         }
         elsif ($old =~ /^\d+$/) {
@@ -1107,7 +1053,7 @@ sub _modify_default {
         }
         else {
             $attributes->{$key}->{default} .= $value;
-        }
+        };
     }
     elsif ($modifier eq '-') {
         my $old = $attributes->{$key}->{default};
@@ -1115,7 +1061,7 @@ sub _modify_default {
             my @new = ref $old eq 'ARRAY' ? @{ $old } : $old;
             foreach my $v (ref $value eq 'ARRAY' ? @{ $value } : $value) {
                 @new = grep { $v ne $_ } @new;
-            }
+            };
             $attributes->{$key}->{default} = [ @new ];
         }
         elsif ($old =~ /^\d+$/) {
@@ -1123,24 +1069,27 @@ sub _modify_default {
         }
         else {
             $attributes->{$key}->{default} = $value;
-        }
+        };
     }
     else {
         $attributes->{$key}->{default} = $value;
-    }
+    };
 
     if (exists $Class_Defaults{$class}) {
         $Class_Attributes{$class}->{$key}->{default}
         = $Class_Defaults{$class}->{$key}
         = $attributes->{$key}->{default};
-    }
-}
+    };
+
+    return $self;
+};
 
 
 # Create accessors for this class
 sub _make_accessors {
-    my ($class) = @_;
-    $class = ref $class if ref $class;
+    my ($self) = @_;
+
+    my $class = ref $self || $self;
 
     no warnings 'uninitialized';
     my $attributes = $class->ATTRS;
@@ -1149,29 +1098,32 @@ sub _make_accessors {
         if (not $class->can($key)) {
             next if not defined $attributes->{$key}->{is};
             if ($attributes->{$key}->{is} eq 'rw') {
-                *{Symbol::fetch_glob($class . '::' . $key)} = sub :lvalue {
+                *{_qualify_to_ref($class . '::' . $key)} = sub :lvalue {
                     @_ > 1 ? $_[0]->{$key} = $_[1]
                            : $_[0]->{$key};
                 };
             }
             else {
-                *{Symbol::fetch_glob($class . '::' . $key)} = sub {
+                *{_qualify_to_ref($class . '::' . $key)} = sub {
                     $_[0]->{$key};
                 };
-            }
-        }
-    }
-}
+            };
+        };
+    };
+
+    return $self;
+};
 
 
 # Create caller_info() accessors for this class
 sub _make_caller_info_accessors {
-    my ($class) = @_;
-    $class = ref $class if ref $class;
+    my ($self) = @_;
+
+    my $class = ref $self || $self;
 
     foreach my $key (qw< package file line subroutine >) {
         if (not $class->can($key)) {
-            *{Symbol::fetch_glob($class . '::' . $key)} = sub {
+            *{_qualify_to_ref($class . '::' . $key)} = sub {
                 my $self = shift;
                 my $ignore_level = defined $self->{ignore_level}
                                  ? $self->{ignore_level}
@@ -1185,23 +1137,42 @@ sub _make_caller_info_accessors {
                     if ($ignore_level > 0) {
                         $ignore_level --;
                         next;
-                    }
+                    };
                     return $c{$key};
-                }
+                };
             };
-        }
-    }
-}
+        };
+    };
+
+    return $self;
+};
+
+
+# Load another module without eval q{}
+sub _load_package {
+    my ($self, $package, $version) = @_;
+
+    return unless $package;
+
+    my $file = $package . '.pm';
+    $file =~ s{::}{/}g;
+
+    require $file;
+
+    # Check version if first element on list is a version number.
+    if (defined $version and $version =~ m/^\d/) {
+        $package->VERSION($version);
+    };
+
+    return $self;
+};
 
 
 # Module initialization
-sub __init {
+BEGIN {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
-}
-
-
-__init;
+};
 
 
 1;
@@ -1213,8 +1184,8 @@ __END__
 
 = Class Diagram =
 
-[                       <<exception>>
-                       Exception::Base
+[                           <<exception>>
+                           Exception::Base
  -----------------------------------------------------------------------------
  +ignore_class : ArrayRef                                                {new}
  +ignore_level : Int = 0                                                 {new}
@@ -1238,27 +1209,22 @@ __END__
  #default_attribute : Str = "message"
  #numeric_attribute : Str = "value"
  #eval_attribute : Str = "message"
- #stringify_attributes : ArrayRef[Str] = ["message"]
+ #string_attributes : ArrayRef[Str] = ["message"]
  -----------------------------------------------------------------------------
- <<create>> +new( args : Hash = undef )
- +catch( out variable : Exception::Base ) : Bool                      {export}
- +catch() : Exception::Base                                           {export}
- +throw( args : Hash = undef )                                        {export}
- +throw( message : Str, args : Hash = undef )                         {export}
- +try( value : ArrayRef ) : Array                                     {export}
- +try( value : Value ) : Value                                        {export}
+ <<create>> +new( args : Hash )
+ <<create>> +throw( args : Hash = undef )
+ <<create>> +throw( message : Str, args : Hash = undef )
+ +catch() : Exception::Base
  +matches( that : Any ) : Bool                                 {overload="~~"}
- +numerify() : Num                                             {overload="0+"}
- +stringify() : Str                                            {overload='""'}
- +stringify( verbosity : Int, message : Str = undef ) : Str
- +stringify( verbosity : Int = undef ) : Str
- +with( args : Hash = undef ) : Bool
- +with( message : Str, args : Hash = undef ) : Bool
+ +to_string() : Str                                            {overload='""'}
+ +to_number() : Num                                            {overload="0+"}
+ +to_bool() : Bool                                           {overload="bool"}
+ +get_caller_stacktrace() : Array[Str]|Str
+ +PROPAGATE()
  #_collect_system_data()
- #_make_accessors()                                                     {init}
- #_make_caller_info_accessors()                                         {init}
- <<constant>> +ATTRS() : HashRef
- <<constant>> +RE_NUM_INT() : Regexp                                          ]
+ #_make_accessors()                                                    {begin}
+ #_make_caller_info_accessors()                                        {begin}
+ <<constant>> +ATTRS() : HashRef                                              ]
 
 =end umlwiki
 
@@ -1266,20 +1232,7 @@ __END__
 
 =over
 
-=item use Exception::Base 'catch', 'try', 'throw';
-
-Exports the B<catch>, B<try> and B<throw> functions to the caller namespace.
-
-  use Exception::Base qw< catch try throw >;
-  try eval { throw 'Exception::Base'; };
-  if (catch my $e) { warn "$e"; }
-
-=item use Exception::Base ':all';
-
-Exports all available symbols to the caller namespace (B<catch>, B<try> and
-B<throw>).
-
-=item use Exception::Base 'I<attribute>' => I<value>;
+=item C<use Exception::Base 'I<attribute>' => I<value>;>
 
 Changes the default value for I<attribute>.  If the I<attribute> name has no
 special prefix, its default value is replaced with a new I<value>.
@@ -1317,7 +1270,7 @@ included.
 
 =back
 
-=item use Exception::Base 'I<Exception>', ...;
+=item C<use Exception::Base 'I<Exception>', ...;>
 
 Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
@@ -1326,7 +1279,7 @@ class will be based on B<Exception::Base> class.
   use Exception::Base qw< Exception::Custom Exception::SomethingWrong >;
   Exception::Custom->throw;
 
-=item use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };
+=item C<use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };>
 
 Loads additional exception class module.  If the module's version is lower
 than given parameter or the module can't be loaded, creates the exception
@@ -1339,15 +1292,32 @@ given class and has the given $VERSION variable.
 
 The newly created class will be based on given class.
 
+  use Exception::Base
+    'Exception::My',
+    'Exception::Nested' => { isa => 'Exception::My };
+
 =item version
 
 The class will be created only if the module's version is lower than given
 parameter and will have the version given in the argument.
 
+  use Exception::Base
+    'Exception::My' => { version => 1.23 };
+
 =item has
 
-The class will contain new rw attibute (if parameter is a string) or
-attributes (if parameter is a reference to array of strings).
+The class will contain new rw attibute (if parameter is a string) or new rw
+attributes (if parameter is a reference to array of strings) or new rw or ro
+attributes (if parameter is a reference to hash of array of strings with rw
+and ro as hash key).
+
+  use Exception::Base
+    'Exception::Simple' => { has => 'field' },
+    'Exception::More' => { has => [ 'field1', 'field2' ] },
+    'Exception::Advanced' => { has => {
+        ro => [ 'field1', 'field2' ],
+        rw => [ 'field3' ]
+    } };
 
 =item message
 
@@ -1366,31 +1336,10 @@ The class will have the default property for the given attribute.
 =back
 
   use Exception::Base
-    'try', 'catch',
-    'Exception::IO',
-    'Exception::FileNotFound' => { isa => 'Exception::IO',
-                                   has => [ 'filename' ] },
-    'Exception::My' => { version => 0.2 },
-    'Exception::WithDefault' => { message => 'Default message' };
-  try eval { Exception::FileNotFound->throw( filename=>"/foo/bar" ); };
-  if (catch my $e) {
-    if ($e->isa('Exception::IO')) { warn "can be also FileNotFound"; }
-    if ($e->isa('Exception::My')) { print $e->VERSION; }
-  }
-
-=item no Exception::Base 'catch', 'try', 'throw';
-
-=item no Exception::Base ':all';
-
-=item no Exception::Base;
-
-Unexports the B<catch>, B<try> and B<throw> functions from the caller
-namespace.
-
-  use Exception::Base ':all', 'Exception::FileNotFound';
-  try eval { Exception::FileNotFound->throw; };  # ok
-  no Exception::Base;
-  try eval { Exception::FileNotFound->throw; };  # syntax error
+    'Exception::WithDefault' => { message => 'Default message' },
+    'Exception::Reason' => {
+        has => [ 'reason' ],
+        string_attributes => [ 'message', 'reason' ] };
 
 =back
 
@@ -1420,7 +1369,7 @@ defined.
 
 =back
 
-The read-write attributes can be set with B<new> constructor.  Read-only
+The read-write attributes can be set with C<new> constructor.  Read-only
 attributes and unknown attributes are ignored.
 
 The constant have to be defined in derivered class if it brings additional
@@ -1439,17 +1388,14 @@ attributes.
 
   package main;
   use Exception::Base ':all';
-  try eval {
-    throw 'Exception::My' => readwrite=>2;
+  eval {
+    Exception::My->throw( readwrite => 2 );
   };
-  if (catch my $e) {
+  if ($@) {
+    my $e = Exception::Base->catch;
     print $e->readwrite;                # = 2
     print $e->defaults->{readwrite};    # = "blah"
   }
-
-=item RE_NUM_INT
-
-Represents regexp for numeric integer value.
 
 =back
 
@@ -1496,8 +1442,9 @@ Empty string
 
  Message at %s line %d.
 
-The same as the standard output of die() function.  This is the default
-option.
+The same as the standard output of die() function.  It doesn't include
+"at %s line %d." string if message ends with C<"\n"> character.  This is
+the default option.
 
 =item 3
 
@@ -1506,14 +1453,14 @@ option.
          ...propagated in package %s at %s line %d.
  ...
 
-The output contains full trace of error stack without first B<ignore_level>
-lines and those packages which are listed in B<ignore_package> and
-B<ignore_class> settings.
+The output contains full trace of error stack without first C<ignore_level>
+lines and those packages which are listed in C<ignore_package> and
+C<ignore_class> settings.
 
 =item 4
 
 The output contains full trace of error stack.  In this case the
-B<ignore_level>, B<ignore_package> and B<ignore_class> settings are meaning
+C<ignore_level>, C<ignore_package> and C<ignore_class> settings are meaning
 only for first line of exception's message.
 
 =back
@@ -1521,7 +1468,7 @@ only for first line of exception's message.
 If the verbosity is undef, then the default verbosity for exception objects is
 used.
 
-If the verbosity set with constructor (B<new> or B<throw>) is lower than 3,
+If the verbosity set with constructor (C<new> or C<throw>) is lower than 3,
 the full stack trace won't be collected.
 
 If the verbosity is lower than 2, the full system data (time, pid, tid, uid,
@@ -1616,10 +1563,13 @@ greater than 1.
 
 Contains the error stack as array of array with informations about caller
 functions.  The first 8 elements of the array's row are the same as first 8
-elements of the output of B<caller> function.  Further elements are optional
+elements of the output of C<caller> function.  Further elements are optional
 and are the arguments of called function.  Collected if the verbosity on
 throwing exception was greater than 1.  Contains only the first element of
 caller stack if the verbosity was lower than 3.
+
+If the arguments of called function are references and
+C<L<Scalar::Util>::weaken> function is available then reference is weakened.
 
   eval { Exception::Base->throw( message=>"Message" ); };
   ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
@@ -1629,7 +1579,7 @@ caller stack if the verbosity was lower than 3.
 
 Contains the array of array which is used for generating "...propagated at"
 message.  The elements of the array's row are the same as first 3 elements of
-the output of B<caller> function.
+the output of C<caller> function.
 
 =item max_arg_len (rw, default: 64)
 
@@ -1695,7 +1645,7 @@ in numeric context.
 =item eval_attribute (default: 'message')
 
 Meta-attribute contains the name of the attribute which is filled if error
-stack is empty.  This attribute will contain value of B<$@> variable.  This
+stack is empty.  This attribute will contain value of C<$@> variable.  This
 attribute has meaning for derived classes.
 
   use Exception::Base 'Exception::My' => {
@@ -1706,17 +1656,17 @@ attribute has meaning for derived classes.
   eval { die "string" };
   print $@->myattr;    # "string"
 
-=item stringify_attributes (default: ['message'])
+=item string_attributes (default: ['message'])
 
 Meta-attribute contains the array of names of attributes with defined value
-which are joined to the string returned by stringify method.  If none of
-attributes are defined, the string is created from the first default value
-of attributes listed in the opposite order.
+which are joined to the string returned by C<to_string> method.  If none of
+attributes are defined, the string is created from the first default value of
+attributes listed in the opposite order.
 
   use Exception::Base 'Exception::My' => {
       has => 'myattr',
       myattr => 'default',
-      stringify_attributes => ['message', 'myattr'],
+      string_attributes => ['message', 'myattr'],
   };
 
   eval { Exception::My->throw( message=>"string", myattr=>"foo" ) };
@@ -1733,7 +1683,7 @@ of attributes listed in the opposite order.
 
 =item Boolean context
 
-True value.
+True value.  See C<to_bool> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   if ($@) {
@@ -1742,24 +1692,24 @@ True value.
 
 =item Numeric context
 
-Content of attribute pointed by B<numeric_attribute> attribute.  See
-B<numerify> method.
+Content of attribute pointed by C<numeric_attribute> attribute.  See
+C<to_number> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print 0+$@;           # 123
 
 =item String context
 
-Content of attribute which is combined from B<stringify_attributes> attributes
-with additional informations, depended on B<verbosity> setting.  See
-B<stringify> method.
+Content of attribute which is combined from C<string_attributes> attributes
+with additional informations, depended on C<verbosity> setting.  See
+C<to_string> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print "$@";           # "Message at -e line 1.\n"
 
 =item "~~"
 
-Smart matching operator.  See B<matches> method.
+Smart matching operator.  See C<matches> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
   print $@ ~~ "Message";                          # 1
@@ -1777,7 +1727,7 @@ Smart matching operator.  See B<matches> method.
 =item new([%I<args>])
 
 Creates the exception object, which can be thrown later.  The system data
-attributes like B<time>, B<pid>, B<uid>, B<gid>, B<euid>, B<egid> are not
+attributes like C<time>, C<pid>, C<uid>, C<gid>, C<euid>, C<egid> are not
 filled.
 
 If the key of the argument is read-write attribute, this attribute will be
@@ -1793,28 +1743,28 @@ The constructor reads the list of class attributes from ATTRS constant
 function and stores it in the internal cache for performance reason.  The
 defaults values for the class are also stored in internal cache.
 
-=item throw([%I<args>]])
+=item C<CLASS>-E<gt>throw([%I<args>]])
 
-Creates the exception object and immediately throws it with B<die> system
+Creates the exception object and immediately throws it with C<die> system
 function.
 
   open my $fh, $file
     or Exception::Base->throw( message=>"Can not open file: $file" );
 
-The B<throw> is also exported as a function.
+The C<throw> is also exported as a function.
 
   open my $fh, $file
     or throw 'Exception::Base' => message=>"Can not open file: $file";
 
 =back
 
-The B<throw> can be also used as a method.
+The C<throw> can be also used as a method.
 
 =head1 METHODS
 
 =over
 
-=item throw([%I<args>])
+=item C<$obj>-E<gt>throw([%I<args>])
 
 Immediately throws exception object.  It can be used for rethrowing existing
 exception object.  Additional arguments will override the attributes in
@@ -1827,7 +1777,7 @@ existing exception object.
   eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
   $@->throw if $@->value;
 
-=item throw(I<message>, [%I<args>])
+=item C<$obj>-E<gt>throw(I<message>, [%I<args>])
 
 If the number of I<args> list for arguments is odd, the first argument is a
 message.  This message can be overriden by message from I<args> list.
@@ -1844,43 +1794,36 @@ Immediately rethrows an existing exception object as an other exception class.
   # convert Exception::System into Exception::Base
   Exception::Base->throw($@);
 
-=item stringify([$I<verbosity>[, $I<message>]])
+=item I<CLASS>-E<gt>catch
 
-Returns the string representation of exception object.  It is called
-automatically if the exception object is used in string scalar context.  The
-method can be used explicity and then the verbosity level can be used.
+The exception is recovered from C<$@> variable and method returns an exception
+object if exception is caught or undefined value otherwise.  The C<$@>
+variable is replaced with empty string to avoid endless loop.
 
   eval { Exception::Base->throw; };
-  $@->{verbosity} = 1;
-  print "$@";
-  print $@->stringify(4) if $VERY_VERBOSE;
+  if ($@) {
+      my $e = Exception::Base->catch;
+      print $e->to_string;
+  }
 
-It also replaces any message stored in object with the I<message> argument if
-it exists.  If message argument is an empty string, the default message is used.
+If the value is not empty and does not contain the B<Exception::Base> object,
+new exception object is created with class I<CLASS> and its message is based
+on previous value with removed C<" at file line 123."> string and the last end
+of line (LF).
 
-  eval { Exception::Base->throw( "Message" ); };
-  print $@->stringify(1);               # "Message"
-  print $@->stringify(1, "Overrided");  # "Overrided"
-  print $@->stringify(1, "");           # "Unknown exception"
-
-=item numerify
-
-Returns the numeric representation of exception object.  It is called
-automatically if the exception object is used in numeric scalar context.  The
-method can be used explicity.
-
-  eval { Exception::Base->throw( value => 42 ); };
-  print 0+$@;           # 42
-  print $@->numerify;   # 42
+  eval { die "Died\n"; };
+  my $e = Exception::Base->catch;
+  print ref $e;   # "Exception::Base"
 
 =item matches(I<that>)
 
-Checks if the exception object matches the given argument.  It is somewhat
-similar to the B<with> method but it takes only one argument.  The B<matches>
-method overloads B<~~> smart matching operator, so it can be used with
-B<given> keyword.
+Checks if the exception object matches the given argument.  The C<matches>
+method overloads C<~~> smart matching operator, so it can be used with
+C<given> keyword.
 
-  given ($e = Exception::Base->new( message=>"Message", value=>123 )) {
+  my $e = Exception::Base->new( message=>"Message", value=>123 );
+  use feature 'switch';
+  given ($e) {
     when( "Message" ) { ... }                             # matches
     when( qr/message/i ) { ... }                          # matches
     when( ["Exception::Base"] ) { ... }                   # matches
@@ -1898,75 +1841,38 @@ given class.
     'Exception::Simple',
     'Exception::Complex' => { isa => 'Exception::Simple };
   eval { Exception::Complex->throw() };
-  print $@ ~~ ['Exception::Base'];                        # matches
-  print $@ ~~ ['Exception::Simple', 'Exception::Other'];  # matches
-  print $@ ~~ ['NullObject'];                             # doesn't
+  print $@->matches( ['Exception::Base'] );                    # matches
+  print $@->matches( ['Exception::Simple', 'Exception::X'] );  # matches
+  print $@->matches( ['NullObject'] );                         # doesn't
 
 If the argument is a reference to hash, attributes of the exception
 object is matched.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
-  print $@ ~~ { message=>"Message" };             # matches
-  print $@ ~~ { value=>123 };                     # matches
-  print $@ ~~ { message=>"Message", value=>45 };  # doesn't
+  print $@->matches( { message=>"Message" } );             # matches
+  print $@->matches( { value=>123 } );                     # matches
+  print $@->matches( { message=>"Message", value=>45 } );  # doesn't
 
 If the argument is a single string, regexp or code reference or is undefined,
 the default attribute of the exception object is matched (usually it is a
 "message" attribute).
 
   eval { Exception::Base->throw( message=>"Message" ) };
-  print $@ ~~ "Message";                          # matches
-  print $@ ~~ qr/Message/;                        # matches
-  print $@ ~~ qr/[0-9]/;                          # doesn't
-  print $@ ~~ sub{/Message/};                     # matches
-  print $@ ~~ sub{0};                             # doesn't
-  print $@ ~~ undef;                              # doesn't
+  print $@->matches( "Message" );                          # matches
+  print $@->matches( qr/Message/ );                        # matches
+  print $@->matches( qr/[0-9]/ );                          # doesn't
+  print $@->matches( sub{/Message/} );                     # matches
+  print $@->matches( sub{0} );                             # doesn't
+  print $@->matches( undef );                              # doesn't
 
-If argument is a numeric value, the argument matches if B<value> attribute
+If argument is a numeric value, the argument matches if C<value> attribute
 matches.
 
-  eval { Exception::Base->throw( value=>123, message=>456 ) };
-  print $@ ~~ 123;                                # matches
-  print $@ ~~ 456;                                # doesn't
+  eval { Exception::Base->throw( value=>123, message=>456 ) } );
+  print $@->matches( 123 );                                # matches
+  print $@->matches( 456 );                                # doesn't
 
-=item with(I<condition>)
-
-Checks if the exception object matches the given condition.  If the first
-argument is single value, the message combined from B<stringify_attributes>
-attributes is matched.  If the argument is a part of hash, an attribute of the
-exception object is matched.  The B<with> method returns true value if all its
-arguments match.
-
-  eval { Exception::Base->new( message=>"Message", value=>123 ) };
-  print $@->with( "Message" );                    # matches
-  print $@->with( value=>123 );                   # matches
-  print $@->with( "Message", value=>45 );         # doesn't
-  print $@->with( uid=>0 );               # matches if root
-  print $@->with( message=>"Message" );           # matches
-
-The argument (for message or attributes) can be simple string or code
-reference or regexp.
-
-  eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( "Message" );                    # matches
-  print $@->with( sub {/Message/} );              # matches
-  print $@->with( qr/Message/ );                  # matches
-
-If argument is a numeric value, the argument matches if attribute pointed by
-B<numeric_attribute> attribute matches.
-
-  eval { Exception::Base->new( value=>123, message=>456 ) };
-  print $@->with( 123 );                          # matches
-  print $@->with( 456 );                          # doesn't
-
-If argument is a reference to array, the argument matches if any of its
-element matches.
-
-  eval { Exception::Base->new( message=>"Message", value=>123 ) };
-  print $@->with( message=>["Not", 123, 45, "Message"] );  # matches
-  print $@->with( value=>[123, 45], message=>"Not" );      # doesn't
-
-The B<with> method matches for special keywords:
+The C<match> method matches for special keywords:
 
 =over
 
@@ -1975,104 +1881,66 @@ The B<with> method matches for special keywords:
 Matches if the object is a given class.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( -isa=>"Exception::Base" );                   # matches
-  print $@->with( -isa=>["Some::Class", "Exception::Base"] );  # matches
+  print $@->matches( { -isa=>"Exception::Base" } );            # matches
+  print $@->matches( { -isa=>["X::Y", "Exception::Base"] } );  # matches
 
 =item -has
 
 Matches if the object has a given attribute.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( -has=>"Message" );              # matches
+  print $@->matches( { -has=>"Message" } );                    # matches
 
 =item -default
 
-Matches against the default attribute, usually the B<message> attribute.
+Matches against the default attribute, usually the C<message> attribute.
 
   eval { Exception::Base->new( message=>"Message" ) };
-  print $@->with( -default=>"Message" );          # matches
+  print $@->matches( { -default=>"Message" } );                # matches
 
 =back
 
-=item try(I<eval>)
+=item to_string
 
-The B<try> method or function can be used with eval block as argument and then
-the eval's error is pushed into error stack and can be used with B<catch>
-later.  The B<$@> variable is replaced with empty string.
-
-  try eval { Exception::Base->throw; };
-  eval { die "another error messing with \$@ variable"; };
-  catch my $e;
-
-The B<try> returns the value of the argument in scalar context.  If the
-argument is array reference, the B<try> returns the value of the argument in
-array context.
-
-  $v = Exception::Base->try( eval { 2 + 2; } ); # $v == 4
-  @v = Exception::Base->try( [ eval { (1,2,3); }; ] ); # @v = (1,2,3)
-
-The B<try> can be used as method or function.
-
-  try 'Exception::Base' => eval {
-    Exception::Base->throw( message=>"method" );
-  };
-  Exception::Base::try eval {
-    Exception::Base->throw( message=>"function" );
-  };
-  Exception::Base->import( 'try' );
-  try eval {
-    Exception::Base->throw( message=>"imported function" );
-  };
-
-=item I<CLASS>-E<gt>catch([$I<variable>])
-
-The exception is popped from error stack and returned from method or written into
-the method argument.
+Returns the string representation of exception object.  It is called
+automatically if the exception object is used in string scalar context.  The
+method can be used explicity.
 
   eval { Exception::Base->throw; };
-  if ($@) {
-      my $e = Exception::Base->catch;
-      print $e->stringify(1);
-  }
+  $@->{verbosity} = 1;
+  print "$@";
+  $@->verbosity = 4;
+  print $@->to_string;
 
-If the error stack is empty, the B<catch> method recovers B<$@> variable and
-replaces it with empty string to avoid endless loop.  It allows to use
-B<catch> method without previous B<try>.
+=item to_number
 
-If the popped value is not empty and does not contain the B<Exception::Base>
-object, new exception object is created with class I<CLASS> and its message is
-based on previous value with removed C<" at file line 123."> string and the
-last end of line (LF).
+Returns the numeric representation of exception object.  It is called
+automatically if the exception object is used in numeric scalar context.  The
+method can be used explicity.
 
-  eval { die "Died\n"; };
-  my $e = Exception::Base->catch;
-  print ref $e;   # "Exception::Base"
+  eval { Exception::Base->throw( value => 42 ); };
+  print 0+$@;           # 42
+  print $@->to_number;  # 42
 
-The method returns B<1>, if the exception object is caught, and returns B<0>
-otherwise.
+=item to_bool
 
-  try eval { throw 'Exception::Base'; };
-  if (catch my $e) {
-    warn "Exception caught: " . ref $e;
-  }
-
-If the method argument is missing, the method returns the exception object.
+Returns the boolean representation of exception object.  It is called
+automatically if the exception object is used in boolean context.  The method
+can be used explicity.
 
   eval { Exception::Base->throw; };
-  my $e = Exception::Base->catch;
+  print "ok" if $@;           # ok
+  print "ok" if $@->to_bool;  # ok
 
-The B<catch> can be used as method or function.  If it is used as function,
-then the I<CLASS> is Exception::Base by default.
+=item get_caller_stacktrace
 
-  try eval { throw 'Exception::Base' => message=>"method"; };
-  Exception::Base->import( 'catch' );
-  catch my $e;  # the same as Exception::Base->catch( my $e );
-  print $e->stringify;
+Returns an array of strings or string with caller stack trace.  It is
+implicity used by C<to_string> method.
 
 =item PROPAGATE
 
-Checks the caller stack and fills the B<propagated_stack> attribute.  It is
-usually used if B<die> system function was called without any arguments.
+Checks the caller stack and fills the C<propagated_stack> attribute.  It is
+usually used if C<die> system function was called without any arguments.
 
 =item package
 
@@ -2099,8 +1967,8 @@ Returns the subroutine name which thrown an exception.
 =item _collect_system_data
 
 Collects system data and fills the attributes of exception object.  This
-method is called automatically if exception if thrown.  It can be used by
-derived class.
+method is called automatically if exception if thrown or created by
+C<new> constructor.  It can be overriden by derived class.
 
   package Exception::Special;
   use base 'Exception::Base';
@@ -2114,7 +1982,9 @@ derived class.
     $self->{special} = get_special_value();
     return $self;
   }
-  __PACKAGE__->_make_accessors;
+  BEGIN {
+    __PACKAGE__->_make_accessors;
+  }
   1;
 
 Method returns the reference to the self object.
@@ -2126,7 +1996,19 @@ each derived class which defines new attributes.
 
   package Exception::My;
   # (...)
-  __PACKAGE__->_make_accessors;
+  BEGIN {
+    __PACKAGE__->_make_accessors;
+  }
+
+=back
+
+=head1 PRIVATE FUNCTIONS
+
+=over
+
+=item _qualify_to_ref
+
+See C<L<Symbol>::qualify_to_ref> function.
 
 =back
 
@@ -2156,19 +2038,20 @@ It doesn't collect system data and stack trace on error.
 
 =item L<Exception::Class>
 
-More perl-ish way to do OO exceptions.  It is too heavy and too slow for
-failure scenario and slightly slower for success scenario.  It requires
-non-core perl modules to work.
+More perl-ish way to do OO exceptions.  It is similar to B<Exception::Base>
+module and provides similar features but it is 10x slower for failure
+scenario.
 
 =item L<Exception::Class::TryCatch>
 
-Additional try/catch mechanism for L<Exception::Class>.  It is also slow as
-B<Exception::Base> with try/catch mechanism for success scenario.
+Additional try/catch mechanism for L<Exception::Class>.  It is 15x slower for
+success scenario.
 
 =item L<Class::Throwable>
 
-Elegant OO exceptions without try/catch mechanism.  It might be missing some
-features found in B<Exception::Base> and L<Exception::Class>.
+Elegant OO exceptions similar to C<Exception::Class> and B<Exception::Base>.
+It might be missing some features found in B<Exception::Base> and
+L<Exception::Class>.
 
 =item L<Exceptions>
 
@@ -2180,7 +2063,7 @@ The B<Exception::Base> does not depend on other modules like
 L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
 does not use closures as L<Error> and does not polute namespace as
 L<Exception::Class::TryCatch>.  It is also much faster than
-L<Exception::Class> and L<Error>.
+L<Exception::Class::TryCatch> and L<Error> for success scenario.
 
 The B<Exception::Base> is also a base class for enchanced classes:
 
@@ -2188,7 +2071,7 @@ The B<Exception::Base> is also a base class for enchanced classes:
 
 =item L<Exception::System>
 
-The exception class for system or library calls which modifies B<$!> variable.
+The exception class for system or library calls which modifies C<$!> variable.
 
 =item L<Exception::Died>
 
@@ -2208,25 +2091,25 @@ convert simple L<perlfunc/warn> into an exception object.
 =head2 New exception classes
 
 The B<Exception::Base> module allows to create new exception classes easly.
-You can use B<import> interface or L<base> module to do it.
+You can use C<import> interface or L<base> module to do it.
 
-The B<import> interface allows to create new class with new read-write
+The C<import> interface allows to create new class with new read-write
 attributes.
 
   package Exception::Simple;
   use Exception::Base (__PACKAGE__) => {
     has => qw< reason method >,
-    stringify_attributes => qw< message reason method >,
+    string_attributes => qw< message reason method >,
   };
 
-For more complex exceptions you can redefine B<ATTRS> constant.
+For more complex exceptions you can redefine C<ATTRS> constant.
 
   package Exception::Complex;
   use base 'Exception::Base';
   use constant ATTRS => {
     %{ Exception::Base->ATTRS },     # SUPER::ATTRS
     hostname => { is => 'ro' },
-    stringify_attributes => qw< hostname message >,
+    string_attributes => qw< hostname message >,
   };
   sub _collect_system_data {
     my $self = shift;
@@ -2256,25 +2139,21 @@ are following:
   -----------------------------------------------------------------------
   | Module                              | Success       | Failure       |
   -----------------------------------------------------------------------
-  | eval/die string                     |      818638/s |      237975/s |
+  | eval/die string                     |      859644/s |      232952/s |
   -----------------------------------------------------------------------
-  | eval/die object                     |      849686/s |      124853/s |
+  | eval/die object                     |      891294/s |      125992/s |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if             |      848593/s |        8356/s |
+  | Exception::Base eval/if             |      886204/s |        7585/s |
   -----------------------------------------------------------------------
-  | Exception::Base try/catch           |       56639/s |        9218/s |
+  | Exception::Base eval/if verbosity=1 |      882376/s |       13778/s |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if verbosity=1 |      849180/s |       14899/s |
+  | Error                               |       85800/s |       19723/s |
   -----------------------------------------------------------------------
-  | Exception::Base try/catch verbos.=1 |       56986/s |       18232/s |
+  | Class::Throwable                    |      878963/s |        7461/s |
   -----------------------------------------------------------------------
-  | Error                               |       88123/s |       19782/s |
+  | Exception::Class                    |      345114/s |        1278/s |
   -----------------------------------------------------------------------
-  | Class::Throwable                    |      844204/s |        7545/s |
-  -----------------------------------------------------------------------
-  | Exception::Class                    |      344124/s |        1311/s |
-  -----------------------------------------------------------------------
-  | Exception::Class::TryCatch          |      223822/s |        1270/s |
+  | Exception::Class::TryCatch          |      210389/s |        1259/s |
   -----------------------------------------------------------------------
 
 The B<Exception::Base> module was written to be as fast as it is
@@ -2287,8 +2166,6 @@ trace and higher verbosity.
 You can find the benchmark script in this package distribution.
 
 =head1 BUGS
-
-The B<with> method is planned to be removed from further version.
 
 If you find the bug, please report it.
 
