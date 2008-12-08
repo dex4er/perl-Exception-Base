@@ -87,7 +87,7 @@ allowing programmers to declare exception classes.  These classes can be
 thrown and caught.  Each uncaught exception prints full stack trace if the
 default verbosity is uppered for debugging purposes.
 
-The features of B<Exception::Base>:
+The features of C<Exception::Base>:
 
 =over 2
 
@@ -101,7 +101,7 @@ fully OO without closures and source code filtering
 
 =item *
 
-does not mess with $SIG{__DIE__} and $SIG{__WARN__}
+does not mess with C<$SIG{__DIE__}> and C<$SIG{__WARN__}>
 
 =item *
 
@@ -122,7 +122,8 @@ matching with string, regex or closure function
 
 =item *
 
-creating automatically the derived exception classes ("use" interface)
+creating automatically the derived exception classes (L<perlfunc/use>
+interface)
 
 =item *
 
@@ -848,7 +849,7 @@ sub _caller_info {
         if defined $self->{caller_stack} and defined $self->{caller_stack}->[$i];
 
     @call_info{
-        qw< package file line subroutine has_args wantarray evaltext is_require >
+        qw{ package file line subroutine has_args wantarray evaltext is_require }
     } = @call_info[0..7];
 
     unless (defined $call_info{package}) {
@@ -1038,7 +1039,7 @@ sub _make_caller_info_accessors {
 
     my $class = ref $self || $self;
 
-    foreach my $key (qw< package file line subroutine >) {
+    foreach my $key (qw{ package file line subroutine }) {
         if (not $class->can($key)) {
             *{_qualify_to_ref($class . '::' . $key)} = sub {
                 my $self = shift;
@@ -1233,8 +1234,8 @@ __END__
  +get_caller_stacktrace() : Array[Str]|Str
  +PROPAGATE()
  #_collect_system_data()
- #_make_accessors()                                                    {begin}
- #_make_caller_info_accessors()                                        {begin}
+ #_make_accessors()                                                     {init}
+ #_make_caller_info_accessors()                                         {init}
  <<constant>> +ATTRS() : HashRef                                              ]
 
 =end umlwiki
@@ -1250,7 +1251,7 @@ special prefix, its default value is replaced with a new I<value>.
 
   use Exception::Base verbosity => 4;
 
-If the I<attribute> name starts with "B<+>" or "B<->" then the new I<value>
+If the I<attribute> name starts with "C<+>" or "C<->" then the new I<value>
 is based on previous value:
 
 =over
@@ -1285,9 +1286,9 @@ included.
 
 Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
-class will be based on B<Exception::Base> class.
+class will be based on C<Exception::Base> class.
 
-  use Exception::Base qw< Exception::Custom Exception::SomethingWrong >;
+  use Exception::Base qw{ Exception::Custom Exception::SomethingWrong };
   Exception::Custom->throw;
 
 =item C<use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };>
@@ -1817,7 +1818,7 @@ variable is replaced with empty string to avoid endless loop.
       print $e->to_string;
   }
 
-If the value is not empty and does not contain the B<Exception::Base> object,
+If the value is not empty and does not contain the C<Exception::Base> object,
 new exception object is created with class I<CLASS> and its message is based
 on previous value with removed C<" at file line 123."> string and the last end
 of line (LF).
@@ -2043,13 +2044,13 @@ The more complex implementation of exception mechanism provides more features.
 
 Complete implementation of try/catch/finally/otherwise mechanism.  Uses nested
 closures with a lot of syntactic sugar.  It is slightly faster than
-B<Exception::Base> module for failure scenario and is much slower for success
+C<Exception::Base> module for failure scenario and is much slower for success
 scenario.  It doesn't provide a simple way to create user defined exceptions.
 It doesn't collect system data and stack trace on error.
 
 =item L<Exception::Class>
 
-More perl-ish way to do OO exceptions.  It is similar to B<Exception::Base>
+More perl-ish way to do OO exceptions.  It is similar to C<Exception::Base>
 module and provides similar features but it is 10x slower for failure
 scenario.
 
@@ -2060,8 +2061,8 @@ success scenario.
 
 =item L<Class::Throwable>
 
-Elegant OO exceptions similar to C<Exception::Class> and B<Exception::Base>.
-It might be missing some features found in B<Exception::Base> and
+Elegant OO exceptions similar to L<Exception::Class> and C<Exception::Base>.
+It might be missing some features found in C<Exception::Base> and
 L<Exception::Class>.
 
 =item L<Exceptions>
@@ -2070,13 +2071,13 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 
 =back
 
-The B<Exception::Base> does not depend on other modules like
+The C<Exception::Base> does not depend on other modules like
 L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
 does not use closures as L<Error> and does not polute namespace as
 L<Exception::Class::TryCatch>.  It is also much faster than
 L<Exception::Class::TryCatch> and L<Error> for success scenario.
 
-The B<Exception::Base> is also a base class for enchanced classes:
+The C<Exception::Base> is also a base class for enchanced classes:
 
 =over
 
@@ -2101,16 +2102,16 @@ convert simple L<perlfunc/warn> into an exception object.
 
 =head2 New exception classes
 
-The B<Exception::Base> module allows to create new exception classes easly.
-You can use C<import> interface or L<base> module to do it.
+The C<Exception::Base> module allows to create new exception classes easly.
+You can use L<perlfunc/import> interface or L<base> module to do it.
 
-The C<import> interface allows to create new class with new read-write
-attributes.
+The L<perlfunc/import> interface allows to create new class with new
+read-write attributes.
 
   package Exception::Simple;
   use Exception::Base (__PACKAGE__) => {
-    has => qw< reason method >,
-    string_attributes => qw< message reason method >,
+    has => qw{ reason method },
+    string_attributes => qw{ message reason method },
   };
 
 For more complex exceptions you can redefine C<ATTRS> constant.
@@ -2120,7 +2121,7 @@ For more complex exceptions you can redefine C<ATTRS> constant.
   use constant ATTRS => {
     %{ Exception::Base->ATTRS },     # SUPER::ATTRS
     hostname => { is => 'ro' },
-    string_attributes => qw< hostname message >,
+    string_attributes => qw{ hostname message },
   };
   sub _collect_system_data {
     my $self = shift;
@@ -2132,18 +2133,18 @@ For more complex exceptions you can redefine C<ATTRS> constant.
 
 =head1 PERFORMANCE
 
-There are two scenarios for "eval" block: success or failure.  Success
-scenario should have no penalty on speed.  Failure scenario is usually more
-complex to handle and can be significally slower.
+There are two scenarios for L<perlfunc/eval> block: success or failure.
+Success scenario should have no penalty on speed.  Failure scenario is usually
+more complex to handle and can be significally slower.
 
-Any other code than simple "if ($@)" is really slow and shouldn't be used if
+Any other code than simple C<if ($@)> is really slow and shouldn't be used if
 speed is important.  It means that L<Error> and L<Exception::Class::TryCatch>
 should be avoided as far as they are slow by design.  The L<Exception::Class>
-module doesn't use "if ($@)" syntax in its documentation so it was benchmarked
-with its default syntax, however it might be possible to convert it to simple
-"if ($@)".
+module doesn't use C<if ($@)> syntax in its documentation so it was
+benchmarked with its default syntax, however it might be possible to convert
+it to simple C<if ($@)>.
 
-The B<Exception::Base> module was benchmarked with other implementations for
+The C<Exception::Base> module was benchmarked with other implementations for
 simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
 are following:
 
@@ -2167,7 +2168,7 @@ are following:
   | Exception::Class::TryCatch          |      210389/s |        1259/s |
   -----------------------------------------------------------------------
 
-The B<Exception::Base> module was written to be as fast as it is
+The C<Exception::Base> module was written to be as fast as it is
 possible.  It does not use internally i.e. accessor functions which are
 slower about 6 times than standard variables.  It is slower than pure
 die/eval because it is uses OO mechanisms which are slow in Perl.  It
