@@ -15,8 +15,6 @@ t/all_tests.t
 t/benchmark_fail.pl
 t/benchmark_ok.pl
 t/cover.sh
-t/pod.t
-t/pod_coverage.t
 t/profile_eval.pl
 t/test.pl
 t/tlib/Exception/BaseTest.pm

@@ -789,10 +789,10 @@ sub _collect_system_data {
                     Scalar::Util::weaken($_) if ref $_;
                 };
             };
-            my $stacktrace_element = [ @c[0 .. 7], @args ];
-            push @caller_stack, $stacktrace_element;
-            # Collect only one entry if verbosity is lower than 3
-            last if $verbosity == 2;
+            my @stacktrace_element = ( @c[0 .. 7], @args );
+            push @caller_stack, \@stacktrace_element;
+            # Collect only one entry if verbosity is lower than 3 and skip ignored packages
+            last if $verbosity == 2 and not $self->_skip_ignored_package($stacktrace_element[0]);
         };
         $self->{caller_stack} = \@caller_stack;
     };

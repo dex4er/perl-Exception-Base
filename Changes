@@ -3,8 +3,10 @@
 
 Fixes:
 
-* Reset internal cache with classes defaults after the default value was
-  changed.
+* Skip ignored packages for verbosity level 2.
+
+* Verbosity level can not be changed.  Reset internal cache with classes
+  defaults after the default value was changed.
 
 Changes:
 
