@@ -2,6 +2,7 @@ Build.PL
 Changes
 eg/eval_throw.pl
 eg/file-not-found_exception.pl
+eg/ignore_package.pl
 inc/Test/Unit/Lite.pm
 Incompatibilities
 lib/Exception/Base.pm
@@ -14,11 +15,11 @@ t/all_tests.t
 t/benchmark_fail.pl
 t/benchmark_ok.pl
 t/cover.sh
-t/pod.t
-t/pod_coverage.t
 t/profile_eval.pl
 t/test.pl
 t/tlib/Exception/BaseTest.pm
 t/tlib/Exception/BaseTest/LoadedException.pm
 t/tlib/Exception/BaseTest/MissingVersion.pm
 t/tlib/Exception/BaseTest/SyntaxError.pm
+xt/pod.t
+xt/pod_coverage.t

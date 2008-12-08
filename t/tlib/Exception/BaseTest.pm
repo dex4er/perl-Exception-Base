@@ -291,9 +291,7 @@ END
     $self->assert_equals($s1, $s2);
 
     $obj->{verbosity} = 2;
-    my $s3 = $obj->to_string;
-    $s3 =~ s/(ARRAY|HASH|CODE)\(0x\w+\)/$1(0x1234567)/g;
-    $self->assert_equals("Stringify at Package1.pm line 1.\n", $s3);
+    $self->assert_equals("Stringify at Package1.pm line 1.\n", $obj->to_string);
 
     $obj->{caller_stack} = [
         ['Exception::BaseTest::Package1', 'Package1.pm', 1, 'Exception::BaseTest::Package1::func1', 0, undef, undef, undef ],
@@ -335,6 +333,9 @@ END
     my $s7 = $obj->to_string;
     $self->assert_equals($s6, $s7);
 
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package1.pm line 1.\n", $obj->to_string);
+
     $obj->{ignore_package} = 'Exception::BaseTest::Package1';
 
     my $s8 = << 'END';
@@ -371,6 +372,9 @@ END
     my $s11 = $obj->to_string;
     $self->assert_equals($s10, $s11);
 
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package3.pm line 3.\n", $obj->to_string);
+
     $obj->{ignore_level} = 0;
 
     my $s12 = << 'END';
@@ -386,6 +390,9 @@ END
     my $s13 = $obj->to_string;
     $self->assert_equals($s12, $s13);
 
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package2.pm line 2.\n", $obj->to_string);
+
     $obj->{ignore_package} = [ 'Exception::BaseTest::Package1', 'Exception::BaseTest::Package2', 'Exception::BaseTest::Propagate1' ];
 
     my $s14 = << 'END';
@@ -399,6 +406,9 @@ END
     my $s15 = $obj->to_string;
     $self->assert_equals($s14, $s15);
 
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package3.pm line 3.\n", $obj->to_string);
+
     $obj->{ignore_package} = qr/^Exception::BaseTest::(Package|Propagate)/;
 
     my $s16 = << 'END';
@@ -410,6 +420,9 @@ END
     $obj->{verbosity} = 3;
     my $s17 = $obj->to_string;
     $self->assert_equals($s16, $s17);
+
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package1.pm line 1.\n", $obj->to_string);
 
     $obj->{ignore_package} = [ qr/^Exception::BaseTest::Package1/, qr/^Exception::BaseTest::Package2/, qr/^Exception::BaseTest::Propagate2/ ];
 
@@ -423,6 +436,9 @@ END
     $obj->{verbosity} = 3;
     my $s19 = $obj->to_string;
     $self->assert_equals($s18, $s19);
+
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package3.pm line 3.\n", $obj->to_string);
 
     $obj->{ignore_package} = [ ];
     $obj->{ignore_class} = 'Exception::BaseTest::Package1';
@@ -439,6 +455,9 @@ END
     $obj->{verbosity} = 3;
     my $s21 = $obj->to_string;
     $self->assert_equals($s20, $s21);
+
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package2.pm line 2.\n", $obj->to_string);
 
     $obj->{ignore_class} = [ 'Exception::BaseTest::Package1', 'Exception::BaseTest::Package2', 'Exception::BaseTest::Propagate1' ];
 
@@ -457,6 +476,9 @@ END
     my $s24 = $obj->to_string;
     $self->assert_equals($s10, $s24);
 
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at Package3.pm line 3.\n", $obj->to_string);
+
     $obj->{caller_stack} = [ ];
     $obj->{propagated_stack} = [ ];
 
@@ -469,6 +491,9 @@ END
     $obj->{verbosity} = 3;
     my $s26 = $obj->to_string;
     $self->assert_equals($s25, $s26);
+
+    $obj->{verbosity} = 2;
+    $self->assert_equals("Stringify at unknown line 0.\n", $obj->to_string);
 
     $obj->{defaults}->{verbosity} = 1;
     $obj->{verbosity} = undef;
@@ -1066,6 +1091,22 @@ sub test_import_defaults {
 
         eval 'Exception::Base->import("exception_basetest_no_such_field" => undef);';
         $self->assert_matches(qr/class does not implement/, "$@");
+
+        # Change default verbosity
+        eval 'Exception::Base->import("Exception::Base::import_defaults::Test1" => { verbosity => 0 });';
+        $self->assert_equals('', "$@");
+        
+        eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
+        $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
+        $self->assert_equals('', "$@");
+
+        eval { Exception::Base::import_defaults::Test1->import(verbosity=>1) };        
+        $self->assert_equals('', "$@");
+
+        eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
+        $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
+        $self->assert_equals("Message\n", "$@");
+        
     };
     my $e = $@;
 

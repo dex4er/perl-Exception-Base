@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = '0.20';
+our $VERSION = 0.21;
 
 =head1 NAME
 
@@ -87,7 +87,7 @@ allowing programmers to declare exception classes.  These classes can be
 thrown and caught.  Each uncaught exception prints full stack trace if the
 default verbosity is uppered for debugging purposes.
 
-The features of B<Exception::Base>:
+The features of C<Exception::Base>:
 
 =over 2
 
@@ -101,7 +101,7 @@ fully OO without closures and source code filtering
 
 =item *
 
-does not mess with $SIG{__DIE__} and $SIG{__WARN__}
+does not mess with C<$SIG{__DIE__}> and C<$SIG{__WARN__}>
 
 =item *
 
@@ -122,7 +122,8 @@ matching with string, regex or closure function
 
 =item *
 
-creating automatically the derived exception classes ("use" interface)
+creating automatically the derived exception classes (L<perlfunc/use>
+interface)
 
 =item *
 
@@ -189,18 +190,20 @@ BEGIN {
 
 
 # Overload the cast operations
-use overload 'bool'   => 'to_bool',
-             '0+'     => 'to_number',
-             '""'     => 'to_string',
-             fallback => 1;
+use overload (
+    'bool'   => 'to_bool',
+    '0+'     => 'to_number',
+    '""'     => 'to_string',
+    fallback => 1,
+);
+
 
 # Overload smart matching for Perl 5.10.  Don't "use if" not available for base Perl 5.6.
 BEGIN {
-    eval q{
-        use overload
-             '~~'     => 'matches',
-             fallback => 1;
-    } if ($] >= 5.010);
+    overload->import(
+        '~~'     => 'matches',
+        fallback => 1,
+    ) if ($] >= 5.010);
 };
 
 
@@ -250,7 +253,7 @@ my %Isa_Package;
 
 # Create additional exception packages
 sub import {
-    my $pkg = shift;
+    my $class = shift;
 
     while (defined $_[0]) {
         my $name = shift @_;
@@ -261,7 +264,7 @@ sub import {
             # Lower case: change default
             my ($modifier, $key) = ($1, $2);
             my $value = shift;
-            $pkg->_modify_default($key, $value, $modifier);
+            $class->_modify_default($key, $value, $modifier);
         }
         else {
             # Try to use external module
@@ -277,7 +280,7 @@ sub import {
                 {
                     local $SIG{__DIE__};
                     eval {
-                        $pkg->_load_package($name, $version);
+                        $class->_load_package($name, $version);
                     };
                 };
                 if ($@) {
@@ -298,99 +301,17 @@ sub import {
             next if $name eq __PACKAGE__;
 
             # Package not found so it have to be created
-            if ($pkg ne __PACKAGE__) {
+            if ($class ne __PACKAGE__) {
                 Exception::Base->throw(
                     message => "Exceptions can only be created with " . __PACKAGE__ . " class",
                     verbosity => 1
                 );
             };
-            my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
-            $version = 0.01 if not $version;
-
-            my $has = defined $param->{has} ? $param->{has} : { rw => [ ], ro => [ ] };
-            if (ref $has eq 'ARRAY') {
-                $has = { rw => $has, ro => [ ] };
-            }
-            elsif (not ref $has) {
-                $has = { rw => [ $has ], ro => [ ] };
-            };
-            foreach my $mode ('rw', 'ro') {
-                if (not ref $has->{$mode}) {
-                    $has->{$mode} = [ defined $has->{$mode} ? $has->{$mode} : () ];
-                };
-            };
-
-            # Base class is needed
-            if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
-                eval {
-                    $pkg->_load_package($isa);
-                };
-                if ($@) {
-                    Exception::Base->throw(
-                        message => "Base class $isa for class $name can not be found",
-                        verbosity => 1
-                    );
-                };
-            };
-
-            # Handle defaults for object attributes
-            my $attributes;
-            {
-                local $SIG{__DIE__};
-                eval {
-                    $attributes = $isa->ATTRS;
-                };
-            };
-            if ($@) {
-                Exception::Base->throw(
-                    message => "$name class is based on $isa class which does not implement ATTRS",
-                    verbosity => 1
-                );
-            };
-
-            # Create the hash with overriden attributes
-            my %overriden_attributes;
-            # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
-            foreach my $mode ('rw', 'ro') {
-                foreach my $attribute (@{ $has->{$mode} }) {
-                    if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
-                        Exception::Base->throw(
-                            message => "Attribute name `$attribute' can not be defined for $name class"
-                        );
-                    };
-                    $overriden_attributes{$attribute} = { is => $mode };
-                };
-            };
-            # Class => { message => "overriden default", ... }
-            foreach my $attribute (keys %{ $param }) {
-                next if $attribute =~ /^(isa|version|has)$/;
-                if (not exists $attributes->{$attribute}->{default}
-                    and not exists $overriden_attributes{$attribute})
-                {
-                    Exception::Base->throw(
-                        message => "$isa class does not implement default value for `$attribute' attribute",
-                        verbosity => 1
-                    );
-                };
-                $overriden_attributes{$attribute} = {};
-                $overriden_attributes{$attribute}->{default} = $param->{$attribute};
-                foreach my $property (keys %{ $attributes->{$attribute} }) {
-                    next if $property eq 'default';
-                    $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
-                };
-            };
-
-            # Create the new package
-            ${ *{_qualify_to_ref($name . '::VERSION')} } = $version;
-            @{ *{_qualify_to_ref($name . '::ISA')} } = ($isa);
-            *{_qualify_to_ref($name . '::ATTRS')} = sub () {
-                +{ %{ $isa->ATTRS }, %overriden_attributes };
-            };
-            $name->_make_accessors;
+            $class->_make_exception($name, $version, $param);
         }
     }
 
-    return $pkg;
+    return $class;
 };
 
 
@@ -869,10 +790,10 @@ sub _collect_system_data {
                     Scalar::Util::weaken($_) if ref $_;
                 };
             };
-            my $stacktrace_element = [ @c[0 .. 7], @args ];
-            push @caller_stack, $stacktrace_element;
-            # Collect only one entry if verbosity is lower than 3
-            last if $verbosity == 2;
+            my @stacktrace_element = ( @c[0 .. 7], @args );
+            push @caller_stack, \@stacktrace_element;
+            # Collect only one entry if verbosity is lower than 3 and skip ignored packages
+            last if $verbosity == 2 and not $self->_skip_ignored_package($stacktrace_element[0]);
         };
         $self->{caller_stack} = \@caller_stack;
     };
@@ -928,7 +849,7 @@ sub _caller_info {
         if defined $self->{caller_stack} and defined $self->{caller_stack}->[$i];
 
     @call_info{
-        qw< package file line subroutine has_args wantarray evaltext is_require >
+        qw{ package file line subroutine has_args wantarray evaltext is_require }
     } = @call_info[0..7];
 
     unless (defined $call_info{package}) {
@@ -1075,11 +996,8 @@ sub _modify_default {
         $attributes->{$key}->{default} = $value;
     };
 
-    if (exists $Class_Defaults{$class}) {
-        $Class_Attributes{$class}->{$key}->{default}
-        = $Class_Defaults{$class}->{$key}
-        = $attributes->{$key}->{default};
-    };
+    # Reset cache
+    %Class_Attributes = %Class_Defaults = ();
 
     return $self;
 };
@@ -1121,7 +1039,7 @@ sub _make_caller_info_accessors {
 
     my $class = ref $self || $self;
 
-    foreach my $key (qw< package file line subroutine >) {
+    foreach my $key (qw{ package file line subroutine }) {
         if (not $class->can($key)) {
             *{_qualify_to_ref($class . '::' . $key)} = sub {
                 my $self = shift;
@@ -1150,7 +1068,7 @@ sub _make_caller_info_accessors {
 
 # Load another module without eval q{}
 sub _load_package {
-    my ($self, $package, $version) = @_;
+    my ($class, $package, $version) = @_;
 
     return unless $package;
 
@@ -1164,7 +1082,101 @@ sub _load_package {
         $package->VERSION($version);
     };
 
-    return $self;
+    return $class;
+};
+
+
+# Create new exception class
+sub _make_exception {
+    my ($class, $package, $version, $param) = @_;
+
+    return unless $package;
+
+    my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
+    $version = 0.01 if not $version;
+
+    my $has = defined $param->{has} ? $param->{has} : { rw => [ ], ro => [ ] };
+    if (ref $has eq 'ARRAY') {
+        $has = { rw => $has, ro => [ ] };
+    }
+    elsif (not ref $has) {
+        $has = { rw => [ $has ], ro => [ ] };
+    };
+    foreach my $mode ('rw', 'ro') {
+        if (not ref $has->{$mode}) {
+            $has->{$mode} = [ defined $has->{$mode} ? $has->{$mode} : () ];
+        };
+    };
+
+    # Base class is needed
+    if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
+        eval {
+            $class->_load_package($isa);
+        };
+        if ($@) {
+            Exception::Base->throw(
+                message => "Base class $isa for class $package can not be found",
+                verbosity => 1
+            );
+        };
+    };
+
+    # Handle defaults for object attributes
+    my $attributes;
+    {
+        local $SIG{__DIE__};
+        eval {
+            $attributes = $isa->ATTRS;
+        };
+    };
+    if ($@) {
+        Exception::Base->throw(
+            message => "$package class is based on $isa class which does not implement ATTRS",
+            verbosity => 1
+        );
+    };
+
+    # Create the hash with overriden attributes
+    my %overriden_attributes;
+    # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
+    foreach my $mode ('rw', 'ro') {
+        foreach my $attribute (@{ $has->{$mode} }) {
+            if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+                Exception::Base->throw(
+                    message => "Attribute name `$attribute' can not be defined for $package class"
+                );
+            };
+            $overriden_attributes{$attribute} = { is => $mode };
+        };
+    };
+    # Class => { message => "overriden default", ... }
+    foreach my $attribute (keys %{ $param }) {
+        next if $attribute =~ /^(isa|version|has)$/;
+        if (not exists $attributes->{$attribute}->{default}
+            and not exists $overriden_attributes{$attribute})
+        {
+            Exception::Base->throw(
+                message => "$isa class does not implement default value for `$attribute' attribute",
+                verbosity => 1
+            );
+        };
+        $overriden_attributes{$attribute} = {};
+        $overriden_attributes{$attribute}->{default} = $param->{$attribute};
+        foreach my $property (keys %{ $attributes->{$attribute} }) {
+            next if $property eq 'default';
+            $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
+        };
+    };
+
+    # Create the new package
+    ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
+    @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
+    *{_qualify_to_ref($package . '::ATTRS')} = sub () {
+        +{ %{ $isa->ATTRS }, %overriden_attributes };
+    };
+    $package->_make_accessors;
+
+    return $class;
 };
 
 
@@ -1222,8 +1234,8 @@ __END__
  +get_caller_stacktrace() : Array[Str]|Str
  +PROPAGATE()
  #_collect_system_data()
- #_make_accessors()                                                    {begin}
- #_make_caller_info_accessors()                                        {begin}
+ #_make_accessors()                                                     {init}
+ #_make_caller_info_accessors()                                         {init}
  <<constant>> +ATTRS() : HashRef                                              ]
 
 =end umlwiki
@@ -1239,7 +1251,7 @@ special prefix, its default value is replaced with a new I<value>.
 
   use Exception::Base verbosity => 4;
 
-If the I<attribute> name starts with "B<+>" or "B<->" then the new I<value>
+If the I<attribute> name starts with "C<+>" or "C<->" then the new I<value>
 is based on previous value:
 
 =over
@@ -1274,9 +1286,9 @@ included.
 
 Loads additional exception class module.  If the module is not available,
 creates the exception class automatically at compile time.  The newly created
-class will be based on B<Exception::Base> class.
+class will be based on C<Exception::Base> class.
 
-  use Exception::Base qw< Exception::Custom Exception::SomethingWrong >;
+  use Exception::Base qw{ Exception::Custom Exception::SomethingWrong };
   Exception::Custom->throw;
 
 =item C<use Exception::Base 'I<Exception>' => { isa => I<BaseException>, version => I<version>, ... };>
@@ -1806,7 +1818,7 @@ variable is replaced with empty string to avoid endless loop.
       print $e->to_string;
   }
 
-If the value is not empty and does not contain the B<Exception::Base> object,
+If the value is not empty and does not contain the C<Exception::Base> object,
 new exception object is created with class I<CLASS> and its message is based
 on previous value with removed C<" at file line 123."> string and the last end
 of line (LF).
@@ -2032,13 +2044,13 @@ The more complex implementation of exception mechanism provides more features.
 
 Complete implementation of try/catch/finally/otherwise mechanism.  Uses nested
 closures with a lot of syntactic sugar.  It is slightly faster than
-B<Exception::Base> module for failure scenario and is much slower for success
+C<Exception::Base> module for failure scenario and is much slower for success
 scenario.  It doesn't provide a simple way to create user defined exceptions.
 It doesn't collect system data and stack trace on error.
 
 =item L<Exception::Class>
 
-More perl-ish way to do OO exceptions.  It is similar to B<Exception::Base>
+More perl-ish way to do OO exceptions.  It is similar to C<Exception::Base>
 module and provides similar features but it is 10x slower for failure
 scenario.
 
@@ -2049,8 +2061,8 @@ success scenario.
 
 =item L<Class::Throwable>
 
-Elegant OO exceptions similar to C<Exception::Class> and B<Exception::Base>.
-It might be missing some features found in B<Exception::Base> and
+Elegant OO exceptions similar to L<Exception::Class> and C<Exception::Base>.
+It might be missing some features found in C<Exception::Base> and
 L<Exception::Class>.
 
 =item L<Exceptions>
@@ -2059,13 +2071,13 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 
 =back
 
-The B<Exception::Base> does not depend on other modules like
+The C<Exception::Base> does not depend on other modules like
 L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
 does not use closures as L<Error> and does not polute namespace as
 L<Exception::Class::TryCatch>.  It is also much faster than
 L<Exception::Class::TryCatch> and L<Error> for success scenario.
 
-The B<Exception::Base> is also a base class for enchanced classes:
+The C<Exception::Base> is also a base class for enchanced classes:
 
 =over
 
@@ -2090,16 +2102,16 @@ convert simple L<perlfunc/warn> into an exception object.
 
 =head2 New exception classes
 
-The B<Exception::Base> module allows to create new exception classes easly.
-You can use C<import> interface or L<base> module to do it.
+The C<Exception::Base> module allows to create new exception classes easly.
+You can use L<perlfunc/import> interface or L<base> module to do it.
 
-The C<import> interface allows to create new class with new read-write
-attributes.
+The L<perlfunc/import> interface allows to create new class with new
+read-write attributes.
 
   package Exception::Simple;
   use Exception::Base (__PACKAGE__) => {
-    has => qw< reason method >,
-    string_attributes => qw< message reason method >,
+    has => qw{ reason method },
+    string_attributes => qw{ message reason method },
   };
 
 For more complex exceptions you can redefine C<ATTRS> constant.
@@ -2109,7 +2121,7 @@ For more complex exceptions you can redefine C<ATTRS> constant.
   use constant ATTRS => {
     %{ Exception::Base->ATTRS },     # SUPER::ATTRS
     hostname => { is => 'ro' },
-    string_attributes => qw< hostname message >,
+    string_attributes => qw{ hostname message },
   };
   sub _collect_system_data {
     my $self = shift;
@@ -2121,18 +2133,18 @@ For more complex exceptions you can redefine C<ATTRS> constant.
 
 =head1 PERFORMANCE
 
-There are two scenarios for "eval" block: success or failure.  Success
-scenario should have no penalty on speed.  Failure scenario is usually more
-complex to handle and can be significally slower.
+There are two scenarios for L<perlfunc/eval> block: success or failure.
+Success scenario should have no penalty on speed.  Failure scenario is usually
+more complex to handle and can be significally slower.
 
-Any other code than simple "if ($@)" is really slow and shouldn't be used if
+Any other code than simple C<if ($@)> is really slow and shouldn't be used if
 speed is important.  It means that L<Error> and L<Exception::Class::TryCatch>
 should be avoided as far as they are slow by design.  The L<Exception::Class>
-module doesn't use "if ($@)" syntax in its documentation so it was benchmarked
-with its default syntax, however it might be possible to convert it to simple
-"if ($@)".
+module doesn't use C<if ($@)> syntax in its documentation so it was
+benchmarked with its default syntax, however it might be possible to convert
+it to simple C<if ($@)>.
 
-The B<Exception::Base> module was benchmarked with other implementations for
+The C<Exception::Base> module was benchmarked with other implementations for
 simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
 are following:
 
@@ -2156,7 +2168,7 @@ are following:
   | Exception::Class::TryCatch          |      210389/s |        1259/s |
   -----------------------------------------------------------------------
 
-The B<Exception::Base> module was written to be as fast as it is
+The C<Exception::Base> module was written to be as fast as it is
 possible.  It does not use internally i.e. accessor functions which are
 slower about 6 times than standard variables.  It is slower than pure
 die/eval because it is uses OO mechanisms which are slow in Perl.  It

@@ -1,4 +1,18 @@
 ------------------------------------------------------------------------
+0.21 | Piotr Roszatycki <dexter@debian.org> | 2008-12-08
+
+Fixes:
+
+* Skip ignored packages for verbosity level 2.
+
+* Verbosity level can not be changed.  Reset internal cache with classes
+  defaults after the default value was changed.
+
+Changes:
+
+* Method "import" was refactored.
+
+------------------------------------------------------------------------
 0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-05
 
 New:

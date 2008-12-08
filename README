@@ -78,13 +78,13 @@ DESCRIPTION
     thrown and caught. Each uncaught exception prints full stack trace if
     the default verbosity is uppered for debugging purposes.
 
-    The features of Exception::Base:
+    The features of `Exception::Base':
 
     * fast implementation of the exception class
 
     * fully OO without closures and source code filtering
 
-    * does not mess with $SIG{__DIE__} and $SIG{__WARN__}
+    * does not mess with `$SIG{__DIE__}' and `$SIG{__WARN__}'
 
     * no external modules dependencies, requires core Perl modules only
 
@@ -95,7 +95,8 @@ DESCRIPTION
 
     * matching with string, regex or closure function
 
-    * creating automatically the derived exception classes ("use" interface)
+    * creating automatically the derived exception classes (perlfunc
+      interface)
 
     * easly expendable, see Exception::System class for example
 
