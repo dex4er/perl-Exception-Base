@@ -1,4 +1,12 @@
 ------------------------------------------------------------------------
+0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-08
+
+Fixes:
+
+* Reset internal cache with classes defaults after the default value was
+  changed.
+
+------------------------------------------------------------------------
 0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-05
 
 New:

@@ -2,7 +2,7 @@
 
 package Exception::Base;
 use 5.006;
-our $VERSION = '0.20';
+our $VERSION = 0.21;
 
 =head1 NAME
 
@@ -1075,11 +1075,8 @@ sub _modify_default {
         $attributes->{$key}->{default} = $value;
     };
 
-    if (exists $Class_Defaults{$class}) {
-        $Class_Attributes{$class}->{$key}->{default}
-        = $Class_Defaults{$class}->{$key}
-        = $attributes->{$key}->{default};
-    };
+    # Reset cache
+    %Class_Attributes = %Class_Defaults = ();
 
     return $self;
 };

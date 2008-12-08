@@ -1066,6 +1066,22 @@ sub test_import_defaults {
 
         eval 'Exception::Base->import("exception_basetest_no_such_field" => undef);';
         $self->assert_matches(qr/class does not implement/, "$@");
+
+        # Change default verbosity
+        eval 'Exception::Base->import("Exception::Base::import_defaults::Test1" => { verbosity => 0 });';
+        $self->assert_equals('', "$@");
+        
+        eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
+        $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
+        $self->assert_equals('', "$@");
+
+        eval { Exception::Base::import_defaults::Test1->import(verbosity=>1) };        
+        $self->assert_equals('', "$@");
+
+        eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
+        $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
+        $self->assert_equals("Message\n", "$@");
+        
     };
     my $e = $@;
 
