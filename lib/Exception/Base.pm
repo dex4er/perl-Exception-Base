@@ -189,18 +189,20 @@ BEGIN {
 
 
 # Overload the cast operations
-use overload 'bool'   => 'to_bool',
-             '0+'     => 'to_number',
-             '""'     => 'to_string',
-             fallback => 1;
+use overload (
+    'bool'   => 'to_bool',
+    '0+'     => 'to_number',
+    '""'     => 'to_string',
+    fallback => 1,
+);
+
 
 # Overload smart matching for Perl 5.10.  Don't "use if" not available for base Perl 5.6.
 BEGIN {
-    eval q{
-        use overload
-             '~~'     => 'matches',
-             fallback => 1;
-    } if ($] >= 5.010);
+    overload->import(
+        '~~'     => 'matches',
+        fallback => 1,
+    ) if ($] >= 5.010);
 };
 
 
