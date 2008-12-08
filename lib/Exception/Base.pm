@@ -250,7 +250,7 @@ my %Isa_Package;
 
 # Create additional exception packages
 sub import {
-    my $pkg = shift;
+    my $class = shift;
 
     while (defined $_[0]) {
         my $name = shift @_;
@@ -261,7 +261,7 @@ sub import {
             # Lower case: change default
             my ($modifier, $key) = ($1, $2);
             my $value = shift;
-            $pkg->_modify_default($key, $value, $modifier);
+            $class->_modify_default($key, $value, $modifier);
         }
         else {
             # Try to use external module
@@ -277,7 +277,7 @@ sub import {
                 {
                     local $SIG{__DIE__};
                     eval {
-                        $pkg->_load_package($name, $version);
+                        $class->_load_package($name, $version);
                     };
                 };
                 if ($@) {
@@ -298,99 +298,17 @@ sub import {
             next if $name eq __PACKAGE__;
 
             # Package not found so it have to be created
-            if ($pkg ne __PACKAGE__) {
+            if ($class ne __PACKAGE__) {
                 Exception::Base->throw(
                     message => "Exceptions can only be created with " . __PACKAGE__ . " class",
                     verbosity => 1
                 );
             };
-            my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
-            $version = 0.01 if not $version;
-
-            my $has = defined $param->{has} ? $param->{has} : { rw => [ ], ro => [ ] };
-            if (ref $has eq 'ARRAY') {
-                $has = { rw => $has, ro => [ ] };
-            }
-            elsif (not ref $has) {
-                $has = { rw => [ $has ], ro => [ ] };
-            };
-            foreach my $mode ('rw', 'ro') {
-                if (not ref $has->{$mode}) {
-                    $has->{$mode} = [ defined $has->{$mode} ? $has->{$mode} : () ];
-                };
-            };
-
-            # Base class is needed
-            if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
-                eval {
-                    $pkg->_load_package($isa);
-                };
-                if ($@) {
-                    Exception::Base->throw(
-                        message => "Base class $isa for class $name can not be found",
-                        verbosity => 1
-                    );
-                };
-            };
-
-            # Handle defaults for object attributes
-            my $attributes;
-            {
-                local $SIG{__DIE__};
-                eval {
-                    $attributes = $isa->ATTRS;
-                };
-            };
-            if ($@) {
-                Exception::Base->throw(
-                    message => "$name class is based on $isa class which does not implement ATTRS",
-                    verbosity => 1
-                );
-            };
-
-            # Create the hash with overriden attributes
-            my %overriden_attributes;
-            # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
-            foreach my $mode ('rw', 'ro') {
-                foreach my $attribute (@{ $has->{$mode} }) {
-                    if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
-                        Exception::Base->throw(
-                            message => "Attribute name `$attribute' can not be defined for $name class"
-                        );
-                    };
-                    $overriden_attributes{$attribute} = { is => $mode };
-                };
-            };
-            # Class => { message => "overriden default", ... }
-            foreach my $attribute (keys %{ $param }) {
-                next if $attribute =~ /^(isa|version|has)$/;
-                if (not exists $attributes->{$attribute}->{default}
-                    and not exists $overriden_attributes{$attribute})
-                {
-                    Exception::Base->throw(
-                        message => "$isa class does not implement default value for `$attribute' attribute",
-                        verbosity => 1
-                    );
-                };
-                $overriden_attributes{$attribute} = {};
-                $overriden_attributes{$attribute}->{default} = $param->{$attribute};
-                foreach my $property (keys %{ $attributes->{$attribute} }) {
-                    next if $property eq 'default';
-                    $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
-                };
-            };
-
-            # Create the new package
-            ${ *{_qualify_to_ref($name . '::VERSION')} } = $version;
-            @{ *{_qualify_to_ref($name . '::ISA')} } = ($isa);
-            *{_qualify_to_ref($name . '::ATTRS')} = sub () {
-                +{ %{ $isa->ATTRS }, %overriden_attributes };
-            };
-            $name->_make_accessors;
+            $class->_make_exception($name, $version, $param);
         }
     }
 
-    return $pkg;
+    return $class;
 };
 
 
@@ -1147,7 +1065,7 @@ sub _make_caller_info_accessors {
 
 # Load another module without eval q{}
 sub _load_package {
-    my ($self, $package, $version) = @_;
+    my ($class, $package, $version) = @_;
 
     return unless $package;
 
@@ -1161,7 +1079,101 @@ sub _load_package {
         $package->VERSION($version);
     };
 
-    return $self;
+    return $class;
+};
+
+
+# Create new exception class
+sub _make_exception {
+    my ($class, $package, $version, $param) = @_;
+
+    return unless $package;
+
+    my $isa = defined $param->{isa} ? $param->{isa} : __PACKAGE__;
+    $version = 0.01 if not $version;
+
+    my $has = defined $param->{has} ? $param->{has} : { rw => [ ], ro => [ ] };
+    if (ref $has eq 'ARRAY') {
+        $has = { rw => $has, ro => [ ] };
+    }
+    elsif (not ref $has) {
+        $has = { rw => [ $has ], ro => [ ] };
+    };
+    foreach my $mode ('rw', 'ro') {
+        if (not ref $has->{$mode}) {
+            $has->{$mode} = [ defined $has->{$mode} ? $has->{$mode} : () ];
+        };
+    };
+
+    # Base class is needed
+    if (not defined do { local $SIG{__DIE__}; eval { $isa->VERSION } }) {
+        eval {
+            $class->_load_package($isa);
+        };
+        if ($@) {
+            Exception::Base->throw(
+                message => "Base class $isa for class $package can not be found",
+                verbosity => 1
+            );
+        };
+    };
+
+    # Handle defaults for object attributes
+    my $attributes;
+    {
+        local $SIG{__DIE__};
+        eval {
+            $attributes = $isa->ATTRS;
+        };
+    };
+    if ($@) {
+        Exception::Base->throw(
+            message => "$package class is based on $isa class which does not implement ATTRS",
+            verbosity => 1
+        );
+    };
+
+    # Create the hash with overriden attributes
+    my %overriden_attributes;
+    # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
+    foreach my $mode ('rw', 'ro') {
+        foreach my $attribute (@{ $has->{$mode} }) {
+            if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
+                Exception::Base->throw(
+                    message => "Attribute name `$attribute' can not be defined for $package class"
+                );
+            };
+            $overriden_attributes{$attribute} = { is => $mode };
+        };
+    };
+    # Class => { message => "overriden default", ... }
+    foreach my $attribute (keys %{ $param }) {
+        next if $attribute =~ /^(isa|version|has)$/;
+        if (not exists $attributes->{$attribute}->{default}
+            and not exists $overriden_attributes{$attribute})
+        {
+            Exception::Base->throw(
+                message => "$isa class does not implement default value for `$attribute' attribute",
+                verbosity => 1
+            );
+        };
+        $overriden_attributes{$attribute} = {};
+        $overriden_attributes{$attribute}->{default} = $param->{$attribute};
+        foreach my $property (keys %{ $attributes->{$attribute} }) {
+            next if $property eq 'default';
+            $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
+        };
+    };
+
+    # Create the new package
+    ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
+    @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
+    *{_qualify_to_ref($package . '::ATTRS')} = sub () {
+        +{ %{ $isa->ATTRS }, %overriden_attributes };
+    };
+    $package->_make_accessors;
+
+    return $class;
 };
 
 

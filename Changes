@@ -6,6 +6,10 @@ Fixes:
 * Reset internal cache with classes defaults after the default value was
   changed.
 
+Changes:
+
+* Method "import" was refactored.
+
 ------------------------------------------------------------------------
 0.20 | Piotr Roszatycki <dexter@debian.org> | 2008-12-05
 
