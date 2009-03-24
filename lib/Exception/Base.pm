@@ -107,7 +107,7 @@ no external run-time modules dependencies, requires core Perl modules only
 
 =item *
 
-the default behaviour of exception class can be changed globally or just for
+the default behavior of exception class can be changed globally or just for
 the thrown exception
 
 =item *
@@ -378,7 +378,7 @@ sub throw {
                 die $self->new(@_);
             }
             else {
-                # First argument is a default attribute; it can be overriden with normal args
+                # First argument is a default attribute; it can be overridden with normal args
                 my $argument = shift;
                 my $e = $self->new(@_);
                 my $default_attribute = $e->{defaults}->{default_attribute};
@@ -1142,8 +1142,8 @@ sub _make_exception {
         );
     };
 
-    # Create the hash with overriden attributes
-    my %overriden_attributes;
+    # Create the hash with overridden attributes
+    my %overridden_attributes;
     # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
     foreach my $mode ('rw', 'ro') {
         foreach my $attribute (@{ $has->{$mode} }) {
@@ -1152,25 +1152,25 @@ sub _make_exception {
                     message => ["Attribute name `%s' can not be defined for %s class", $attribute, $package],
                 );
             };
-            $overriden_attributes{$attribute} = { is => $mode };
+            $overridden_attributes{$attribute} = { is => $mode };
         };
     };
-    # Class => { message => "overriden default", ... }
+    # Class => { message => "overridden default", ... }
     foreach my $attribute (keys %{ $param }) {
         next if $attribute =~ /^(isa|version|has)$/;
         if (not exists $attributes->{$attribute}->{default}
-            and not exists $overriden_attributes{$attribute})
+            and not exists $overridden_attributes{$attribute})
         {
             Exception::Base->throw(
                 message => ["%s class does not implement default value for `%s' attribute", $isa, $attribute],
                 verbosity => 1
             );
         };
-        $overriden_attributes{$attribute} = {};
-        $overriden_attributes{$attribute}->{default} = $param->{$attribute};
+        $overridden_attributes{$attribute} = {};
+        $overridden_attributes{$attribute}->{default} = $param->{$attribute};
         foreach my $property (keys %{ $attributes->{$attribute} }) {
             next if $property eq 'default';
-            $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
+            $overridden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
         };
     };
 
@@ -1178,7 +1178,7 @@ sub _make_exception {
     ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
     @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
     *{_qualify_to_ref($package . '::ATTRS')} = sub () {
-        +{ %{ $isa->ATTRS }, %overriden_attributes };
+        +{ %{ $isa->ATTRS }, %overridden_attributes };
     };
     $package->_make_accessors;
 
@@ -1274,7 +1274,7 @@ need to add or remove more than one element.
 
 =item *
 
-If the original I<value> was a number, it will be incremeted or
+If the original I<value> was a number, it will be incremented or
 decremented by the new I<value>.
 
   use Exception::Base "+ignore_level" => 1;
@@ -1390,11 +1390,10 @@ defined.
 The read-write attributes can be set with C<new> constructor.  Read-only
 attributes and unknown attributes are ignored.
 
-The constant have to be defined in derivered class if it brings additional
+The constant have to be defined in derived class if it brings additional
 attributes.
 
   package Exception::My;
-  our $VERSION = 0.01;
   use base 'Exception::Base';
 
   # Define new class attributes
@@ -1567,7 +1566,7 @@ if the verbosity on throwing exception was greater than 1.
 
 =item tid (ro)
 
-Constains the tid of the thread or undef if threads are not used.  Collected
+Contains the tid of the thread or undef if threads are not used.  Collected
 if the verbosity on throwing exception was greater than 1.
 
 =item uid (ro)
@@ -1795,7 +1794,7 @@ existing exception object.
 
   $e = Exception::Base->new;
   # (...)
-  $e->throw( message=>"thrown exception with overriden message" );
+  $e->throw( message=>"thrown exception with overridden message" );
 
   eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
   $@->throw if $@->value;
@@ -1803,7 +1802,7 @@ existing exception object.
 =item C<$obj>-E<gt>throw(I<message>, [%I<args>])
 
 If the number of I<args> list for arguments is odd, the first argument is a
-message.  This message can be overriden by message from I<args> list.
+message.  This message can be overridden by message from I<args> list.
 
   Exception::Base->throw( "Problem", message=>"More important" );
   eval { die "Bum!" };
@@ -1927,7 +1926,7 @@ Matches against the default attribute, usually the C<message> attribute.
 
 Returns the string representation of exception object.  It is called
 automatically if the exception object is used in string scalar context.  The
-method can be used explicity.
+method can be used explicitly.
 
   eval { Exception::Base->throw; };
   $@->{verbosity} = 1;
@@ -1939,7 +1938,7 @@ method can be used explicity.
 
 Returns the numeric representation of exception object.  It is called
 automatically if the exception object is used in numeric scalar context.  The
-method can be used explicity.
+method can be used explicitly.
 
   eval { Exception::Base->throw( value => 42 ); };
   print 0+$@;           # 42
@@ -1949,7 +1948,7 @@ method can be used explicity.
 
 Returns the boolean representation of exception object.  It is called
 automatically if the exception object is used in boolean context.  The method
-can be used explicity.
+can be used explicitly.
 
   eval { Exception::Base->throw; };
   print "ok" if $@;           # ok
@@ -1958,7 +1957,7 @@ can be used explicity.
 =item get_caller_stacktrace
 
 Returns an array of strings or string with caller stack trace.  It is
-implicity used by C<to_string> method.
+implicitly used by C<to_string> method.
 
 =item PROPAGATE
 
@@ -1991,7 +1990,7 @@ Returns the subroutine name which thrown an exception.
 
 Collects system data and fills the attributes of exception object.  This
 method is called automatically if exception if thrown or created by
-C<new> constructor.  It can be overriden by derived class.
+C<new> constructor.  It can be overridden by derived class.
 
   package Exception::Special;
   use base 'Exception::Base';
@@ -2084,11 +2083,11 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 
 The C<Exception::Base> does not depend on other modules like
 L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
-does not use closures as L<Error> and does not polute namespace as
+does not use closures as L<Error> and does not pollute namespace as
 L<Exception::Class::TryCatch>.  It is also much faster than
 L<Exception::Class::TryCatch> and L<Error> for success scenario.
 
-The C<Exception::Base> is also a base class for enchanced classes:
+The C<Exception::Base> is also a base class for enhanced classes:
 
 =over
 
@@ -2183,7 +2182,7 @@ The C<Exception::Base> module was written to be as fast as it is
 possible.  It does not use internally i.e. accessor functions which are
 slower about 6 times than standard variables.  It is slower than pure
 die/eval because it is uses OO mechanisms which are slow in Perl.  It
-can be a litte faster if some features are disables, i.e. the stack
+can be a little faster if some features are disables, i.e. the stack
 trace and higher verbosity.
 
 You can find the benchmark script in this package distribution.
@@ -2196,11 +2195,11 @@ If you find the bug, please report it.
 
 =head1 AUTHOR
 
-Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
+Piotr Roszatycki <dexter@cpan.org>
 
 =head1 LICENSE
 
-Copyright (C) 2007, 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright (c) 2007, 2008, 2009 by Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
