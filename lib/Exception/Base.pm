@@ -159,6 +159,12 @@ our $VERSION = '0.22';
 use utf8;
 
 
+## no critic ProhibitConstantPragma
+## no critic RequireArgUnpacking
+## no critic RequireCarping
+## no critic RequireCheckingReturnValueOfEval
+## no critic RequireInitializationForLocalVars
+
 # Safe operations on symbol stash
 BEGIN {
     eval {
@@ -269,7 +275,8 @@ sub import {
         }
         else {
             # Try to use external module
-            my $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
+            my $param = {};
+            $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
 
             my $version = defined $param->{version} ? $param->{version} : 0;
             my $mod_version = do { local $SIG{__DIE__}; eval { $name->VERSION } } || 0;
@@ -424,7 +431,9 @@ sub catch {
     my $e;
     my $new_e;
 
+
     # Recover exception from $@ and clear it
+    ## no critic RequireLocalizedPunctuationVars
     $e = $@;
     $@ = '';
 
@@ -450,7 +459,8 @@ sub catch {
 
 
 # Smart matching.
-sub matches {
+sub matches {   ## no critic ProhibitExcessComplexity
+
     my ($self, $that) = @_;
 
     my @args;
@@ -543,6 +553,7 @@ sub matches {
             $key = $default_attribute;
         };
 
+        ## no critic ProhibitCascadingIfElse
         if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
@@ -644,7 +655,6 @@ sub to_string {
         };
     };
 
-    my $string;
     if ($verbosity == 1) {
         return $message if $message =~ /\n$/;
 
@@ -786,6 +796,9 @@ sub _collect_system_data {
         # Collect stack info
         my @caller_stack;
         my $level = 1;
+
+        ## no critic ProhibitMultiplePackages
+        ## no critic ProhibitPackageVars
         while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
@@ -920,7 +933,8 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    no warnings 'once', 'utf8';
+    ## no critic ProhibitNoWarnings
+    no warnings 'once', 'utf8';   # can't disable critic for utf8...
     if (not defined *utf8::is_utf{CODE} or utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
             ? sprintf("\\x{%04x}", $_)
@@ -942,6 +956,7 @@ sub _str_len_trim {
     my (undef, $str, $max) = @_;
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
+        ## no critic ProhibitLvalueSubstr
         substr($str, $max - 3) = '...';
     };
 
@@ -1175,6 +1190,7 @@ sub _make_exception {
     };
 
     # Create the new package
+    ## no critic ProhibitCommaSeparatedStatements
     ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
     @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
     *{_qualify_to_ref($package . '::ATTRS')} = sub () {
@@ -1187,6 +1203,7 @@ sub _make_exception {
 
 
 # Module initialization
+## no critic ProtectPrivateSubs
 BEGIN {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
