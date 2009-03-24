@@ -5,6 +5,8 @@ New:
 
 * sprintf is used if "message" attribute is an array reference.
 
+  Exception::Base->throw( message => ['Failed in %s', __PACKAGE__] );
+
 Changes:
 
 * Build requires Test::Unit::Lite 0.21.

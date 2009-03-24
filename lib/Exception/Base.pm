@@ -1,8 +1,6 @@
 #!/usr/bin/perl -c
 
 package Exception::Base;
-use 5.006;
-our $VERSION = '0.22';
 
 =head1 NAME
 
@@ -30,17 +28,7 @@ Exception::Base - Lightweight exceptions
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
-  # standard syntax for older Perl
-  if ($@) {
-    my $e = Exception::Base->catch;   # convert $@ into exception
-    if ($e->isa('Exception::IO')) { warn "IO problem"; }
-    elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
-    elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->matches({value=>9})) { warn "something happened"; }
-    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
-    else { $e->throw; } # rethrow the exception
-  }
-  # alternative syntax for Perl 5.10
+  # syntax for Perl >= 5.10
   use feature 'switch';
   if ($@) {
     given (my $e = Exception::Base->catch) {
@@ -51,6 +39,16 @@ Exception::Base - Lightweight exceptions
       when (qr/^Error/) { warn "some error based on regex"; }
       default { $e->throw; } # rethrow the exception
     }
+  }
+  # standard syntax for older Perl
+  if ($@) {
+    my $e = Exception::Base->catch;   # convert $@ into exception
+    if ($e->isa('Exception::IO')) { warn "IO problem"; }
+    elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
+    elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
+    elsif ($e->matches({value=>9})) { warn "something happened"; }
+    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
+    else { $e->throw; } # rethrow the exception
   }
 
   # $@ has to be recovered ASAP!
@@ -105,7 +103,7 @@ does not mess with C<$SIG{__DIE__}> and C<$SIG{__WARN__}>
 
 =item *
 
-no external modules dependencies, requires core Perl modules only
+no external run-time modules dependencies, requires core Perl modules only
 
 =item *
 
@@ -151,9 +149,12 @@ some defaults (i.e. verbosity) can be different for different exceptions
 
 =cut
 
+use 5.006;
 
 use strict;
 use warnings;
+
+our $VERSION = '0.22';
 
 use utf8;
 
@@ -287,7 +288,7 @@ sub import {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
                         Exception::Base->throw(
-                            message => "Can not load available $name class: $@",
+                            message => ["Can not load available %s class: %s", $name, $@],
                             verbosity => 1
                         );
                     };
@@ -303,7 +304,7 @@ sub import {
             # Package not found so it have to be created
             if ($class ne __PACKAGE__) {
                 Exception::Base->throw(
-                    message => "Exceptions can only be created with " . __PACKAGE__ . " class",
+                    message => ["Exceptions can only be created with %s class", __PACKAGE__],
                     verbosity => 1
                 );
             };
@@ -629,7 +630,12 @@ sub to_string {
                     ? $self->{verbosity}
                     : $self->{defaults}->{verbosity};
 
-    my $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
+    my $message = join ': ', map { ref $_ eq 'ARRAY'
+                                   ? sprintf(@$_[0], @$_[1..@$_])
+                                   : $_ }
+                             grep { defined $_ and (ref $_ or $_ ne '') }
+                             map { $self->{$_} }
+                             @{ $self->{defaults}->{string_attributes} };
 
     if ($message eq '') {
         foreach (reverse @{ $self->{defaults}->{string_attributes} }) {
@@ -651,10 +657,10 @@ sub to_string {
         return $message . $stacktrace[0] . ".\n";
     }
     elsif ($verbosity >= 3) {
-        return ref($self) . ": " . $message . $self->get_caller_stacktrace;
+        return ref($self) . ': ' . $message . $self->get_caller_stacktrace;
     };
 
-    return "";
+    return '';
 };
 
 
@@ -914,7 +920,7 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    no warnings 'utf8';
+    no warnings 'once', 'utf8';
     if (not defined *utf8::is_utf{CODE} or utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
             ? sprintf("\\x{%04x}", $_)
@@ -954,7 +960,7 @@ sub _modify_default {
 
     if (not exists $attributes->{$key}->{default}) {
         Exception::Base->throw(
-              message => "$class class does not implement default value for `$key' attribute",
+              message => ["%s class does not implement default value for `%s' attribute", $class, $key],
               verbosity => 1
         );
     };
@@ -1115,7 +1121,7 @@ sub _make_exception {
         };
         if ($@) {
             Exception::Base->throw(
-                message => "Base class $isa for class $package can not be found",
+                message => ["Base class %s for class %s can not be found", $isa, $package],
                 verbosity => 1
             );
         };
@@ -1131,7 +1137,7 @@ sub _make_exception {
     };
     if ($@) {
         Exception::Base->throw(
-            message => "$package class is based on $isa class which does not implement ATTRS",
+            message => ["%s class is based on %s class which does not implement ATTRS", $package, $isa],
             verbosity => 1
         );
     };
@@ -1143,7 +1149,7 @@ sub _make_exception {
         foreach my $attribute (@{ $has->{$mode} }) {
             if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
                 Exception::Base->throw(
-                    message => "Attribute name `$attribute' can not be defined for $package class"
+                    message => ["Attribute name `%s' can not be defined for %s class", $attribute, $package],
                 );
             };
             $overriden_attributes{$attribute} = { is => $mode };
@@ -1156,7 +1162,7 @@ sub _make_exception {
             and not exists $overriden_attributes{$attribute})
         {
             Exception::Base->throw(
-                message => "$isa class does not implement default value for `$attribute' attribute",
+                message => ["%s class does not implement default value for `%s' attribute", $isa, $attribute],
                 verbosity => 1
             );
         };
@@ -1205,7 +1211,7 @@ __END__
  +max_arg_len : Int = 64                                                 {new}
  +max_arg_nums : Int = 8                                                 {new}
  +max_eval_len : Int = 0                                                 {new}
- +message : Str = "Unknown exception"                                    {new}
+ +message : Str|ArrayRef[Str] = "Unknown exception"                      {new}
  +value : Int = 0                                                        {new}
  +verbosity : Int = 2                                                    {new}
  +caller_stack : ArrayRef
@@ -1425,6 +1431,11 @@ representing the exception object.
 
   eval { Exception::Base->throw( message=>"Message" ); };
   print $@->message if $@;
+
+It can also be an array reference of strings and then the L<sprintf/perlfunc>
+is used to get a message.
+
+  Exception::Base->throw( message => ["%s failed", __PACKAGE__] );
 
 =item value (rw, default: 0)
 

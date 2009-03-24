@@ -227,6 +227,9 @@ sub test_to_string {
     $obj->{verbosity} = 3;
     $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->to_string);
 
+    $obj->{message} = ['%s', 'Stringify'];
+    $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->to_string);
+
     $obj->{message} = "Ends with EOL\n";
     $obj->{value} = 123;
     $obj->{verbosity} = 0;
