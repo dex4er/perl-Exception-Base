@@ -119,7 +119,7 @@ eval {
     require Exception::Class;
     Exception::Class->import('MyException');
 
-    $main::tests{'07_ClassThrowable'} = sub {
+    $main::tests{'07_ExceptionClass'} = sub {
 
         eval {
             MyException->throw(error=>'Message') if My::Common::throw_something;
