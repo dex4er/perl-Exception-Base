@@ -496,26 +496,26 @@ sub matches {   ## no critic ProhibitExcessComplexity
             my $arrret = 0;
             foreach my $arrval (@{ $val }) {
                 if (not defined $arrval) {
-                    $arrret = 1 if not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
+                    $arrret = 1 if not $self->_string_attributes;
                 }
                 elsif (not ref $arrval and $arrval =~ _RE_NUM_INT) {
                     no warnings 'numeric', 'uninitialized';
                     $arrret = 1 if $self->{$numeric_attribute} == $arrval;
                 }
-                elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} }) {
+                elsif (not $self->_string_attributes) {
                     next;
                 }
-                elsif (ref $arrval eq 'CODE') {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
-                    $arrret = 1 if &$arrval;
-                }
-                elsif (ref $arrval eq 'Regexp') {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
-                    $arrret = 1 if /$arrval/;
-                }
                 else {
-                    local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
-                    $arrret = 1 if $_ eq $arrval;
+                    local $_ = join ': ', $self->_string_attributes;
+                    if (ref $arrval eq 'CODE') {
+                        $arrret = 1 if $arrval->();
+                    }
+                    elsif (ref $arrval eq 'Regexp') {
+                        $arrret = 1 if /$arrval/;
+                    }
+                    else {
+                        $arrret = 1 if $_ eq $arrval;
+                    };
                 };
                 last if $arrret;
             };
@@ -523,26 +523,26 @@ sub matches {   ## no critic ProhibitExcessComplexity
             return '' if not $arrret;
         }
         elsif (not defined $val) {
-            return '' if grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
+            return '' if $self->_string_attributes;
         }
         elsif (not ref $val and $val =~ _RE_NUM_INT) {
             no warnings 'numeric', 'uninitialized';
             return '' if $self->{$numeric_attribute} != $val;
         }
-        elsif (not grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} }) {
+        elsif (not $self->_string_attributes) {
             return '';
         }
-        elsif (ref $val eq 'CODE') {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
-            return '' if not &$val;
-        }
-        elsif (ref $val eq 'Regexp') {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
-            return '' if not /$val/;
-        }
         else {
-            local $_ = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
-            return '' if $_ ne $val;
+            local $_ = join ': ', $self->_string_attributes;
+            if (ref $val eq 'CODE') {
+                return '' if not $val->();
+            }
+            elsif (ref $val eq 'Regexp') {
+                return '' if not /$val/;
+            }
+            else {
+                return '' if $_ ne $val;
+            };
         };
         return 1 unless @args;
     };
@@ -591,16 +591,22 @@ sub matches {   ## no critic ProhibitExcessComplexity
                 elsif (not defined $self->{$key}) {
                     next;
                 }
-                elsif (ref $arrval eq 'CODE') {
-                    local $_ = $self->{$key};
-                    $arrret = 1 if &$arrval;
-                }
-                elsif (ref $arrval eq 'Regexp') {
-                    local $_ = $self->{$key};
-                    $arrret = 1 if /$arrval/;
-                }
                 else {
-                    $arrret = 1 if $self->{$key} eq $arrval;
+                    local $_ = ref $self->{$key} eq 'ARRAY'
+                               ? sprintf(
+                                     @{$self->{$key}}[0],
+                                     @{$self->{$key}}[1..@{$self->{$key}}]
+                                 )
+                               : $self->{$key};                
+                    if (ref $arrval eq 'CODE') {
+                        $arrret = 1 if $arrval->();
+                    }
+                    elsif (ref $arrval eq 'Regexp') {
+                        $arrret = 1 if /$arrval/;
+                    }
+                    else {
+                        $arrret = 1 if $_ eq $arrval;
+                    };
                 };
                 last if $arrret;
             };
@@ -616,16 +622,23 @@ sub matches {   ## no critic ProhibitExcessComplexity
         elsif (not defined $self->{$key}) {
             return '';
         }
-        elsif (ref $val eq 'CODE') {
-            local $_ = $self->{$key};
-            return '' if not &$val;
-        }
-        elsif (ref $val eq 'Regexp') {
-            local $_ = $self->{$key};
-            return '' if not /$val/;
-        }
         else {
-            return '' if $self->{$key} ne $val;
+            local $_ = ref $self->{$key} eq 'ARRAY'
+                       ? sprintf(
+                             @{$self->{$key}}[0],
+                             @{$self->{$key}}[1..@{$self->{$key}}]
+                         )
+                       : $self->{$key};
+
+            if (ref $val eq 'CODE') {
+                return '' if not $val->();
+            }
+            elsif (ref $val eq 'Regexp') {
+                return '' if not /$val/;
+            }
+            else {
+                return '' if $_ ne $val;
+            };
         };
     };
 
@@ -641,12 +654,7 @@ sub to_string {
                     ? $self->{verbosity}
                     : $self->{defaults}->{verbosity};
 
-    my $message = join ': ', map { ref $_ eq 'ARRAY'
-                                   ? sprintf(@$_[0], @$_[1..@$_])
-                                   : $_ }
-                             grep { defined $_ and (ref $_ or $_ ne '') }
-                             map { $self->{$_} }
-                             @{ $self->{defaults}->{string_attributes} };
+    my $message = join ': ', $self->_string_attributes;
 
     if ($message eq '') {
         foreach (reverse @{ $self->{defaults}->{string_attributes} }) {
@@ -778,6 +786,19 @@ sub PROPAGATE {
     };
 
     return $self;
+};
+
+
+# Return a list of values of default string attributes
+sub _string_attributes {
+    my ($self) = @_;
+
+    return map { ref $_ eq 'ARRAY'
+                 ? sprintf(@$_[0], @$_[1..@$_])
+                 : $_ }
+           grep { defined $_ and (ref $_ or $_ ne '') }
+           map { $self->{$_} }
+           @{ $self->{defaults}->{string_attributes} };
 };
 
 
