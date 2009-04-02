@@ -325,7 +325,7 @@ attributes.
 =cut
 
 BEGIN {
-    my %ATTR                    = ();
+    my %ATTRS                    = ();
 
 =head1 ATTRIBUTES
 
@@ -351,7 +351,7 @@ is used to get a message.
 
 =cut
 
-    $ATTR{message}              = { is => 'rw', default => 'Unknown exception' };
+    $ATTRS{message}              = { is => 'rw', default => 'Unknown exception' };
 
 =item value (rw, default: 0)
 
@@ -363,7 +363,7 @@ numeric context.
 
 =cut
 
-    $ATTR{value}                = { is => 'rw', default => 0 };
+    $ATTRS{value}                = { is => 'rw', default => 0 };
 
 =item verbosity (rw, default: 2)
 
@@ -428,7 +428,7 @@ purposes.
 
 =cut
 
-    $ATTR{verbosity}            = { is => 'rw', default => 2 };
+    $ATTRS{verbosity}            = { is => 'rw', default => 2 };
 
 =item ignore_package (rw)
 
@@ -449,7 +449,7 @@ This setting can be changed with import interface.
 
 =cut
 
-    $ATTR{ignore_package}       = { is => 'rw', default => [ ] };
+    $ATTRS{ignore_package}       = { is => 'rw', default => [ ] };
 
 =item ignore_class (rw)
 
@@ -467,7 +467,7 @@ This setting can be changed with import interface.
 
 =cut
 
-    $ATTR{ignore_class}         = { is => 'rw', default => [ ] };
+    $ATTRS{ignore_class}         = { is => 'rw', default => [ ] };
 
 =item ignore_level (rw)
 
@@ -483,7 +483,7 @@ trace.  It can be used with or without I<ignore_package> attribute.
 
 =cut
 
-    $ATTR{ignore_level}         = { is => 'rw', default => 0 };
+    $ATTRS{ignore_level}         = { is => 'rw', default => 0 };
 
 =item time (ro)
 
@@ -495,7 +495,7 @@ throwing exception was greater than 1.
 
 =cut
 
-    $ATTR{time}                 = { is => 'ro' };
+    $ATTRS{time}                 = { is => 'ro' };
 
 =item pid (ro)
 
@@ -507,7 +507,7 @@ if the verbosity on throwing exception was greater than 1.
 
 =cut
 
-    $ATTR{pid}                  = { is => 'ro' };
+    $ATTRS{pid}                  = { is => 'ro' };
 
 =item tid (ro)
 
@@ -516,26 +516,26 @@ if the verbosity on throwing exception was greater than 1.
 
 =cut
 
-    $ATTR{tid}                  = { is => 'ro' };
+    $ATTRS{tid}                  = { is => 'ro' };
 
 =item uid (ro)
 
 =cut
 
-    $ATTR{uid}                  = { is => 'ro' };
+    $ATTRS{uid}                  = { is => 'ro' };
 
 =item euid (ro)
 
 =cut
 
-    $ATTR{euid}                 = { is => 'ro' };
+    $ATTRS{euid}                 = { is => 'ro' };
 
 
 =item gid (ro)
 
 =cut
 
-    $ATTR{gid}                  = { is => 'ro' };
+    $ATTRS{gid}                  = { is => 'ro' };
 
 =item egid (ro)
 
@@ -545,7 +545,7 @@ greater than 1.
 
 =cut
 
-    $ATTR{egid}                 = { is => 'ro' };
+    $ATTRS{egid}                 = { is => 'ro' };
 
 =item caller_stack (ro)
 
@@ -565,7 +565,7 @@ C<L<Scalar::Util>::weaken> function is available then reference is weakened.
 
 =cut
 
-    $ATTR{caller_stack}         = { is => 'ro' };
+    $ATTRS{caller_stack}         = { is => 'ro' };
 
 =item propagated_stack (ro)
 
@@ -575,7 +575,7 @@ the output of C<caller> function.
 
 =cut
 
-    $ATTR{propagated_stack}     = { is => 'ro' };
+    $ATTRS{propagated_stack}     = { is => 'ro' };
 
 =item max_arg_len (rw, default: 64)
 
@@ -587,7 +587,7 @@ Zero means no limit for length.
 
 =cut
 
-    $ATTR{max_arg_len}          = { is => 'rw', default => 64 };
+    $ATTRS{max_arg_len}          = { is => 'rw', default => 64 };
 
 =item max_arg_nums (rw, default: 8)
 
@@ -599,7 +599,7 @@ Zero means no limit for arguments.
 
 =cut
 
-    $ATTR{max_arg_nums}         = { is => 'rw', default => 8 };
+    $ATTRS{max_arg_nums}         = { is => 'rw', default => 8 };
 
 =item max_eval_len (rw, default: 0)
 
@@ -611,7 +611,7 @@ no limit for length.
 
 =cut
 
-    $ATTR{max_eval_len}         = { is => 'rw', default => 0 };
+    $ATTRS{max_eval_len}         = { is => 'rw', default => 0 };
 
 =item defaults
 
@@ -624,7 +624,7 @@ Meta-attribute contains the list of default values.
 
 =cut
 
-    $ATTR{defaults}             = { };
+    $ATTRS{defaults}             = { };
 
 =item default_attribute (default: 'message')
 
@@ -642,7 +642,7 @@ derived classes.
 
 =cut
 
-    $ATTR{default_attribute}    = { default => 'message' };
+    $ATTRS{default_attribute}    = { default => 'message' };
 
 =item numeric_attribute (default: 'value')
 
@@ -660,7 +660,7 @@ in numeric context.
 
 =cut
 
-    $ATTR{numeric_attribute}    = { default => 'value' };
+    $ATTRS{numeric_attribute}    = { default => 'value' };
 
 =item eval_attribute (default: 'message')
 
@@ -678,7 +678,7 @@ attribute has meaning for derived classes.
 
 =cut
 
-    $ATTR{eval_attribute}       = { default => 'message' };
+    $ATTRS{eval_attribute}       = { default => 'message' };
 
 =item string_attributes (default: ['message'])
 
@@ -703,10 +703,10 @@ attributes listed in the opposite order.
 
 =cut
 
-    $ATTR{string_attributes}    = { default => [ 'message' ] };
+    $ATTRS{string_attributes}    = { default => [ 'message' ] };
 
     use constant;
-    constant->import( ATTRS => \%ATTR );
+    constant->import( ATTRS => \%ATTRS );
 };
 
 
