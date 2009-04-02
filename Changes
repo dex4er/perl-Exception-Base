@@ -5,6 +5,10 @@ Fixes:
 
 * Method "match" works correctly if attribute contains ArrayRef.
 
+Changes:
+
+* POD is mixed with rest of code.
+
 ------------------------------------------------------------------------
 0.22 | Piotr Roszatycki <dexter@debian.org> | 2009-03-24
 
