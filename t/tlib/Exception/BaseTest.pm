@@ -5,6 +5,7 @@ use warnings;
 
 use utf8;
 
+use Test::Unit::Lite;
 use base 'Test::Unit::TestCase';
 
 use Exception::Base;
@@ -224,6 +225,9 @@ sub test_to_string {
     $obj->{verbosity} = 2;
     $self->assert_matches(qr/Stringify at .* line \d+.\n/s, $obj->to_string);
     $obj->{verbosity} = 3;
+    $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->to_string);
+
+    $obj->{message} = ['%s', 'Stringify'];
     $self->assert_matches(qr/Exception::Base: Stringify at .* line \d+\n/s, $obj->to_string);
 
     $obj->{message} = "Ends with EOL\n";
@@ -1095,18 +1099,18 @@ sub test_import_defaults {
         # Change default verbosity
         eval 'Exception::Base->import("Exception::Base::import_defaults::Test1" => { verbosity => 0 });';
         $self->assert_equals('', "$@");
-        
+
         eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
         $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
         $self->assert_equals('', "$@");
 
-        eval { Exception::Base::import_defaults::Test1->import(verbosity=>1) };        
+        eval { Exception::Base::import_defaults::Test1->import(verbosity=>1) };
         $self->assert_equals('', "$@");
 
         eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
         $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
         $self->assert_equals("Message\n", "$@");
-        
+
     };
     my $e = $@;
 

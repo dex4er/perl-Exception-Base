@@ -1,8 +1,6 @@
 #!/usr/bin/perl -c
 
 package Exception::Base;
-use 5.006;
-our $VERSION = 0.21;
 
 =head1 NAME
 
@@ -30,17 +28,7 @@ Exception::Base - Lightweight exceptions
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
-  # standard syntax for older Perl
-  if ($@) {
-    my $e = Exception::Base->catch;   # convert $@ into exception
-    if ($e->isa('Exception::IO')) { warn "IO problem"; }
-    elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
-    elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-    elsif ($e->matches({value=>9})) { warn "something happened"; }
-    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
-    else { $e->throw; } # rethrow the exception
-  }
-  # alternative syntax for Perl 5.10
+  # syntax for Perl >= 5.10
   use feature 'switch';
   if ($@) {
     given (my $e = Exception::Base->catch) {
@@ -51,6 +39,16 @@ Exception::Base - Lightweight exceptions
       when (qr/^Error/) { warn "some error based on regex"; }
       default { $e->throw; } # rethrow the exception
     }
+  }
+  # standard syntax for older Perl
+  if ($@) {
+    my $e = Exception::Base->catch;   # convert $@ into exception
+    if ($e->isa('Exception::IO')) { warn "IO problem"; }
+    elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
+    elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
+    elsif ($e->matches({value=>9})) { warn "something happened"; }
+    elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
+    else { $e->throw; } # rethrow the exception
   }
 
   # $@ has to be recovered ASAP!
@@ -105,11 +103,11 @@ does not mess with C<$SIG{__DIE__}> and C<$SIG{__WARN__}>
 
 =item *
 
-no external modules dependencies, requires core Perl modules only
+no external run-time modules dependencies, requires core Perl modules only
 
 =item *
 
-the default behaviour of exception class can be changed globally or just for
+the default behavior of exception class can be changed globally or just for
 the thrown exception
 
 =item *
@@ -151,12 +149,21 @@ some defaults (i.e. verbosity) can be different for different exceptions
 
 =cut
 
+use 5.006;
 
 use strict;
 use warnings;
 
+our $VERSION = '0.22';
+
 use utf8;
 
+
+## no critic ProhibitConstantPragma
+## no critic RequireArgUnpacking
+## no critic RequireCarping
+## no critic RequireCheckingReturnValueOfEval
+## no critic RequireInitializationForLocalVars
 
 # Safe operations on symbol stash
 BEGIN {
@@ -268,7 +275,8 @@ sub import {
         }
         else {
             # Try to use external module
-            my $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
+            my $param = {};
+            $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
 
             my $version = defined $param->{version} ? $param->{version} : 0;
             my $mod_version = do { local $SIG{__DIE__}; eval { $name->VERSION } } || 0;
@@ -287,7 +295,7 @@ sub import {
                     # Die unless can't load module
                     if ($@ !~ /Can\'t locate/) {
                         Exception::Base->throw(
-                            message => "Can not load available $name class: $@",
+                            message => ["Can not load available %s class: %s", $name, $@],
                             verbosity => 1
                         );
                     };
@@ -303,7 +311,7 @@ sub import {
             # Package not found so it have to be created
             if ($class ne __PACKAGE__) {
                 Exception::Base->throw(
-                    message => "Exceptions can only be created with " . __PACKAGE__ . " class",
+                    message => ["Exceptions can only be created with %s class", __PACKAGE__],
                     verbosity => 1
                 );
             };
@@ -377,7 +385,7 @@ sub throw {
                 die $self->new(@_);
             }
             else {
-                # First argument is a default attribute; it can be overriden with normal args
+                # First argument is a default attribute; it can be overridden with normal args
                 my $argument = shift;
                 my $e = $self->new(@_);
                 my $default_attribute = $e->{defaults}->{default_attribute};
@@ -423,7 +431,9 @@ sub catch {
     my $e;
     my $new_e;
 
+
     # Recover exception from $@ and clear it
+    ## no critic RequireLocalizedPunctuationVars
     $e = $@;
     $@ = '';
 
@@ -449,7 +459,8 @@ sub catch {
 
 
 # Smart matching.
-sub matches {
+sub matches {   ## no critic ProhibitExcessComplexity
+
     my ($self, $that) = @_;
 
     my @args;
@@ -542,6 +553,7 @@ sub matches {
             $key = $default_attribute;
         };
 
+        ## no critic ProhibitCascadingIfElse
         if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
@@ -629,7 +641,12 @@ sub to_string {
                     ? $self->{verbosity}
                     : $self->{defaults}->{verbosity};
 
-    my $message = join ': ', grep { defined $_ and $_ ne '' } map { $self->{$_} } @{ $self->{defaults}->{string_attributes} };
+    my $message = join ': ', map { ref $_ eq 'ARRAY'
+                                   ? sprintf(@$_[0], @$_[1..@$_])
+                                   : $_ }
+                             grep { defined $_ and (ref $_ or $_ ne '') }
+                             map { $self->{$_} }
+                             @{ $self->{defaults}->{string_attributes} };
 
     if ($message eq '') {
         foreach (reverse @{ $self->{defaults}->{string_attributes} }) {
@@ -638,7 +655,6 @@ sub to_string {
         };
     };
 
-    my $string;
     if ($verbosity == 1) {
         return $message if $message =~ /\n$/;
 
@@ -651,10 +667,10 @@ sub to_string {
         return $message . $stacktrace[0] . ".\n";
     }
     elsif ($verbosity >= 3) {
-        return ref($self) . ": " . $message . $self->get_caller_stacktrace;
+        return ref($self) . ': ' . $message . $self->get_caller_stacktrace;
     };
 
-    return "";
+    return '';
 };
 
 
@@ -780,6 +796,9 @@ sub _collect_system_data {
         # Collect stack info
         my @caller_stack;
         my $level = 1;
+
+        ## no critic ProhibitMultiplePackages
+        ## no critic ProhibitPackageVars
         while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
@@ -914,7 +933,8 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    no warnings 'utf8';
+    ## no critic ProhibitNoWarnings
+    no warnings 'once', 'utf8';   # can't disable critic for utf8...
     if (not defined *utf8::is_utf{CODE} or utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
             ? sprintf("\\x{%04x}", $_)
@@ -936,6 +956,7 @@ sub _str_len_trim {
     my (undef, $str, $max) = @_;
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
+        ## no critic ProhibitLvalueSubstr
         substr($str, $max - 3) = '...';
     };
 
@@ -954,7 +975,7 @@ sub _modify_default {
 
     if (not exists $attributes->{$key}->{default}) {
         Exception::Base->throw(
-              message => "$class class does not implement default value for `$key' attribute",
+              message => ["%s class does not implement default value for `%s' attribute", $class, $key],
               verbosity => 1
         );
     };
@@ -1115,7 +1136,7 @@ sub _make_exception {
         };
         if ($@) {
             Exception::Base->throw(
-                message => "Base class $isa for class $package can not be found",
+                message => ["Base class %s for class %s can not be found", $isa, $package],
                 verbosity => 1
             );
         };
@@ -1131,48 +1152,49 @@ sub _make_exception {
     };
     if ($@) {
         Exception::Base->throw(
-            message => "$package class is based on $isa class which does not implement ATTRS",
+            message => ["%s class is based on %s class which does not implement ATTRS", $package, $isa],
             verbosity => 1
         );
     };
 
-    # Create the hash with overriden attributes
-    my %overriden_attributes;
+    # Create the hash with overridden attributes
+    my %overridden_attributes;
     # Class => { has => { rw => [ "attr1", "attr2", "attr3", ... ], ro => [ "attr4", ... ] } }
     foreach my $mode ('rw', 'ro') {
         foreach my $attribute (@{ $has->{$mode} }) {
             if ($attribute =~ /^(isa|version|has)$/ or $isa->can($attribute)) {
                 Exception::Base->throw(
-                    message => "Attribute name `$attribute' can not be defined for $package class"
+                    message => ["Attribute name `%s' can not be defined for %s class", $attribute, $package],
                 );
             };
-            $overriden_attributes{$attribute} = { is => $mode };
+            $overridden_attributes{$attribute} = { is => $mode };
         };
     };
-    # Class => { message => "overriden default", ... }
+    # Class => { message => "overridden default", ... }
     foreach my $attribute (keys %{ $param }) {
         next if $attribute =~ /^(isa|version|has)$/;
         if (not exists $attributes->{$attribute}->{default}
-            and not exists $overriden_attributes{$attribute})
+            and not exists $overridden_attributes{$attribute})
         {
             Exception::Base->throw(
-                message => "$isa class does not implement default value for `$attribute' attribute",
+                message => ["%s class does not implement default value for `%s' attribute", $isa, $attribute],
                 verbosity => 1
             );
         };
-        $overriden_attributes{$attribute} = {};
-        $overriden_attributes{$attribute}->{default} = $param->{$attribute};
+        $overridden_attributes{$attribute} = {};
+        $overridden_attributes{$attribute}->{default} = $param->{$attribute};
         foreach my $property (keys %{ $attributes->{$attribute} }) {
             next if $property eq 'default';
-            $overriden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
+            $overridden_attributes{$attribute}->{$property} = $attributes->{$attribute}->{$property};
         };
     };
 
     # Create the new package
+    ## no critic ProhibitCommaSeparatedStatements
     ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
     @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
     *{_qualify_to_ref($package . '::ATTRS')} = sub () {
-        +{ %{ $isa->ATTRS }, %overriden_attributes };
+        +{ %{ $isa->ATTRS }, %overridden_attributes };
     };
     $package->_make_accessors;
 
@@ -1181,6 +1203,7 @@ sub _make_exception {
 
 
 # Module initialization
+## no critic ProtectPrivateSubs
 BEGIN {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
@@ -1205,7 +1228,7 @@ __END__
  +max_arg_len : Int = 64                                                 {new}
  +max_arg_nums : Int = 8                                                 {new}
  +max_eval_len : Int = 0                                                 {new}
- +message : Str = "Unknown exception"                                    {new}
+ +message : Str|ArrayRef[Str] = "Unknown exception"                      {new}
  +value : Int = 0                                                        {new}
  +verbosity : Int = 2                                                    {new}
  +caller_stack : ArrayRef
@@ -1268,7 +1291,7 @@ need to add or remove more than one element.
 
 =item *
 
-If the original I<value> was a number, it will be incremeted or
+If the original I<value> was a number, it will be incremented or
 decremented by the new I<value>.
 
   use Exception::Base "+ignore_level" => 1;
@@ -1384,11 +1407,10 @@ defined.
 The read-write attributes can be set with C<new> constructor.  Read-only
 attributes and unknown attributes are ignored.
 
-The constant have to be defined in derivered class if it brings additional
+The constant have to be defined in derived class if it brings additional
 attributes.
 
   package Exception::My;
-  our $VERSION = 0.01;
   use base 'Exception::Base';
 
   # Define new class attributes
@@ -1425,6 +1447,11 @@ representing the exception object.
 
   eval { Exception::Base->throw( message=>"Message" ); };
   print $@->message if $@;
+
+It can also be an array reference of strings and then the L<sprintf/perlfunc>
+is used to get a message.
+
+  Exception::Base->throw( message => ["%s failed", __PACKAGE__] );
 
 =item value (rw, default: 0)
 
@@ -1556,7 +1583,7 @@ if the verbosity on throwing exception was greater than 1.
 
 =item tid (ro)
 
-Constains the tid of the thread or undef if threads are not used.  Collected
+Contains the tid of the thread or undef if threads are not used.  Collected
 if the verbosity on throwing exception was greater than 1.
 
 =item uid (ro)
@@ -1784,7 +1811,7 @@ existing exception object.
 
   $e = Exception::Base->new;
   # (...)
-  $e->throw( message=>"thrown exception with overriden message" );
+  $e->throw( message=>"thrown exception with overridden message" );
 
   eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
   $@->throw if $@->value;
@@ -1792,7 +1819,7 @@ existing exception object.
 =item C<$obj>-E<gt>throw(I<message>, [%I<args>])
 
 If the number of I<args> list for arguments is odd, the first argument is a
-message.  This message can be overriden by message from I<args> list.
+message.  This message can be overridden by message from I<args> list.
 
   Exception::Base->throw( "Problem", message=>"More important" );
   eval { die "Bum!" };
@@ -1916,7 +1943,7 @@ Matches against the default attribute, usually the C<message> attribute.
 
 Returns the string representation of exception object.  It is called
 automatically if the exception object is used in string scalar context.  The
-method can be used explicity.
+method can be used explicitly.
 
   eval { Exception::Base->throw; };
   $@->{verbosity} = 1;
@@ -1928,7 +1955,7 @@ method can be used explicity.
 
 Returns the numeric representation of exception object.  It is called
 automatically if the exception object is used in numeric scalar context.  The
-method can be used explicity.
+method can be used explicitly.
 
   eval { Exception::Base->throw( value => 42 ); };
   print 0+$@;           # 42
@@ -1938,7 +1965,7 @@ method can be used explicity.
 
 Returns the boolean representation of exception object.  It is called
 automatically if the exception object is used in boolean context.  The method
-can be used explicity.
+can be used explicitly.
 
   eval { Exception::Base->throw; };
   print "ok" if $@;           # ok
@@ -1947,7 +1974,7 @@ can be used explicity.
 =item get_caller_stacktrace
 
 Returns an array of strings or string with caller stack trace.  It is
-implicity used by C<to_string> method.
+implicitly used by C<to_string> method.
 
 =item PROPAGATE
 
@@ -1980,7 +2007,7 @@ Returns the subroutine name which thrown an exception.
 
 Collects system data and fills the attributes of exception object.  This
 method is called automatically if exception if thrown or created by
-C<new> constructor.  It can be overriden by derived class.
+C<new> constructor.  It can be overridden by derived class.
 
   package Exception::Special;
   use base 'Exception::Base';
@@ -2073,11 +2100,11 @@ Not recommended.  Abadoned.  Modifies %SIG handlers.
 
 The C<Exception::Base> does not depend on other modules like
 L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
-does not use closures as L<Error> and does not polute namespace as
+does not use closures as L<Error> and does not pollute namespace as
 L<Exception::Class::TryCatch>.  It is also much faster than
 L<Exception::Class::TryCatch> and L<Error> for success scenario.
 
-The C<Exception::Base> is also a base class for enchanced classes:
+The C<Exception::Base> is also a base class for enhanced classes:
 
 =over
 
@@ -2172,7 +2199,7 @@ The C<Exception::Base> module was written to be as fast as it is
 possible.  It does not use internally i.e. accessor functions which are
 slower about 6 times than standard variables.  It is slower than pure
 die/eval because it is uses OO mechanisms which are slow in Perl.  It
-can be a litte faster if some features are disables, i.e. the stack
+can be a little faster if some features are disables, i.e. the stack
 trace and higher verbosity.
 
 You can find the benchmark script in this package distribution.
@@ -2185,11 +2212,11 @@ If you find the bug, please report it.
 
 =head1 AUTHOR
 
-Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
+Piotr Roszatycki <dexter@cpan.org>
 
 =head1 LICENSE
 
-Copyright (C) 2007, 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright (c) 2007, 2008, 2009 by Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

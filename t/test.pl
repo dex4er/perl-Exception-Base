@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+use 5.006;
+
 use strict;
 use warnings;
 
@@ -20,6 +22,6 @@ BEGIN {
 
 use Test::Unit::Lite;
 
-local $SIG{__WARN__} = sub { require Carp; Carp::confess( $_[0] ) };
+local $SIG{__WARN__} = sub { require Carp; Carp::confess(@_) };
 
 all_tests;

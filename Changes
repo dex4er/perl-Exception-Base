@@ -1,4 +1,17 @@
 ------------------------------------------------------------------------
+0.22 | Piotr Roszatycki <dexter@debian.org> | 2009-03-24
+
+New:
+
+* sprintf is used if "message" attribute is an array reference.
+
+  Exception::Base->throw( message => ['Failed in %s', __PACKAGE__] );
+
+Changes:
+
+* Build requires Test::Unit::Lite 0.21.
+
+------------------------------------------------------------------------
 0.21 | Piotr Roszatycki <dexter@debian.org> | 2008-12-08
 
 Fixes:

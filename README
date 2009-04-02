@@ -22,17 +22,7 @@ SYNOPSIS
                 message=>'Something wrong',
                 filename=>'/etc/passwd');
       };
-      # standard syntax for older Perl
-      if ($@) {
-        my $e = Exception::Base->catch;   # convert $@ into exception
-        if ($e->isa('Exception::IO')) { warn "IO problem"; }
-        elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
-        elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
-        elsif ($e->matches({value=>9})) { warn "something happened"; }
-        elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
-        else { $e->throw; } # rethrow the exception
-      }
-      # alternative syntax for Perl 5.10
+      # syntax for Perl >= 5.10
       use feature 'switch';
       if ($@) {
         given (my $e = Exception::Base->catch) {
@@ -43,6 +33,16 @@ SYNOPSIS
           when (qr/^Error/) { warn "some error based on regex"; }
           default { $e->throw; } # rethrow the exception
         }
+      }
+      # standard syntax for older Perl
+      if ($@) {
+        my $e = Exception::Base->catch;   # convert $@ into exception
+        if ($e->isa('Exception::IO')) { warn "IO problem"; }
+        elsif ($e->isa('Exception::Eval')) { warn "eval died"; }
+        elsif ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
+        elsif ($e->matches({value=>9})) { warn "something happened"; }
+        elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
+        else { $e->throw; } # rethrow the exception
       }
 
       # $@ has to be recovered ASAP!
@@ -86,9 +86,10 @@ DESCRIPTION
 
     * does not mess with `$SIG{__DIE__}' and `$SIG{__WARN__}'
 
-    * no external modules dependencies, requires core Perl modules only
+    * no external run-time modules dependencies, requires core Perl modules
+      only
 
-    * the default behaviour of exception class can be changed globally or
+    * the default behavior of exception class can be changed globally or
       just for the thrown exception
 
     * matching the exception by class, message or other attributes
@@ -110,10 +111,10 @@ DESCRIPTION
       exceptions
 
 AUTHOR
-    Piotr Roszatycki <dexter@debian.org>
+    Piotr Roszatycki <dexter@cpan.org>
 
 LICENSE
-    Copyright (C) 2007, 2008 by Piotr Roszatycki <dexter@debian.org>.
+    Copyright (c) 2007, 2008, 2009 by Piotr Roszatycki <dexter@cpan.org>.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

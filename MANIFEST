@@ -3,7 +3,6 @@ Changes
 eg/eval_throw.pl
 eg/file-not-found_exception.pl
 eg/ignore_package.pl
-inc/Test/Unit/Lite.pm
 Incompatibilities
 lib/Exception/Base.pm
 Makefile.PL
@@ -12,14 +11,28 @@ MANIFEST.SKIP
 META.yml
 README
 t/all_tests.t
-t/benchmark_fail.pl
-t/benchmark_ok.pl
-t/cover.sh
-t/profile_eval.pl
 t/test.pl
 t/tlib/Exception/BaseTest.pm
 t/tlib/Exception/BaseTest/LoadedException.pm
 t/tlib/Exception/BaseTest/MissingVersion.pm
 t/tlib/Exception/BaseTest/SyntaxError.pm
+xt/benchmark_fail.pl
+xt/benchmark_ok.pl
+xt/check_changes.t
+xt/consistent_version_numbers.t
+xt/copyright.t
+xt/cover.pl
+xt/distribution.t
+xt/kwalitee.t
+xt/perlcritic.t
+xt/perlcriticrc
 xt/pod.t
 xt/pod_coverage.t
+xt/pod_spell.t
+xt/pod_spellrc
+xt/pod_syntax.t
+xt/profile_eval.pl
+xt/signature.t
+LICENSE
+SIGNATURE    Added here by Module::Build
+SIGNATURE    Added here by Module::Build
