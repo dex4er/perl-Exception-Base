@@ -191,7 +191,7 @@ BEGIN {
         *_HAVE_SCALAR_UTIL_WEAKEN = sub () { !! 1 };
     }
     else {
-        *_HAVE_SCALAR_UTIL_WEAKEN = sub () { ! 1 };
+        *_HAVE_SCALAR_UTIL_WEAKEN = sub () { !! 0 };
     };
 };
 
@@ -2214,7 +2214,12 @@ L<Exception::Class>.
 
 =item L<Exceptions>
 
-Not recommended.  Abadoned.  Modifies %SIG handlers.
+Not recommended.  Abadoned.  Modifies C<%SIG> handlers.
+
+=item L<TryCatch>
+
+Interesting module which gives new try/catch keywords without source filter.
+Unfortunately, it is extremely slow for success scenario.
 
 =back
 
@@ -2296,23 +2301,25 @@ simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
 are following:
 
   -----------------------------------------------------------------------
-  | Module                              | Success       | Failure       |
+  | Module                              | Success sub/s | Failure sub/s |
   -----------------------------------------------------------------------
-  | eval/die string                     |      859644/s |      232952/s |
+  | eval/die string                     |       2104366 |        289064 |
   -----------------------------------------------------------------------
-  | eval/die object                     |      891294/s |      125992/s |
+  | eval/die object                     |       2330574 |        136957 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if             |      886204/s |        7585/s |
+  | Exception::Base eval/if             |       2313500 |          6547 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if verbosity=1 |      882376/s |       13778/s |
+  | Exception::Base eval/if verbosity=1 |       2410632 |         12495 |
   -----------------------------------------------------------------------
-  | Error                               |       85800/s |       19723/s |
+  | Error                               |         91374 |         19502 |
   -----------------------------------------------------------------------
-  | Class::Throwable                    |      878963/s |        7461/s |
+  | Class::Throwable                    |       2326282 |          8094 |
   -----------------------------------------------------------------------
-  | Exception::Class                    |      345114/s |        1278/s |
+  | Exception::Class                    |        461789 |          1347 |
   -----------------------------------------------------------------------
-  | Exception::Class::TryCatch          |      210389/s |        1259/s |
+  | Exception::Class::TryCatch          |        259474 |          1329 |
+  -----------------------------------------------------------------------
+  | TryCatch                            |         18406 |         16566 |
   -----------------------------------------------------------------------
 
 The C<Exception::Base> module was written to be as fast as it is
