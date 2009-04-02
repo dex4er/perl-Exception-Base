@@ -1,4 +1,6 @@
-#!/usr/bin/perl -I../lib
+#!/usr/bin/perl
+
+use lib 'lib', '../lib';
 
 use Exception::Base (
     '+ignore_package' => ['My::Package2', 'My::Package3'],

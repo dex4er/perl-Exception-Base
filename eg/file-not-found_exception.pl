@@ -1,12 +1,14 @@
-#!/usr/bin/perl -I../lib
+#!/usr/bin/perl
+
+use lib 'lib', '../lib';
 
 # Use module and create needed exceptions
 use Exception::Base
     'Exception::IO',
     'Exception::FileNotFound' => {
-	isa => 'Exception::IO',
-	has => 'filename',
-	string_attributes => [ 'message', 'filename' ],
+    	isa => 'Exception::IO',
+    	has => 'filename',
+    	string_attributes => [ 'message', 'filename' ],
     };
 
 sub func1 {
