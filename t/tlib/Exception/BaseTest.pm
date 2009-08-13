@@ -573,9 +573,15 @@ sub test_overload {
     # smart matching for Perl 5.10
     if ($] >= 5.010) {
         eval q{
-            $self->assert_num_equals(1, $obj ~~ 'String');
-            $self->assert_num_equals(1, $obj ~~ 123);
-            $self->assert_num_equals(1, $obj ~~ ['Exception::Base']);
+            $self->assert_num_equals(1, 'String' ~~ $obj);
+        };
+        die "$@" if $@;
+        eval q{
+            $self->assert_num_equals(1, 123 ~~ $obj);
+        };
+        die "$@" if $@;
+        eval q{
+            $self->assert_num_equals(1, ['Exception::Base'] ~~ $obj);
         };
         die "$@" if $@;
     }

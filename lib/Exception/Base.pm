@@ -154,7 +154,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.2201';
+our $VERSION = '0.2202';
 
 use utf8;
 
@@ -246,11 +246,11 @@ C<to_string> method.
 Smart matching operator.  See C<matches> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
-  print $@ ~~ "Message";                          # 1
-  print $@ ~~ qr/message/i;                       # 1
-  print $@ ~~ ['Exception::Base'];                # 1
-  print $@ ~~ 123;                                # 1
-  print $@ ~~ {message=>"Message", value=>123};   # 1
+  print "Message" ~~ $@;                          # 1
+  print qr/message/i ~~ $@;                       # 1
+  print ['Exception::Base'] ~~ $@;                # 1
+  print 123 ~~ $@;                                # 1
+  print {message=>"Message", value=>123} ~~ $@;   # 1
 
 =back
 
