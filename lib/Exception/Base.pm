@@ -2218,8 +2218,8 @@ Not recommended.  Abadoned.  Modifies C<%SIG> handlers.
 
 =item L<TryCatch>
 
-Interesting module which gives new try/catch keywords without source filter.
-Unfortunately, it is extremely slow for success scenario.
+Promising module which gives new try/catch keywords without source filter.
+Also it can use C<Exception::Base> exceptions.
 
 =back
 
@@ -2297,29 +2297,29 @@ benchmarked with its default syntax, however it might be possible to convert
 it to simple C<if ($@)>.
 
 The C<Exception::Base> module was benchmarked with other implementations for
-simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
+simple try/catch scenario.  The results (Perl 5.10.1 i686-linux-thread-multi)
 are following:
 
   -----------------------------------------------------------------------
   | Module                              | Success sub/s | Failure sub/s |
   -----------------------------------------------------------------------
-  | eval/die string                     |       2104366 |        289064 |
+  | eval/die string                     |       2432775 |        331742 |
   -----------------------------------------------------------------------
-  | eval/die object                     |       2330574 |        136957 |
+  | eval/die object                     |       2646077 |        175847 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if             |       2313500 |          6547 |
+  | Exception::Base eval/if             |       2548294 |          9340 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if verbosity=1 |       2410632 |         12495 |
+  | Exception::Base eval/if verbosity=1 |       2680215 |         18741 |
   -----------------------------------------------------------------------
-  | Error                               |         91374 |         19502 |
+  | Error                               |        102426 |         22615 |
   -----------------------------------------------------------------------
-  | Class::Throwable                    |       2326282 |          8094 |
+  | Class::Throwable                    |       2680740 |          9560 |
   -----------------------------------------------------------------------
-  | Exception::Class                    |        461789 |          1347 |
+  | Exception::Class                    |        601571 |          2948 |
   -----------------------------------------------------------------------
-  | Exception::Class::TryCatch          |        259474 |          1329 |
+  | Exception::Class::TryCatch          |        275985 |          2934 |
   -----------------------------------------------------------------------
-  | TryCatch                            |         18406 |         16566 |
+  | TryCatch                            |        721596 |        260654 |
   -----------------------------------------------------------------------
 
 The C<Exception::Base> module was written to be as fast as it is

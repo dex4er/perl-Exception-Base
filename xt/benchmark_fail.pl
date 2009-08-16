@@ -158,14 +158,15 @@ eval q{
     };
 };
 
+BEGIN {
+    eval q{
+        package My::TryCatch;
+        use TryCatch;
+    };
+};
 eval q{
     package My::TryCatch;
-    BEGIN {
-        eval {
-            require TryCatch;
-            TryCatch->import;
-        };
-    };
+
     TryCatch->VERSION or die;
 
     $main::tests{'09_TryCatch'} = sub {

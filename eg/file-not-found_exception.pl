@@ -6,9 +6,9 @@ use lib 'lib', '../lib';
 use Exception::Base
     'Exception::IO',
     'Exception::FileNotFound' => {
-    	isa => 'Exception::IO',
-    	has => 'filename',
-    	string_attributes => [ 'message', 'filename' ],
+        isa => 'Exception::IO',
+        has => 'filename',
+        string_attributes => [ 'message', 'filename' ],
     };
 
 sub func1 {
@@ -20,7 +20,7 @@ sub func1 {
     };
 
     if ($@) {
-	my $e = Exception::IO->catch;
+        my $e = Exception::IO->catch;
         # $e is an exception object for sure, no need to check if is blessed
         warn "*** Exception caught";
         if ($e->isa('Exception::FileNotFound')) {
