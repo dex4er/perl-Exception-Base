@@ -146,11 +146,7 @@ our $VERSION = '0.2202';
 use utf8;
 
 
-## no critic ProhibitConstantPragma
-## no critic RequireArgUnpacking
-## no critic RequireCarping
-## no critic RequireCheckingReturnValueOfEval
-## no critic RequireInitializationForLocalVars
+## no critic qw(ProhibitConstantPragma RequireArgUnpacking RequireCarping RequireCheckingReturnValueOfEval RequireInitializationForLocalVars)
 
 # Safe operations on symbol stash
 BEGIN {
