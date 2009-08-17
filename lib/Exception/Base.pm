@@ -180,7 +180,7 @@ BEGIN {
 
 
 BEGIN {
-    my %OVERLOAD = (fallback => 1);
+    my %OVERLOADS = (fallback => 1);
 
 =head1 OVERLOADS
 
@@ -197,7 +197,7 @@ True value.  See C<to_bool> method.
 
 =cut
 
-    $OVERLOAD{'bool'} = 'to_bool';
+    $OVERLOADS{'bool'} = 'to_bool';
 
 =item Numeric context
 
@@ -209,7 +209,7 @@ C<to_number> method.
 
 =cut
 
-    $OVERLOAD{'0+'}   = 'to_number';
+    $OVERLOADS{'0+'}   = 'to_number';
 
 =item String context
 
@@ -222,7 +222,7 @@ C<to_string> method.
 
 =cut
 
-    $OVERLOAD{'""'}   = 'to_string';
+    $OVERLOADS{'""'}   = 'to_string';
 
 =item "~~"
 
@@ -242,10 +242,10 @@ for Perl 5.10.1 RC1.  This operator is going to change soon.
 
 =cut
 
-    $OVERLOAD{'~~'}   = 'matches' if ($] >= 5.010);
+    $OVERLOADS{'~~'}   = 'matches' if ($] >= 5.010);
 
     use overload;
-    overload->import(%OVERLOAD);
+    overload->import(%OVERLOADS);
 };
 
 
@@ -1101,7 +1101,7 @@ sub catch {
 
 
     # Recover exception from $@ and clear it
-    ## no critic RequireLocalizedPunctuationVars
+    ## no critic qw(RequireLocalizedPunctuationVars)
     $e = $@;
     $@ = '';
 
@@ -1212,7 +1212,7 @@ Matches against the default attribute, usually the C<message> attribute.
 =cut
 
 # Smart matching.
-sub matches {   ## no critic ProhibitExcessComplexity
+sub matches {   ## no critic qw(ProhibitExcessComplexity)
     my ($self, $that) = @_;
 
     my @args;
@@ -1305,7 +1305,7 @@ sub matches {   ## no critic ProhibitExcessComplexity
             $key = $default_attribute;
         };
 
-        ## no critic ProhibitCascadingIfElse
+        ## no critic qw(ProhibitCascadingIfElse)
         if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
@@ -1649,8 +1649,7 @@ sub _collect_system_data {
         my @caller_stack;
         my $level = 1;
 
-        ## no critic ProhibitMultiplePackages
-        ## no critic ProhibitPackageVars
+        ## no critic qw(ProhibitMultiplePackages ProhibitPackageVars)
         while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
@@ -1785,7 +1784,7 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    ## no critic ProhibitNoWarnings
+    ## no critic qw(ProhibitNoWarnings)
     no warnings 'once', 'utf8';   # can't disable critic for utf8...
     if (not defined *utf8::is_utf{CODE} or utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
@@ -1808,7 +1807,7 @@ sub _str_len_trim {
     my (undef, $str, $max) = @_;
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
-        ## no critic ProhibitLvalueSubstr
+        ## no critic qw(ProhibitLvalueSubstr)
         substr($str, $max - 3) = '...';
     };
 
@@ -2075,7 +2074,7 @@ sub _make_exception {
     };
 
     # Create the new package
-    ## no critic ProhibitCommaSeparatedStatements
+    ## no critic qw(ProhibitCommaSeparatedStatements)
     ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
     @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
     *{_qualify_to_ref($package . '::ATTRS')} = sub () {
@@ -2088,7 +2087,7 @@ sub _make_exception {
 
 
 # Module initialization
-## no critic ProtectPrivateSubs
+## no critic qw(ProtectPrivateSubs)
 BEGIN {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
