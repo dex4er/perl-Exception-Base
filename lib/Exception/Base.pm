@@ -28,19 +28,6 @@ Exception::Base - Lightweight exceptions
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
-  # syntax for Perl >= 5.10
-  use feature 'switch';
-  if ($@) {
-    given (my $e = Exception::Base->catch) {
-      when (['Exception::IO']) { warn "IO problem"; }
-      when (['Exception::Eval']) { warn "eval died"; }
-      when (['Exception::Runtime']) { warn "some runtime was caught"; }
-      when ({value=>9}) { warn "something happened"; }
-      when (qr/^Error/) { warn "some error based on regex"; }
-      default { $e->throw; } # rethrow the exception
-    }
-  }
-  # standard syntax for older Perl
   if ($@) {
     my $e = Exception::Base->catch;   # convert $@ into exception
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
@@ -154,16 +141,12 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.2201';
+our $VERSION = '0.2202';
 
 use utf8;
 
 
-## no critic ProhibitConstantPragma
-## no critic RequireArgUnpacking
-## no critic RequireCarping
-## no critic RequireCheckingReturnValueOfEval
-## no critic RequireInitializationForLocalVars
+## no critic qw(ProhibitConstantPragma RequireArgUnpacking RequireCarping RequireCheckingReturnValueOfEval RequireInitializationForLocalVars)
 
 # Safe operations on symbol stash
 BEGIN {
@@ -197,7 +180,7 @@ BEGIN {
 
 
 BEGIN {
-    my %OVERLOAD = (fallback => 1);
+    my %OVERLOADS = (fallback => 1);
 
 =head1 OVERLOADS
 
@@ -214,7 +197,7 @@ True value.  See C<to_bool> method.
 
 =cut
 
-    $OVERLOAD{'bool'} = 'to_bool';
+    $OVERLOADS{'bool'} = 'to_bool';
 
 =item Numeric context
 
@@ -226,7 +209,7 @@ C<to_number> method.
 
 =cut
 
-    $OVERLOAD{'0+'}   = 'to_number';
+    $OVERLOADS{'0+'}   = 'to_number';
 
 =item String context
 
@@ -239,27 +222,30 @@ C<to_string> method.
 
 =cut
 
-    $OVERLOAD{'""'}   = 'to_string';
+    $OVERLOADS{'""'}   = 'to_string';
 
 =item "~~"
 
 Smart matching operator.  See C<matches> method.
 
   eval { Exception::Base->throw( message=>"Message", value=>123 ) };
-  print $@ ~~ "Message";                          # 1
-  print $@ ~~ qr/message/i;                       # 1
-  print $@ ~~ ['Exception::Base'];                # 1
-  print $@ ~~ 123;                                # 1
-  print $@ ~~ {message=>"Message", value=>123};   # 1
+  print "Message" ~~ $@;                          # 1
+  print qr/message/i ~~ $@;                       # 1
+  print ['Exception::Base'] ~~ $@;                # 1
+  print 123 ~~ $@;                                # 1
+  print {message=>"Message", value=>123} ~~ $@;   # 1
+
+Warning: The second argument for smart matching operator needs to be scalar
+for Perl 5.10.1 RC1.  This operator is going to change soon.
 
 =back
 
 =cut
 
-    $OVERLOAD{'~~'}   = 'matches' if ($] >= 5.010);
+    $OVERLOADS{'~~'}   = 'matches' if ($] >= 5.010);
 
     use overload;
-    overload->import(%OVERLOAD);
+    overload->import(%OVERLOADS);
 };
 
 
@@ -1115,7 +1101,7 @@ sub catch {
 
 
     # Recover exception from $@ and clear it
-    ## no critic RequireLocalizedPunctuationVars
+    ## no critic qw(RequireLocalizedPunctuationVars)
     $e = $@;
     $@ = '';
 
@@ -1146,18 +1132,8 @@ Checks if the exception object matches the given argument.  The C<matches>
 method overloads C<~~> smart matching operator, so it can be used with
 C<given> keyword.
 
-  my $e = Exception::Base->new( message=>"Message", value=>123 );
-  use feature 'switch';
-  given ($e) {
-    when( "Message" ) { ... }                             # matches
-    when( qr/message/i ) { ... }                          # matches
-    when( ["Exception::Base"] ) { ... }                   # matches
-    when( ["Exception::Foo", "Exception::Bar"] ) { ... }  # doesn't
-    when( { message=>"Message" } ) { ... }                # matches
-    when( { value=>123 } ) { ... }                        # matches
-    when( { message=>"Message", value=>45 } ) { ... }     # doesn't
-    when( { uid=>0 } ) { ... }  # matches if runs with root privileges
-  }
+Warning: The second argument for smart matching operator needs to be scalar
+for Perl 5.10.1 RC1.  This method is going to change soon.
 
 If the argument is a reference to array, it is checked if the object is a
 given class.
@@ -1236,8 +1212,7 @@ Matches against the default attribute, usually the C<message> attribute.
 =cut
 
 # Smart matching.
-sub matches {   ## no critic ProhibitExcessComplexity
-
+sub matches {   ## no critic qw(ProhibitExcessComplexity)
     my ($self, $that) = @_;
 
     my @args;
@@ -1330,7 +1305,7 @@ sub matches {   ## no critic ProhibitExcessComplexity
             $key = $default_attribute;
         };
 
-        ## no critic ProhibitCascadingIfElse
+        ## no critic qw(ProhibitCascadingIfElse)
         if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
@@ -1674,8 +1649,7 @@ sub _collect_system_data {
         my @caller_stack;
         my $level = 1;
 
-        ## no critic ProhibitMultiplePackages
-        ## no critic ProhibitPackageVars
+        ## no critic qw(ProhibitMultiplePackages ProhibitPackageVars)
         while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
@@ -1810,7 +1784,7 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    ## no critic ProhibitNoWarnings
+    ## no critic qw(ProhibitNoWarnings)
     no warnings 'once', 'utf8';   # can't disable critic for utf8...
     if (not defined *utf8::is_utf{CODE} or utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
@@ -1833,7 +1807,7 @@ sub _str_len_trim {
     my (undef, $str, $max) = @_;
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
-        ## no critic ProhibitLvalueSubstr
+        ## no critic qw(ProhibitLvalueSubstr)
         substr($str, $max - 3) = '...';
     };
 
@@ -2100,7 +2074,7 @@ sub _make_exception {
     };
 
     # Create the new package
-    ## no critic ProhibitCommaSeparatedStatements
+    ## no critic qw(ProhibitCommaSeparatedStatements)
     ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
     @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
     *{_qualify_to_ref($package . '::ATTRS')} = sub () {
@@ -2113,7 +2087,7 @@ sub _make_exception {
 
 
 # Module initialization
-## no critic ProtectPrivateSubs
+## no critic qw(ProtectPrivateSubs)
 BEGIN {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
@@ -2218,8 +2192,8 @@ Not recommended.  Abadoned.  Modifies C<%SIG> handlers.
 
 =item L<TryCatch>
 
-Interesting module which gives new try/catch keywords without source filter.
-Unfortunately, it is extremely slow for success scenario.
+Promising module which gives new try/catch keywords without source filter.
+Also it can use C<Exception::Base> exceptions.
 
 =back
 
@@ -2297,29 +2271,29 @@ benchmarked with its default syntax, however it might be possible to convert
 it to simple C<if ($@)>.
 
 The C<Exception::Base> module was benchmarked with other implementations for
-simple try/catch scenario.  The results (Perl 5.10 i686-linux-thread-multi)
+simple try/catch scenario.  The results (Perl 5.10.1 i686-linux-thread-multi)
 are following:
 
   -----------------------------------------------------------------------
   | Module                              | Success sub/s | Failure sub/s |
   -----------------------------------------------------------------------
-  | eval/die string                     |       2104366 |        289064 |
+  | eval/die string                     |       2432775 |        331742 |
   -----------------------------------------------------------------------
-  | eval/die object                     |       2330574 |        136957 |
+  | eval/die object                     |       2646077 |        175847 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if             |       2313500 |          6547 |
+  | Exception::Base eval/if             |       2548294 |          9340 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if verbosity=1 |       2410632 |         12495 |
+  | Exception::Base eval/if verbosity=1 |       2680215 |         18741 |
   -----------------------------------------------------------------------
-  | Error                               |         91374 |         19502 |
+  | Error                               |        102426 |         22615 |
   -----------------------------------------------------------------------
-  | Class::Throwable                    |       2326282 |          8094 |
+  | Class::Throwable                    |       2680740 |          9560 |
   -----------------------------------------------------------------------
-  | Exception::Class                    |        461789 |          1347 |
+  | Exception::Class                    |        601571 |          2948 |
   -----------------------------------------------------------------------
-  | Exception::Class::TryCatch          |        259474 |          1329 |
+  | Exception::Class::TryCatch          |        275985 |          2934 |
   -----------------------------------------------------------------------
-  | TryCatch                            |         18406 |         16566 |
+  | TryCatch                            |        721596 |        260654 |
   -----------------------------------------------------------------------
 
 The C<Exception::Base> module was written to be as fast as it is
@@ -2332,6 +2306,11 @@ trace and higher verbosity.
 You can find the benchmark script in this package distribution.
 
 =head1 BUGS
+
+The major incompatibility exists in Perl 5.10.1 RC1.  The smart match operator
+was changed and second argument needs to be a scalar.  It means that
+given/when syntax cannot be used with array or hash reference.  The C<match>
+method and overloaded smart match operator is going to change their behavior.
 
 If you find the bug, please report it.
 

@@ -3,8 +3,10 @@ Changes
 eg/eval_throw.pl
 eg/file-not-found_exception.pl
 eg/ignore_package.pl
+eg/trycatch.pl
 Incompatibilities
 lib/Exception/Base.pm
+LICENSE
 Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
@@ -33,6 +35,5 @@ xt/pod_spellrc
 xt/pod_syntax.t
 xt/profile_eval.pl
 xt/signature.t
-LICENSE
 SIGNATURE    Added here by Module::Build
 SIGNATURE    Added here by Module::Build

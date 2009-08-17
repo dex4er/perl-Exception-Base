@@ -15,26 +15,27 @@ not run its Makefile.PL or Build.PL.
 Hash: SHA1
 
 SHA1 35aba091088e1de2480ac82464be3312a418d68f Build.PL
-SHA1 2ad8962de6d391005907aefa289c94823e64379b Changes
+SHA1 9b4373947f293e219bd2d5b05561f4f476753b38 Changes
 SHA1 9fc66bd603a4c3712c8a99ebc293a5b1fb93a558 Incompatibilities
 SHA1 74b1c398020b9c1e8849b7982751cb70ecc5de8d LICENSE
-SHA1 0188e8ed1070f9aa4dd2e111b7dc4056ed04c645 MANIFEST
+SHA1 41317d6fa30e8733925c0a64b3db8174d35ffe27 MANIFEST
 SHA1 7d9037725a8f8c9c65eff1e091819c215f55c650 MANIFEST.SKIP
-SHA1 b63194e82f945b6bb330df6976cd54340b75a3c7 META.yml
-SHA1 b11d3ce40d7cfe6a6dfeda7e2871b2ed43d40bd9 Makefile.PL
-SHA1 6ca950aa989f97cfd9edbb9ef10ab39edf456702 README
+SHA1 d93de4473812717b8a061928ce9672aad82da757 META.yml
+SHA1 573eb04955aa94d12d16f675be0f3b0ac4f5fc4a Makefile.PL
+SHA1 aeef445d6519071764f6c11899b29bd94779373f README
 SHA1 d7d40bb798451e792f15d35a982d3c825edbffaf eg/eval_throw.pl
-SHA1 64f57fb7763db04dc0c650ba99aa2b909cd51bb5 eg/file-not-found_exception.pl
+SHA1 81396305b6d25128c23dc379b286ff99a16f2389 eg/file-not-found_exception.pl
 SHA1 92c82ef9cf175b34aa7b5358fea18310ca8a39de eg/ignore_package.pl
-SHA1 d959d9f54c526123254f86758c17d0411e101857 lib/Exception/Base.pm
+SHA1 ff22d7090bd59a6bc4e3de578d5e082d138f9e94 eg/trycatch.pl
+SHA1 7805e1a1864f3ab8c9602c6a29a1e1e2de345a3f lib/Exception/Base.pm
 SHA1 c21578f4a722dbe8e302a27deaaa2ce5f68c5f9b t/all_tests.t
 SHA1 7fd6e2397259525641d03b6c8199b4e4c0e2dda7 t/test.pl
-SHA1 f2b9a0e0ddec1b834eb62f289bd6ff55db635285 t/tlib/Exception/BaseTest.pm
+SHA1 993ab7b30bb5cae96b92d35d7382cbe93c0c2052 t/tlib/Exception/BaseTest.pm
 SHA1 895cb9ba963dfad3fbfe52660a18757a46929967 t/tlib/Exception/BaseTest/LoadedException.pm
 SHA1 e1f0ce1a6f86fd8217e5bdb2a800dccf2258d60c t/tlib/Exception/BaseTest/MissingVersion.pm
 SHA1 f3dacb75c97eb51afc8f56bf3c159bbcdd37ecdf t/tlib/Exception/BaseTest/SyntaxError.pm
-SHA1 4417aaec8b0e318c19f5fa9a0179975283312c9f xt/benchmark_fail.pl
-SHA1 4417aaec8b0e318c19f5fa9a0179975283312c9f xt/benchmark_ok.pl
+SHA1 e55cad5f30549294db5931592cee80ab519719bf xt/benchmark_fail.pl
+SHA1 e55cad5f30549294db5931592cee80ab519719bf xt/benchmark_ok.pl
 SHA1 90353a99ac0f719b6f3e58029804d8556cedc2ab xt/check_changes.t
 SHA1 a56d0c02b6c992e04a77d13a6ee89504bd718572 xt/consistent_version_numbers.t
 SHA1 67bb4c141ea95809f3db2d526ce91d9e6d894756 xt/copyright.t
@@ -46,14 +47,14 @@ SHA1 7e9e72ae532f58ee08709d3bab199d1232b8c097 xt/perlcriticrc
 SHA1 2c579b58def8daec94f41b628ac81c256faaa2b1 xt/pod.t
 SHA1 775b3ac02805b6d703614f42608732fb43af2a41 xt/pod_coverage.t
 SHA1 bef7d46eb5cbc3e67956d4e823ec199f41ab9268 xt/pod_spell.t
-SHA1 4d6e244a89c76cef0298c19e23dcd4bd9fea142c xt/pod_spellrc
+SHA1 1fce20056a3d9d948bf671c1100bf13ad68984c7 xt/pod_spellrc
 SHA1 2c579b58def8daec94f41b628ac81c256faaa2b1 xt/pod_syntax.t
 SHA1 24306b8361154c849931d2d83e9d2a1b7bdfdf7b xt/profile_eval.pl
 SHA1 a38994922fda6d64e2ee75198fadc464a221fea9 xt/signature.t
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.9 (GNU/Linux)
 
-iEYEARECAAYFAknVCf8ACgkQhMHHe8CxClsBvQCgj1ijQRlxNz0sGw0w5odM+2qX
-GDwAn3DTB91kq/h+rlcyAF6RL8ipK7cL
-=XZ4N
+iEYEARECAAYFAkqJZAcACgkQhMHHe8CxClsIZgCgjcnPi1a80NRaqmmHmoe6JtfC
+hCcAnjd8t9u3XsQ8ItukMbZvZU337PzD
+=Ko5E
 -----END PGP SIGNATURE-----

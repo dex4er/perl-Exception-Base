@@ -22,19 +22,6 @@ SYNOPSIS
                 message=>'Something wrong',
                 filename=>'/etc/passwd');
       };
-      # syntax for Perl >= 5.10
-      use feature 'switch';
-      if ($@) {
-        given (my $e = Exception::Base->catch) {
-          when (['Exception::IO']) { warn "IO problem"; }
-          when (['Exception::Eval']) { warn "eval died"; }
-          when (['Exception::Runtime']) { warn "some runtime was caught"; }
-          when ({value=>9}) { warn "something happened"; }
-          when (qr/^Error/) { warn "some error based on regex"; }
-          default { $e->throw; } # rethrow the exception
-        }
-      }
-      # standard syntax for older Perl
       if ($@) {
         my $e = Exception::Base->catch;   # convert $@ into exception
         if ($e->isa('Exception::IO')) { warn "IO problem"; }
