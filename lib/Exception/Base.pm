@@ -2192,8 +2192,12 @@ Not recommended.  Abadoned.  Modifies C<%SIG> handlers.
 
 =item L<TryCatch>
 
-Promising module which gives new try/catch keywords without source filter.
+A module which gives new try/catch keywords without source filter.
 Also it can use C<Exception::Base> exceptions.
+
+=item L<Try::Tiny>
+
+Smaller, simplier and slower version of L<TryCatch> module.
 
 =back
 
@@ -2202,6 +2206,9 @@ L<Exception::Class> and it is more powerful than L<Class::Throwable>.  Also it
 does not use closures as L<Error> and does not pollute namespace as
 L<Exception::Class::TryCatch>.  It is also much faster than
 L<Exception::Class::TryCatch> and L<Error> for success scenario.
+
+The C<Exception::Base> is compatible with syntax sugar modules like
+L<TryCatch> and L<Try::Tiny>.
 
 The C<Exception::Base> is also a base class for enhanced classes:
 
@@ -2264,46 +2271,45 @@ Success scenario should have no penalty on speed.  Failure scenario is usually
 more complex to handle and can be significally slower.
 
 Any other code than simple C<if ($@)> is really slow and shouldn't be used if
-speed is important.  It means that L<Error> and L<Exception::Class::TryCatch>
-should be avoided as far as they are slow by design.  The L<Exception::Class>
-module doesn't use C<if ($@)> syntax in its documentation so it was
-benchmarked with its default syntax, however it might be possible to convert
-it to simple C<if ($@)>.
-
+speed is important.  It means that any module which provides try/catch syntax
+sugar should be avoided: L<Error>, L<Exception::Class::TryCatch>, L<TryCatch>,
+L<Try::Tiny>.  Be careful because simple C<if ($@)> has many gotchas which are
+described in L<Try::Tiny>'s documentation.
+ 
 The C<Exception::Base> module was benchmarked with other implementations for
-simple try/catch scenario.  The results (Perl 5.10.1 i686-linux-thread-multi)
-are following:
+simple try/catch scenario.  The results
+(Perl 5.10.1 x86_64-linux-thread-multi) are following:
 
   -----------------------------------------------------------------------
   | Module                              | Success sub/s | Failure sub/s |
   -----------------------------------------------------------------------
-  | eval/die string                     |       2001388 |        273658 |
+  | eval/die string                     |       3715708 |        408951 |
   -----------------------------------------------------------------------
-  | eval/die object                     |       2182040 |        155641 |
+  | eval/die object                     |       4563524 |        191664 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if             |       2124601 |          6980 |
+  | Exception::Base eval/if             |       4903857 |         11291 |
   -----------------------------------------------------------------------
-  | Exception::Base eval/if verbosity=1 |       2182063 |         12897 |
+  | Exception::Base eval/if verbosity=1 |       4790762 |         18833 |
   -----------------------------------------------------------------------
-  | Error                               |         84770 |         18529 |
+  | Error                               |        117475 |         26694 |
   -----------------------------------------------------------------------
-  | Class::Throwable                    |       2272121 |          7966 |
+  | Class::Throwable                    |       4618545 |         12678 |
   -----------------------------------------------------------------------
-  | Exception::Class                    |        412811 |          2370 |
+  | Exception::Class                    |        643901 |          3493 |
   -----------------------------------------------------------------------
-  | Exception::Class::TryCatch          |        227988 |          2358 |
+  | Exception::Class::TryCatch          |        307825 |          3439 |
   -----------------------------------------------------------------------
-  | TryCatch                            |        438631 |        199489 |
+  | TryCatch                            |        690784 |        294802 |
   -----------------------------------------------------------------------
-  | Try::Tiny                           |        183615 |        106630 |
+  | Try::Tiny                           |        268780 |        158383 |
   -----------------------------------------------------------------------
 
 The C<Exception::Base> module was written to be as fast as it is
 possible.  It does not use internally i.e. accessor functions which are
 slower about 6 times than standard variables.  It is slower than pure
-die/eval because it is uses OO mechanisms which are slow in Perl.  It
-can be a little faster if some features are disables, i.e. the stack
-trace and higher verbosity.
+die/eval for success scenario because it is uses OO mechanisms which are slow
+in Perl.  It can be a little faster if some features are disables, i.e. the
+stack trace and higher verbosity.
 
 You can find the benchmark script in this package distribution.
 

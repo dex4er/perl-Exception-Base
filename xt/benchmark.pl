@@ -34,7 +34,7 @@ my %tests = (
 );
 
 foreach my $scenario qw{ ok fail } {
-    open my $fh, '-|', "$^X xt/benchmark_$scenario.pl -5" or die;
+    open my $fh, '-|', "$^X xt/benchmark_$scenario.pl " . ($ARGV[0] || -1) or die;
     while ($_ = <$fh>) {
         print;
         /^(\d\d_\w+)\s+(\d+)\/s/ or next;
