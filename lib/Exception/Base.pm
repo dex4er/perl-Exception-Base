@@ -141,7 +141,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.2202';
+our $VERSION = '0.23';
 
 use utf8;
 
@@ -1067,11 +1067,14 @@ sub throw {
 };
 
 
-=item I<CLASS>-E<gt>catch
+=item I<CLASS>-E<gt>catch([$I<variable>])
 
-The exception is recovered from C<$@> variable and method returns an exception
-object if exception is caught or undefined value otherwise.  The C<$@>
-variable is replaced with empty string to avoid endless loop.
+The exception is recovered from I<variable> argument or C<$@> variable if
+I<variable> argument was empty.  Then also C<$@> is replaced with empty string
+to avoid an endless loop.
+
+The method returns an exception object if exception is caught or undefined
+value otherwise.
 
   eval { Exception::Base->throw; };
   if ($@) {
@@ -1100,10 +1103,16 @@ sub catch {
     my $new_e;
 
 
-    # Recover exception from $@ and clear it
-    ## no critic qw(RequireLocalizedPunctuationVars)
-    $e = $@;
-    $@ = '';
+    if (@_ > 1) {
+        # Recover exception from argument
+        $e = $_[1];
+    }
+    else {
+        # Recover exception from $@ and clear it
+        ## no critic qw(RequireLocalizedPunctuationVars)
+        $e = $@;
+        $@ = '';
+    };
 
     if (ref $e and do { local $@; local $SIG{__DIE__}; eval { $e->isa(__PACKAGE__) } }) {
         # Caught exception
@@ -2132,6 +2141,7 @@ BEGIN {
  <<create>> +throw( args : Hash = undef )
  <<create>> +throw( message : Str, args : Hash = undef )
  +catch() : Exception::Base
+ +catch( variable : Any ) : Exception::Base
  +matches( that : Any ) : Bool                                 {overload="~~"}
  +to_string() : Str                                            {overload='""'}
  +to_number() : Num                                            {overload="0+"}
@@ -2193,7 +2203,6 @@ Not recommended.  Abadoned.  Modifies C<%SIG> handlers.
 =item L<TryCatch>
 
 A module which gives new try/catch keywords without source filter.
-Also it can use C<Exception::Base> exceptions.
 
 =item L<Try::Tiny>
 
@@ -2275,7 +2284,7 @@ speed is important.  It means that any module which provides try/catch syntax
 sugar should be avoided: L<Error>, L<Exception::Class::TryCatch>, L<TryCatch>,
 L<Try::Tiny>.  Be careful because simple C<if ($@)> has many gotchas which are
 described in L<Try::Tiny>'s documentation.
- 
+
 The C<Exception::Base> module was benchmarked with other implementations for
 simple try/catch scenario.  The results
 (Perl 5.10.1 x86_64-linux-thread-multi) are following:
