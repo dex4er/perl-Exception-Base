@@ -1,9 +1,14 @@
 Build.PL
 Changes
-eg/eval_throw.pl
+eg/die_propagate.pl
+eg/eval_throw_given_when_default.pl
+eg/eval_throw_if_elsif_else.pl
 eg/file-not-found_exception.pl
 eg/ignore_package.pl
-eg/trycatch.pl
+eg/try_catch.pl
+eg/try_tiny_try_catch_given_when.pl
+eg/trycatch_try_catch_given_when.pl
+eg/trycatch_try_catch_where.pl
 Incompatibilities
 lib/Exception/Base.pm
 LICENSE
@@ -18,6 +23,7 @@ t/tlib/Exception/BaseTest.pm
 t/tlib/Exception/BaseTest/LoadedException.pm
 t/tlib/Exception/BaseTest/MissingVersion.pm
 t/tlib/Exception/BaseTest/SyntaxError.pm
+xt/benchmark.pl
 xt/benchmark_fail.pl
 xt/benchmark_ok.pl
 xt/check_changes.t

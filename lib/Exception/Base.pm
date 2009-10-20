@@ -2217,7 +2217,7 @@ A module which gives new try/catch keywords without source filter.
 
 =item L<Try::Tiny>
 
-Smaller, simplier and slower version of L<TryCatch> module.
+Smaller, simpler and slower version of L<TryCatch> module.
 
 =back
 
