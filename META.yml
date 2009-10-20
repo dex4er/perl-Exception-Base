@@ -1,6 +1,6 @@
 ---
 name: Exception-Base
-version: 0.2202
+version: 0.23
 author:
   - 'Piotr Roszatycki <dexter@cpan.org>'
 abstract: Lightweight exceptions
@@ -13,12 +13,10 @@ build_requires:
   Test::Unit::Lite: 0.12
 requires:
   perl: 5.006
-configure_requires:
-  Module::Build: 0.34
 provides:
   Exception::Base:
     file: lib/Exception/Base.pm
-    version: 0.2202
+    version: 0.23
 generated_by: Module::Build version 0.34
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html

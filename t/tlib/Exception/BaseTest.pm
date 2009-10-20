@@ -869,15 +869,17 @@ sub test_catch {
     $self->assert($e19->isa("Exception::Base"), '$e19->isa("Exception::Base")');
     $self->assert_equals('Throw 19', $e19->{myattr});
     $self->assert_null($e19->{message});
+
+    # Recover from argument
+    my $e20 = Exception::Base->catch($e19);
+    $self->assert_not_equals('', ref $e19);
+    $self->assert_equals('Exception::BaseTest::catch::Package19', ref $e19);
 }
 
 sub test_catch_non_exception {
     my $self = shift;
 
     local $SIG{__DIE__};
-
-    # empty stack trace
-    while (Exception::Base->catch(my $obj0)) { };
 
     $@ = "Unknown message";
     my $obj1 = Exception::Base->catch;

@@ -22,6 +22,7 @@ my $build = Module::Build->new(
     build_requires => {
         'Test::Unit::Lite'        => 0.12,
     },
+    auto_configure_requires => 0,
     create_makefile_pl => 'traditional',
     create_readme => 1,
     create_license => 1,

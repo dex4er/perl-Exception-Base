@@ -183,6 +183,31 @@ eval q{
     };
 };
 
+BEGIN {
+    eval q{
+        package My::TryTiny;
+        use Try::Tiny;
+    };
+};
+eval q{
+    package My::TryTiny;
+
+    Try::Tiny->VERSION or die;
+
+    $main::tests{'10_TryTiny'} = sub {
+
+        try {
+            die 'Message' if My::Common::throw_something;
+        }
+        catch {
+            if ($@ =~ /^Message/) {
+                1;
+            };
+        };
+
+    };
+};
+
 
 use Benchmark ':all';
 

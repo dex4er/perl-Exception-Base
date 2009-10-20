@@ -1,4 +1,12 @@
 ------------------------------------------------------------------------
+0.23 | Piotr Roszatycki <dexter@cpan.org> | 2009-10-20
+
+New:
+
+* Method "catch" has optional argument.  It recovers an exception from this
+  argument or from "$@" variable by default.
+
+------------------------------------------------------------------------
 0.2202 | Piotr Roszatycki <dexter@cpan.org> | 2009-08-13
 
 Fixes:
@@ -109,7 +117,7 @@ New:
 
 * New method "matches" and overloaded operator "~~" are similar to
   "with" method and can be used with new "given" syntax.
-  
+
   eval { Exception::Base->throw( message => "foo" ) };
   if ($@) {
     my $e = Exception::Base->catch;
@@ -155,7 +163,7 @@ Changes:
 * Removed private methods "__stringify" and "__numerify". The methods
   "stringify" and "numerify" overloads "q{""}" and "0+" operators.
 
-* New meta-attribute "numeric_attribute" which contains the name of attribute  
+* New meta-attribute "numeric_attribute" which contains the name of attribute
   which represents exception object in numeric context.
 
 * New constant RE_NUM_IN.
@@ -185,7 +193,7 @@ Incompatibilities:
 
 New:
 
-* The "with" method supports "-isa" and "-has" keyword. Value can be a    
+* The "with" method supports "-isa" and "-has" keyword. Value can be a
   reference to array which means any value matches.
 
 Changes:
@@ -276,7 +284,7 @@ Fixes:
 Changes:
 
 * ignore_level and ignore_package does not change caller_info. This attributes
-  have meaning only for stringify output. 
+  have meaning only for stringify output.
 * package, file, line, subroutine are now methods, not attributes anymore.
 * The attributes does not override base class methods if are existing.
 * Minor refactoring.
