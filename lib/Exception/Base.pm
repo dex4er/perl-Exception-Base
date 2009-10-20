@@ -28,6 +28,19 @@ Exception::Base - Lightweight exceptions
             message=>'Something wrong',
             filename=>'/etc/passwd');
   };
+  # syntax for Perl >= 5.10
+  use feature 'switch';
+  if ($@) {
+    given (my $e = Exception::Base->catch) {
+      when ($e->isa('Exception::IO')) { warn "IO problem"; }
+      when ($e->isa('Exception::Eval')) { warn "eval died"; }
+      when ($e->isa('Exception::Runtime')) { warn "some runtime was caught"; }
+      when ($e->matches({value=>9})) { warn "something happened"; }
+      when ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
+      default { $e->throw; } # rethrow the exception
+    }
+  }
+  # standard syntax for older Perl
   if ($@) {
     my $e = Exception::Base->catch;   # convert $@ into exception
     if ($e->isa('Exception::IO')) { warn "IO problem"; }
@@ -235,8 +248,8 @@ Smart matching operator.  See C<matches> method.
   print 123 ~~ $@;                                # 1
   print {message=>"Message", value=>123} ~~ $@;   # 1
 
-Warning: The second argument for smart matching operator needs to be scalar
-for Perl 5.10.1 RC1.  This operator is going to change soon.
+Warning: The smart operator requires that the exception object is a second
+argument.
 
 =back
 
@@ -1137,12 +1150,10 @@ sub catch {
 
 =item matches(I<that>)
 
-Checks if the exception object matches the given argument.  The C<matches>
-method overloads C<~~> smart matching operator, so it can be used with
-C<given> keyword.
+Checks if the exception object matches the given argument.
 
-Warning: The second argument for smart matching operator needs to be scalar
-for Perl 5.10.1 RC1.  This method is going to change soon.
+The C<matches> method overloads C<~~> smart matching operator.  Warning: The
+second argument for smart matching operator needs to be scalar.
 
 If the argument is a reference to array, it is checked if the object is a
 given class.
@@ -2323,11 +2334,6 @@ stack trace and higher verbosity.
 You can find the benchmark script in this package distribution.
 
 =head1 BUGS
-
-The major incompatibility exists in Perl 5.10.1 RC1.  The smart match operator
-was changed and second argument needs to be a scalar.  It means that
-given/when syntax cannot be used with array or hash reference.  The C<match>
-method and overloaded smart match operator is going to change their behavior.
 
 If you find the bug, please report it.
 
