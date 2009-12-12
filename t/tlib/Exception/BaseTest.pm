@@ -1070,6 +1070,25 @@ sub test_import_class_with_loaded_exception {
     $self->assert_equals('0.03', $obj->VERSION);
 };
 
+sub test_import_class_via_loaded_exception {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        require Exception::BaseTest::LoadedException;
+        Exception::BaseTest::LoadedException->import;
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::LoadedException->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::LoadedException"), '$obj->isa("Exception::BaseTest::LoadedException")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals('0.03', $obj->VERSION);
+};
+
 sub test_import_class_with_version_required {
     my $self = shift;
 
