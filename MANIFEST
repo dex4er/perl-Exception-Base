@@ -19,6 +19,7 @@ META.yml
 README
 t/all_tests.t
 t/test.pl
+t/tlib/Exception/BaseImportDefaultsTest.pm
 t/tlib/Exception/BaseTest.pm
 t/tlib/Exception/BaseTest/LoadedException.pm
 t/tlib/Exception/BaseTest/MissingVersion.pm
