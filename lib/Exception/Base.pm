@@ -704,8 +704,7 @@ attributes listed in the opposite order.
 
     $ATTRS{string_attributes}    = { default => [ 'message' ] };
 
-    use constant;
-    constant->import( ATTRS => \%ATTRS );
+    *ATTRS = sub () { \%ATTRS };
 };
 
 
@@ -1851,6 +1850,10 @@ sub _modify_default {
         );
     };
 
+    # Make a new anonymous hash reference for attribute
+    $attributes->{$key} = { %{ $attributes->{$key} } };
+
+    # Modify default value of attribute
     if ($modifier eq '+') {
         my $old = $attributes->{$key}->{default};
         if (ref $old eq 'ARRAY' or ref $value eq 'Regexp') {
@@ -1886,6 +1889,14 @@ sub _modify_default {
     }
     else {
         $attributes->{$key}->{default} = $value;
+    };
+
+    # Redeclare constant
+    {
+        no warnings 'redefine';
+        *{_qualify_to_ref("${class}::ATTRS")} = sub () {
+            +{ %$attributes };
+        };
     };
 
     # Reset cache
@@ -2095,9 +2106,9 @@ sub _make_exception {
 
     # Create the new package
     ## no critic qw(ProhibitCommaSeparatedStatements)
-    ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
-    @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
-    *{_qualify_to_ref($package . '::ATTRS')} = sub () {
+    *{_qualify_to_ref("${package}::VERSION")} = \$version;
+    *{_qualify_to_ref("${package}::ISA")} = [ $isa ];
+    *{_qualify_to_ref("${package}::ATTRS")} = sub () {
         +{ %{ $isa->ATTRS }, %overridden_attributes };
     };
     $package->_make_accessors;
