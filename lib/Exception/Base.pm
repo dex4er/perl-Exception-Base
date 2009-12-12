@@ -2346,7 +2346,8 @@ You can find the benchmark script in this package distribution.
 
 =head1 BUGS
 
-If you find the bug, please report it.
+If you find the bug or want to implement new features, please report it at
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Exception-Base>
 
 =for readme continue
 
