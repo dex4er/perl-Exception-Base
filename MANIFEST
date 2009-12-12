@@ -22,6 +22,7 @@ t/test.pl
 t/tlib/Exception/BaseTest.pm
 t/tlib/Exception/BaseTest/LoadedException.pm
 t/tlib/Exception/BaseTest/MissingVersion.pm
+t/tlib/Exception/BaseTest/PurePackage.pm
 t/tlib/Exception/BaseTest/SyntaxError.pm
 xt/benchmark.pl
 xt/benchmark_fail.pl
