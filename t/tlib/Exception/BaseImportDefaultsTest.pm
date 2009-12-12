@@ -8,38 +8,35 @@ use base 'Test::Unit::TestCase';
 
 use Exception::Base;
 
-our ($fields, %defaults_orig);
-
 sub set_up {
     my $self = shift;
 
-    $fields = Exception::Base->ATTRS;
-    %defaults_orig = map { $_ => $fields->{$_}->{default} }
-                     grep { exists $fields->{$_}->{default} }
-                     keys %{ $fields };
+    $self->{fields} = Exception::Base->ATTRS;
+    $self->{defaults_orig} = {
+        map { $_ => $self->{fields}->{$_}->{default} }
+        grep { exists $self->{fields}->{$_}->{default} }
+        keys %{ $self->{fields} }
+    };
 };
 
 sub tear_down {
     my $self = shift;
 
-    foreach (keys %defaults_orig) {
-        if (not defined $defaults_orig{$_}) {
-            eval sprintf 'Exception::Base->import("%s" => undef);', $_;
+    foreach (keys %{ $self->{defaults_orig} } ) {
+        if (not defined $self->{defaults_orig}->{$_}) {
+            $self->{fields}->{$_}->{default} = undef;
         }
-        elsif (ref $defaults_orig{$_} eq 'ARRAY') {
-            eval sprintf 'Exception::Base->import("%s" => [%s]);', $_, join(',', map { "'$_'" } @{ $defaults_orig{$_} });
-        }
-        elsif ($defaults_orig{$_} =~ /^\d+$/) {
-            eval sprintf 'Exception::Base->import("%s" => %s);', $_, $defaults_orig{$_};
+        elsif (ref $self->{defaults_orig}->{$_} eq 'ARRAY') {
+            $self->{fields}->{$_}->{default} = [ @{ $self->{defaults_orig}->{$_} } ];
         }
         else {
-            eval sprintf 'Exception::Base->import("%s" => "%s");', $_, $defaults_orig{$_};
-        }
-    }
+            $self->{fields}->{$_}->{default} = $self->{defaults_orig}->{$_};
+        };
+    };
 
-    $self->assert_equals('Unknown exception', $fields->{message}->{default});
-    $self->assert_deep_equals([ ], $fields->{ignore_package}->{default});
-    $self->assert_equals(0, $fields->{ignore_level}->{default});
+    $self->assert_equals('Unknown exception', $self->{fields}->{message}->{default});
+    $self->assert_deep_equals([ ], $self->{fields}->{ignore_package}->{default});
+    $self->assert_equals(0, $self->{fields}->{ignore_level}->{default});
 };
 
 sub test_import_defaults_message {
@@ -51,7 +48,7 @@ sub test_import_defaults_message {
         );
     };
     $self->assert_equals('', "$@");
-    $self->assert_equals('New message', $fields->{message}->{default});
+    $self->assert_equals('New message', $self->{fields}->{message}->{default});
 };
 
 sub test_import_defaults_plus_message {
@@ -63,7 +60,7 @@ sub test_import_defaults_plus_message {
         );
     };
     $self->assert_equals('', "$@");
-    $self->assert_equals('Unknown exception with suffix', $fields->{message}->{default});
+    $self->assert_equals('Unknown exception with suffix', $self->{fields}->{message}->{default});
 };
 
 sub test_import_defaults_minus_message {
@@ -75,7 +72,7 @@ sub test_import_defaults_minus_message {
         );
     };
     $self->assert_equals('', "$@");
-    $self->assert_equals('Another new message', $fields->{message}->{default});
+    $self->assert_equals('Another new message', $self->{fields}->{message}->{default});
 };
 
 sub test_import_defaults_ignore_package {
@@ -85,62 +82,62 @@ sub test_import_defaults_ignore_package {
         Exception::Base->import("ignore_package" => [ "1" ]);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<1>], $fields->{ignore_package}->{default});
+    $self->assert_deep_equals([qw<1>], $self->{fields}->{ignore_package}->{default});
 
     eval {
         Exception::Base->import("+ignore_package" => "2");
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<1 2>], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([qw<1 2>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 
     eval {
         Exception::Base->import("+ignore_package" => [ "3" ]);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<1 2 3>], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([qw<1 2 3>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 
     eval {
         Exception::Base->import("+ignore_package" => [ "3", "4", "5" ]);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 
     eval {
         Exception::Base->import("+ignore_package" => [ "1", "2", "3" ]);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 
     eval {
         Exception::Base->import("-ignore_package" => [ "1" ]);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([qw<2 3 4 5>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 
     eval {
         Exception::Base->import("-ignore_package" => "2");
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([qw<3 4 5>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 
     eval {
         Exception::Base->import("-ignore_package" => [ "2", "3", "4" ]);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<5>], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([qw<5>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 
     eval {
         Exception::Base->import("+ignore_package" => qr/6/);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([qw<(?-xism:6) 5>], [sort @{ $fields->{ignore_package}->{default} }]);
-    $self->assert_equals('Regexp', ref $fields->{ignore_package}->{default}->[1]);
+    $self->assert_deep_equals([qw<(?-xism:6) 5>], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
+    $self->assert_equals('Regexp', ref $self->{fields}->{ignore_package}->{default}->[1]);
 
     eval {
         Exception::Base->import("-ignore_package" => [ "5", qr/6/ ]);
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([ ], [sort @{ $fields->{ignore_package}->{default} }]);
+    $self->assert_deep_equals([ ], [sort @{ $self->{fields}->{ignore_package}->{default} }]);
 };
 
 sub test_import_defaults_ignore_level {
@@ -150,19 +147,19 @@ sub test_import_defaults_ignore_level {
         Exception::Base->import("ignore_level" => 5);
     };
     $self->assert_equals('', "$@");
-    $self->assert_equals(5, $fields->{ignore_level}->{default});
+    $self->assert_equals(5, $self->{fields}->{ignore_level}->{default});
 
     eval {
         Exception::Base->import("+ignore_level" => 1);
     };
     $self->assert_equals('', "$@");
-    $self->assert_equals(6, $fields->{ignore_level}->{default});
+    $self->assert_equals(6, $self->{fields}->{ignore_level}->{default});
 
     eval {
         Exception::Base->import("-ignore_level" => 2);
     };
     $self->assert_equals('', "$@");
-    $self->assert_equals(4, $fields->{ignore_level}->{default});
+    $self->assert_equals(4, $self->{fields}->{ignore_level}->{default});
 };
 
 sub test_import_defaults_ignore_class {
@@ -174,7 +171,7 @@ sub test_import_defaults_ignore_class {
         );
     };
     $self->assert_equals('', "$@");
-    $self->assert_null($fields->{ignore_class}->{default});
+    $self->assert_null($self->{fields}->{ignore_class}->{default});
 };
 
 sub test_import_defaults_no_such_field {
