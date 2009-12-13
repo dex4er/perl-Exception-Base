@@ -858,10 +858,9 @@ sub import {
             $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
 
             my $version = defined $param->{version} ? $param->{version} : 0;
-            my $mod_version = do { local $SIG{__DIE__}; eval { $name->VERSION } } || 0;
 
             if (caller ne $name) {
-                next if $mod_version and $mod_version >= $version;
+                next if eval { $name->VERSION($version) };
 
                 # Package is needed
                 {
