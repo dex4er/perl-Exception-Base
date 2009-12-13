@@ -45,7 +45,9 @@
 \.ppmx$
 \.tgz$
 \.deb$
+\bdebian
 \bDebian_CPANTS.txt$
+-stamp$
 
 # Avoid Eclipse files
 .includepath

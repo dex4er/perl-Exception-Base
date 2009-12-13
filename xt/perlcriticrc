@@ -24,4 +24,4 @@ max_mccabe = 40
 allow = vars subs refs
 
 [TestingAndDebugging::ProhibitNoWarnings]
-allow = numeric once uninitialized utf8
+allow = numeric once redefine uninitialized utf8

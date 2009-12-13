@@ -1,4 +1,14 @@
 ------------------------------------------------------------------------
+0.24 | Piotr Roszatycki <dexter@cpan.org> | 2009-12-13
+
+New:
+
+* Setting the default value via exception class makes changes only for this
+  class.  It is possible to redefine the default verbosity for i.e.
+  Exception::Died class and it won't change the default verbosity for
+  Exception::Base. 
+
+------------------------------------------------------------------------
 0.23 | Piotr Roszatycki <dexter@cpan.org> | 2009-10-20
 
 New:

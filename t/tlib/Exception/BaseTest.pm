@@ -926,287 +926,718 @@ sub test_import_all {
 sub test_import_class {
     my $self = shift;
 
-    local $SIG{__DIE__};
-
-    no warnings 'reserved';
-
-    eval 'Exception::Base->throw;';
-    my $obj1 = $@;
-    $self->assert_not_equals('', ref $obj1);
-    $self->assert($obj1->isa("Exception::Base"), '$obj1->isa("Exception::Base")');
-
-    eval 'Exception::Base->import(qw<Exception::Base>);';
-    $self->assert_equals('', "$@");
-
-    eval 'Exception::Base->import(qw<Exception::Base::import::Test2>);';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test2->throw;';
-    my $obj2 = $@;
-    $self->assert($obj2->isa("Exception::Base::import::Test2"), '$obj->isa("Exception::Base::import::Test2")');
-    $self->assert($obj2->isa("Exception::Base"), '$obj2->isa("Exception::Base")');
-    $self->assert_equals('0.01', $obj2->VERSION);
-
-    eval 'Exception::Base->import("Exception::Base::import::Test3" => {isa=>"Exception::Base::import::Test2",
-        version=>1.3});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test3->throw;';
-    my $obj3 = $@;
-    $self->assert($obj3->isa("Exception::Base::import::Test3"), '$obj3->isa("Exception::Base::import::Test3")');
-    $self->assert($obj3->isa("Exception::Base::import::Test2"), '$obj3->isa("Exception::Base::import::Test2")');
-    $self->assert($obj3->isa("Exception::Base"), '$obj3->isa("Exception::Base")');
-    $self->assert_equals('1.3', $obj3->VERSION);
-
-    eval 'Exception::Base->import("Exception::Base::import::Test4" => {version=>1.4});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test4->throw;';
-    my $obj4 = $@;
-    $self->assert($obj4->isa("Exception::Base::import::Test4"), '$obj4->isa("Exception::Base::import::Test4")');
-    $self->assert($obj4->isa("Exception::Base"), '$obj4->isa("Exception::Base")');
-    $self->assert_equals('1.4', $obj4->VERSION);
-
-    eval 'Exception::Base->import("Exception::Base::import::Test5" => {isa=>qw<Exception::Base::import::Test6>});';
-    $self->assert("$@");
-
-    eval 'Exception::Base::import::Test3->import(qw<Exception::Base::import::Test7>);';
-    $self->assert_matches(qr/can only be created with/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test8" => "__Scalar");';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test8->throw;';
-    my $obj8 = $@;
-    $self->assert($obj8->isa("Exception::Base::import::Test8"), '$obj8->isa("Exception::Base::import::Test8")');
-    $self->assert($obj8->isa("Exception::Base"), '$obj8->isa("Exception::Base")');
-    $self->assert_equals('0.01', $obj8->VERSION);
-
-    eval 'package Exception::Base::import::Test9; our $VERSION = 1.9; our @ISA = ("Exception::Base"); 1;';
-    eval 'Exception::Base->import(qw<Exception::Base::import::Test9>);';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test9->throw;';
-    my $obj9 = $@;
-    $self->assert($obj9->isa("Exception::Base::import::Test9"), '$obj9->isa("Exception::Base::import::Test9")');
-    $self->assert($obj9->isa("Exception::Base"), '$obj9->isa("Exception::Base")');
-    $self->assert_equals('1.9', $obj9->VERSION);
-
-    eval 'package Exception::Base::import::Test10; our $VERSION = 1.10; our @ISA = ("Exception::Base"); 1;';
-    eval 'Exception::Base->import("Exception::Base::import::Test10" => {version=>0.10});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test10->throw;';
-    my $obj10 = $@;
-    $self->assert($obj10->isa("Exception::Base::import::Test10"), '$obj10->isa("Exception::Base::import::Test10")');
-    $self->assert($obj10->isa("Exception::Base"), '$obj10->isa("Exception::Base")');
-    $self->assert_equals('1.10', $obj10->VERSION);
-
-    eval 'package Exception::Base::import::Test11; our $VERSION = 1.11; our @ISA = ("Exception::Base"); 1;';
-    eval 'Exception::Base->import("Exception::Base::import::Test11" => {version=>2.11});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test11->throw;';
-    my $obj11 = $@;
-    $self->assert($obj11->isa("Exception::Base::import::Test11"), '$obj11->isa("Exception::Base::import::Test10")');
-    $self->assert($obj11->isa("Exception::Base"), '$obj11->isa("Exception::Base")');
-    $self->assert_equals('2.11', $obj11->VERSION);
-
-    eval 'Exception::Base->import("Exception::Base" => {version=>999.12});';
-    $self->assert_matches(qr/version 999.12 required/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test12" => {message=>"Message", verbosity=>1});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test12->throw;';
-    my $obj12 = $@;
-    $self->assert($obj12->isa("Exception::Base::import::Test12"), '$obj12->isa("Exception::Base::import::Test12")');
-    $self->assert($obj12->isa("Exception::Base"), '$obj10->isa("Exception::Base")');
-    $self->assert_equals("Message\n", "$obj12");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test13" => {time=>"readonly"});';
-    $self->assert_matches(qr/class does not implement default value/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test14" => {
-        isa=>"Exception::Base::import::Test14::NotExists"});';
-    $self->assert_matches(qr/can not be found/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test15" => {has => "attr1"});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test15->throw(attr1=>"attr1");';
-    my $obj15 = $@;
-    $self->assert($obj15->isa("Exception::Base::import::Test15"), '$obj15->isa("Exception::Base::import::Test15")');
-    $self->assert($obj15->isa("Exception::Base"), '$obj15->isa("Exception::Base")');
-    $self->assert_equals("attr1", $obj15->{attr1});
-    $self->assert_equals("attr1", $obj15->attr1);
-
-    eval 'Exception::Base->import("Exception::Base::import::Test16" => {isa => "Exception::Base::import::Test15", has => [ "attr2", "attr3" ]});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test16->throw(attr1=>"attr1", attr2=>"attr2", attr3=>"attr3");';
-    my $obj16 = $@;
-    $self->assert($obj16->isa("Exception::Base::import::Test16"), '$obj16->isa("Exception::Base::import::Test16")');
-    $self->assert($obj16->isa("Exception::Base"), '$obj16->isa("Exception::Base")');
-    $self->assert_equals("attr1", $obj16->{attr1});
-    $self->assert_equals("attr1", $obj16->attr1);
-    $self->assert_equals("attr2", $obj16->{attr2});
-    $self->assert_equals("attr2", $obj16->attr2);
-    $self->assert_equals("attr3", $obj16->{attr3});
-    $self->assert_equals("attr3", $obj16->attr3);
-
-    eval 'Exception::Base->import("Exception::Base::import::Test17" => {has => { rw => "attr4", ro => [ "attr5" ] } });';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test17->throw(attr4=>"attr4", attr5=>"attr5");';
-    my $obj17 = $@;
-    $self->assert($obj17->isa("Exception::Base::import::Test17"), '$obj17->isa("Exception::Base::import::Test17")');
-    $self->assert($obj17->isa("Exception::Base"), '$obj17->isa("Exception::Base")');
-    $self->assert_equals("attr4", $obj17->{attr4});
-    $self->assert_equals("attr4", $obj17->attr4);
-    $self->assert_null($obj17->{attr5});
-    $self->assert_null($obj17->attr5);
-
-    eval 'Exception::Base->import("Exception::Base::import::Test18" => {has => "has"});';
-    $self->assert_matches(qr/can not be defined/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test18" => {has => [ "message" ]});';
-    $self->assert_matches(qr/can not be defined/, "$@");
-
-    eval 'Exception::Base->import("Exception::Base::import::Test18" => {has => { ro => "VERSION" } });';
-    $self->assert_matches(qr/can not be defined/, "$@");
-
-    eval 'package Exception::Base::import::Test19; Exception::Base->import("Exception::Base::import::Test19" => {version=>2.19});';
-    $self->assert_equals('', "$@");
-    eval 'Exception::Base::import::Test19->throw;';
-    my $obj19 = $@;
-    $self->assert($obj19->isa("Exception::Base::import::Test19"), '$obj19->isa("Exception::Base::import::Test19")');
-    $self->assert($obj19->isa("Exception::Base"), '$obj19->isa("Exception::Base")');
-    $self->assert_equals('2.19', $obj19->VERSION);
-
-    eval 'Exception::Base->import("Exception::BaseTest::SyntaxError");';
-    $self->assert_matches(qr/Can not load/, "$@");
-
-    eval 'Exception::Base->import("Exception::BaseTest::MissingVersion");';
-    $self->assert_matches(qr/Can not load/, "$@");
-
-    eval 'Exception::Base->import("Exception::BaseTest::LoadedException");';
-    $self->assert_equals('', "$@");
-}
-
-sub test_import_defaults {
-    my $self = shift;
-
-    # set up
-    my $fields = Exception::Base->ATTRS;
-    my %defaults_orig = map { $_ => $fields->{$_}->{default} }
-                            grep { exists $fields->{$_}->{default} }
-                            keys %{ $fields };
+    local $SIG{__DIE__} = '';
 
     eval {
-        no warnings 'reserved';
-
-        eval 'Exception::Base->import("message" => "New message");';
-        $self->assert_equals('', "$@");
-        $self->assert_equals('New message', $fields->{message}->{default});
-
-        eval 'Exception::Base->import("+message" => " with suffix");';
-        $self->assert_equals('', "$@");
-        $self->assert_equals('New message with suffix', $fields->{message}->{default});
-
-        eval 'Exception::Base->import("-message" => "Another new message");';
-        $self->assert_equals('', "$@");
-        $self->assert_equals('Another new message', $fields->{message}->{default});
-
-        eval 'Exception::Base->import("ignore_package" => [ "1" ]);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<1>], $fields->{ignore_package}->{default});
-
-        eval 'Exception::Base->import("+ignore_package" => "2");';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<1 2>], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("+ignore_package" => [ "3" ]);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<1 2 3>], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("+ignore_package" => [ "3", "4", "5" ]);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("+ignore_package" => [ "1", "2", "3" ]);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<1 2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("-ignore_package" => [ "1" ]);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<2 3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("-ignore_package" => "2");';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<3 4 5>], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("-ignore_package" => [ "2", "3", "4" ]);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<5>], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("+ignore_package" => qr/6/);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([qw<(?-xism:6) 5>], [sort @{ $fields->{ignore_package}->{default} }]);
-        $self->assert_equals('Regexp', ref $fields->{ignore_package}->{default}->[1]);
-
-        eval 'Exception::Base->import("-ignore_package" => [ "5", qr/6/ ]);';
-        $self->assert_equals('', "$@");
-        $self->assert_deep_equals([ ], [sort @{ $fields->{ignore_package}->{default} }]);
-
-        eval 'Exception::Base->import("ignore_level" => 5);';
-        $self->assert_equals('', "$@");
-        $self->assert_equals(5, $fields->{ignore_level}->{default});
-
-        eval 'Exception::Base->import("+ignore_level" => 1);';
-        $self->assert_equals('', "$@");
-        $self->assert_equals(6, $fields->{ignore_level}->{default});
-
-        eval 'Exception::Base->import("-ignore_level" => 2);';
-        $self->assert_equals('', "$@");
-        $self->assert_equals(4, $fields->{ignore_level}->{default});
-
-        eval 'Exception::Base->import("ignore_class" => undef);';
-        $self->assert_equals('', "$@");
-        $self->assert_null($fields->{ignore_class}->{default});
-
-        eval 'Exception::Base->import("exception_basetest_no_such_field" => undef);';
-        $self->assert_matches(qr/class does not implement/, "$@");
-
-        # Change default verbosity
-        eval 'Exception::Base->import("Exception::Base::import_defaults::Test1" => { verbosity => 0 });';
-        $self->assert_equals('', "$@");
-
-        eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
-        $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
-        $self->assert_equals('', "$@");
-
-        eval { Exception::Base::import_defaults::Test1->import(verbosity=>1) };
-        $self->assert_equals('', "$@");
-
-        eval { Exception::Base::import_defaults::Test1->throw(message=>'Message') };
-        $self->assert_equals('Exception::Base::import_defaults::Test1', ref $@);
-        $self->assert_equals("Message\n", "$@");
-
+        Exception::Base->import(
+            'Exception::Base',
+        );
     };
-    my $e = $@;
+    $self->assert_equals('', "$@");
+};
 
-    # tear down
-    foreach (keys %defaults_orig) {
-        if (not defined $defaults_orig{$_}) {
-            eval sprintf 'Exception::Base->import("%s" => undef);', $_;
-        }
-        elsif (ref $defaults_orig{$_} eq 'ARRAY') {
-            eval sprintf 'Exception::Base->import("%s" => [%s]);', $_, join(',', map { "'$_'" } @{ $defaults_orig{$_} });
-        }
-        elsif ($defaults_orig{$_} =~ /^\d+$/) {
-            eval sprintf 'Exception::Base->import("%s" => %s);', $_, $defaults_orig{$_};
-        }
-        else {
-            eval sprintf 'Exception::Base->import("%s" => "%s");', $_, $defaults_orig{$_};
-        }
-    }
+sub test_import_class_simple {
+    my $self = shift;
 
-    $self->assert_equals('Unknown exception', $fields->{message}->{default});
-    $self->assert_deep_equals([ ], $fields->{ignore_package}->{default});
-    $self->assert_equals(0, $fields->{ignore_level}->{default});
+    local $SIG{__DIE__} = '';
 
-    die "$e" if $e;
-}
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestSimple',
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestSimple->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestSimple"), '$obj->isa("Exception::BaseTest::import::TestSimple")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals('0.01', $obj->VERSION);
+};
+
+sub test_import_class_with_isa {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithIsa' => {
+                isa => 'Exception::BaseTest::import::TestSimple',
+                version => 1.3,
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithIsa->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithIsa"), '$obj->isa("Exception::BaseTest::import::TestWithIsa")');
+    $self->assert($obj->isa("Exception::BaseTest::import::TestSimple"), '$obj->isa("Exception::BaseTest::import::TestSimple")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals('1.3', $obj->VERSION);
+};
+
+sub test_import_class_with_version {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithVersion' => {
+                version => 1.4,
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithVersion->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithVersion"), '$obj->isa("Exception::BaseTest::import::TestWithVersion")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals('1.4', $obj->VERSION);
+};
+
+sub test_import_class_with_isa_not_existing {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithIsaNotExisting' => {
+                isa => 'Exception::BaseTest::import::TestNotExisting',
+            },
+        );
+    };
+    $self->assert_matches(qr/Base class.* can not be found/, "$@");
+};
+
+sub test_import_class_with_bad_import_class {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::BaseTest::import::TestSimple->import(
+            'Exception::BaseTest::import::TestWithBadImportClass',
+        );
+    };
+    $self->assert_matches(qr/Exceptions can only be created with Exception::Base class/, "$@");
+};
+
+sub test_import_class_with_pure_package {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::PurePackage',
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::PurePackage->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::PurePackage"), '$obj->isa("Exception::BaseTest::PurePackage")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals('0.02', $obj->VERSION);
+};
+
+sub test_import_class_with_loaded_exception {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::LoadedException',
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::LoadedException->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::LoadedException"), '$obj->isa("Exception::BaseTest::LoadedException")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals('0.03', $obj->VERSION);
+};
+
+sub test_import_class_via_loaded_exception {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        require Exception::BaseTest::LoadedException;
+        Exception::BaseTest::LoadedException->import;
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::LoadedException->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::LoadedException"), '$obj->isa("Exception::BaseTest::LoadedException")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals('0.03', $obj->VERSION);
+};
+
+sub test_import_class_with_version_required {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::Base' => {
+                version => 999.12
+            },
+        );
+    };
+    $self->assert_matches(qr/version 999.12 required/, "$@");
+};
+
+sub test_import_class_with_message {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithMessage' => {
+                message => "Message",
+                verbosity => 1,
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithMessage->throw;
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithMessage"), '$obj->isa("Exception::BaseTest::import::TestWithMessage")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base::TestWithMessage")');
+    $self->assert_equals("Message\n", "$obj");
+};
+
+sub test_import_class_with_readonly_attr {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithReadonlyAttr' => {
+                time => "readonly",
+            }
+        );
+    };
+    $self->assert_matches(qr/class does not implement default value/, "$@");
+};
+
+sub test_import_class_with_has_scalar {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasScalar' => {
+                has => "attr",
+            }
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithHasScalar->throw(
+            attr => "attr",
+        );
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithHasScalar"), '$obj->isa("Exception::BaseTest::import::TestWithHasScalar")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals("attr", $obj->{attr});
+    $self->assert_equals("attr", $obj->attr);
+};
+
+sub test_import_class_with_has_array {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasArray' => {
+                has => [ "attr1", "attr2" ],
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithHasArray->throw(
+            attr1 => "attr1",
+            attr2 => "attr2",
+        );
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithHasArray"), '$obj->isa("Exception::BaseTest::import::TestWithHasArray")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals("attr1", $obj->{attr1});
+    $self->assert_equals("attr1", $obj->attr1);
+    $self->assert_equals("attr2", $obj->{attr2});
+    $self->assert_equals("attr2", $obj->attr2);
+};
+
+sub test_import_class_with_has_rw_scalar {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasRwScalar' => {
+                has => {
+                    rw => "attr",
+                },
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithHasRwScalar->throw(
+            attr => "attr",
+        );
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithHasRwScalar"), '$obj->isa("Exception::BaseTest::import::TestWithHasRwScalar")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals("attr", $obj->{attr});
+    $self->assert_equals("attr", $obj->attr);
+};
+
+sub test_import_class_with_has_rw_array {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasRwArray' => {
+                has => {
+                    rw => [ "attr1", "attr2" ],
+                },
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithHasRwArray->throw(
+            attr1 => "attr1",
+        );
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithHasRwArray"), '$obj->isa("Exception::BaseTest::import::TestWithHasRwArray")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_equals("attr1", $obj->{attr1});
+    $self->assert_equals("attr1", $obj->attr1);
+    $self->assert_null($obj->{attr2});
+    $self->assert_null($obj->attr2);
+};
+
+sub test_import_class_with_has_ro_scalar {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasRoScalar' => {
+                has => {
+                    ro => "attr",
+                },
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithHasRoScalar->throw(
+            attr => "attr",
+        );
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithHasRoScalar"), '$obj->isa("Exception::BaseTest::import::TestHasWithRoScalar")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_null($obj->{attr});
+    $self->assert_null($obj->attr);
+};
+
+sub test_import_class_with_has_ro_array {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasRoArray' => {
+                has => {
+                    ro => [ "attr1", "attr2" ],
+                },
+            },
+        );
+    };
+    $self->assert_equals('', "$@");
+    eval {
+        Exception::BaseTest::import::TestWithHasRoArray->throw(
+            attr1 => "attr1",
+        );
+    };
+    my $obj = $@;
+    $self->assert($obj->isa("Exception::BaseTest::import::TestWithHasRoArray"), '$obj->isa("Exception::BaseTest::import::TestHasWithRoArray")');
+    $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+    $self->assert_null($obj->{attr1});
+    $self->assert_null($obj->attr1);
+    $self->assert_null($obj->{attr2});
+    $self->assert_null($obj->attr2);
+};
+
+sub test_import_class_with_has_scalar_restricted_keyword {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasScalarRestrictedKeyword' => {
+                has => "has",
+            },
+        );
+    };
+    $self->assert_matches(qr/can not be defined/, "$@");
+};
+
+sub test_import_class_with_has_array_restricted_keyword {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import::TestWithHasArrayRestrictedKeyword' => {
+                has => [ "has" ],
+            },
+        );
+    };
+    $self->assert_matches(qr/can not be defined/, "$@");
+};
+
+sub test_import_class_with_syntax_error {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::SyntaxError',
+        );
+    };
+    $self->assert_matches(qr/Can not load/, "$@");
+};
+
+sub test_import_class_with_missing_version {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::MissingVersion',
+        );
+    };
+    $self->assert_matches(qr/Can not load/, "$@");
+};
+
+sub test_import_defaults_message {
+    my $self = shift;
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import_defaults::WithMessage',
+        );
+        Exception::BaseTest::import_defaults::WithMessage->import(
+            'message' => "New message",
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_equals('New message', Exception::BaseTest::import_defaults::WithMessage->ATTRS->{message}->{default});
+};
+
+sub test_import_defaults_plus_message {
+    my $self = shift;
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import_defaults::WithPlusMessage',
+        );
+        Exception::BaseTest::import_defaults::WithPlusMessage->import(
+            '+message' => " with suffix",
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_equals('Unknown exception with suffix', Exception::BaseTest::import_defaults::WithPlusMessage->ATTRS->{message}->{default});
+};
+
+sub test_import_defaults_minus_message {
+    my $self = shift;
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import_defaults::WithMinusMessage',
+        );
+        Exception::BaseTest::import_defaults::WithMinusMessage->import(
+            'message' => "New message",
+        );
+        Exception::BaseTest::import_defaults::WithMinusMessage->import(
+            '-message' => "Another new message",
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_equals('Another new message', Exception::BaseTest::import_defaults::WithMinusMessage->ATTRS->{message}->{default});
+};
+
+sub test_import_defaults_ignore_package {
+    my $self = shift;
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import_defaults::WithIgnorePackage',
+        );
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "ignore_package" => [ "1" ]
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 1 ], Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default});
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "+ignore_package" => "2"
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 1, 2 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "+ignore_package" => [ "3" ]
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 1, 2, 3 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "+ignore_package" => [ "3", "4", "5" ]
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 1, 2, 3, 4, 5 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "+ignore_package" => [ "1", "2", "3" ]
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 1, 2, 3, 4, 5 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "-ignore_package" => [ "1" ]
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 2, 3, 4, 5 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "-ignore_package" => "2"
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 3, 4 ,5 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "-ignore_package" => [ "2", "3", "4" ]
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ 5 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "+ignore_package" => qr/6/
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([ '(?-xism:6)', 5 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+    $self->assert_equals('Regexp', ref Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default}->[1]);
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnorePackage->import(
+            "-ignore_package" => [ "5", qr/6/ ]
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_deep_equals([], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+};
+
+sub test_import_defaults_ignore_level {
+    my $self = shift;
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import_defaults::WithIgnoreLevel',
+        );
+        Exception::BaseTest::import_defaults::WithIgnoreLevel->import(
+            "ignore_level" => 5
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_equals(5, Exception::BaseTest::import_defaults::WithIgnoreLevel->ATTRS->{ignore_level}->{default});
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnoreLevel->import(
+            "+ignore_level" => 1
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_equals(6, Exception::BaseTest::import_defaults::WithIgnoreLevel->ATTRS->{ignore_level}->{default});
+
+    eval {
+        Exception::BaseTest::import_defaults::WithIgnoreLevel->import(
+            "-ignore_level" => 2
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_equals(4, Exception::BaseTest::import_defaults::WithIgnoreLevel->ATTRS->{ignore_level}->{default});
+};
+
+sub test_import_defaults_ignore_class {
+    my $self = shift;
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import_defaults::WithIgnoreClass',
+        );
+        Exception::BaseTest::import_defaults::WithIgnoreClass->import(
+            'ignore_class' => undef,
+        );
+    };
+    $self->assert_equals('', "$@");
+    $self->assert_null(Exception::BaseTest::import_defaults::WithIgnoreClass->ATTRS->{ignore_class}->{default});
+};
+
+sub test_import_defaults_no_such_field {
+    my $self = shift;
+
+    eval {
+        Exception::Base->import(
+            'Exception::BaseTest::import_defaults::WithNoSuchField',
+        );
+        Exception::BaseTest::import_defaults::WithNoSuchField->import(
+            'exception_basetest_no_such_field' => undef,
+        );
+    };
+    $self->assert_matches(qr/class does not implement default value/, "$@");
+};
+
+sub test_import_defaults_verbosity {
+    my $self = shift;
+
+    {
+        eval {
+            Exception::Base->import(
+                'Exception::BaseTest::import_defaults::WithVerbosity' => {
+                    verbosity => 0,
+                 },
+            );
+        };
+        $self->assert_equals('', "$@");
+
+        eval {
+            Exception::BaseTest::import_defaults::WithVerbosity->throw(
+                message => 'Message',
+            )
+        };
+        my $obj = $@;
+        $self->assert($obj->isa("Exception::BaseTest::import_defaults::WithVerbosity"), '$obj->isa("Exception::BaseTest::import_defaults::WithVerbosity")');
+        $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+        $self->assert_equals("", "$obj");
+    };
+
+    {
+        eval {
+            Exception::BaseTest::import_defaults::WithVerbosity->import(
+                verbosity => 1,
+            );
+        };
+        $self->assert_equals('', "$@");
+
+        eval {
+            Exception::BaseTest::import_defaults::WithVerbosity->throw(
+                message => 'Message',
+            );
+        };
+        my $obj = $@;
+        $self->assert($obj->isa("Exception::BaseTest::import_defaults::WithVerbosity"), '$obj->isa("Exception::BaseTest::import_defaults::WithVerbosity")');
+        $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+        $self->assert_equals("Message\n", "$obj");
+    };
+};
+
+sub test_import_defaults_via_loaded_exception {
+    my $self = shift;
+
+    local $SIG{__DIE__} = '';
+
+    {
+        eval {
+            require Exception::BaseTest::LoadedException;
+            Exception::BaseTest::LoadedException->import(
+                verbosity => 1,
+            );
+        };
+        $self->assert_equals('', "$@");
+        eval {
+            Exception::BaseTest::LoadedException->throw(
+                message => "Message",
+            );
+        };
+        my $obj = $@;
+        $self->assert($obj->isa("Exception::BaseTest::LoadedException"), '$obj->isa("Exception::BaseTest::LoadedException")');
+        $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+        $self->assert_equals("Message\n", "$obj");
+    };
+
+    {
+        eval {
+            Exception::Base->throw(
+                message => "Message",
+            );
+        };
+        my $obj = $@;
+        $self->assert($obj->isa("Exception::Base"), '$obj->isa("Exception::Base")');
+        $self->assert_matches(qr/Message at.* line/, "$obj");
+    };
+};
 
 sub test__collect_system_data {
     my $self = shift;

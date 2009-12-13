@@ -1,10 +1,11 @@
 package Exception::BaseTest::LoadedException;
 
-our $VERSION = 0.01;
+our $VERSION = 0.03;
 
-use Exception::Base
+use Exception::Base (
     'Exception::BaseTest::LoadedException' => {
-        has => ['myattr'],
-    };
+        has => [ 'myattr' ],
+    },
+);
 
 1;

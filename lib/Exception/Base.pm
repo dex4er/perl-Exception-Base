@@ -154,7 +154,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 
 use utf8;
 
@@ -704,8 +704,7 @@ attributes listed in the opposite order.
 
     $ATTRS{string_attributes}    = { default => [ 'message' ] };
 
-    use constant;
-    constant->import( ATTRS => \%ATTRS );
+    *ATTRS = sub () { \%ATTRS };
 };
 
 
@@ -859,10 +858,9 @@ sub import {
             $param = shift @_ if defined $_[0] and ref $_[0] eq 'HASH';
 
             my $version = defined $param->{version} ? $param->{version} : 0;
-            my $mod_version = do { local $SIG{__DIE__}; eval { $name->VERSION } } || 0;
 
             if (caller ne $name) {
-                next if $mod_version and $mod_version >= $version;
+                next if eval { $name->VERSION($version) };
 
                 # Package is needed
                 {
@@ -1851,6 +1849,10 @@ sub _modify_default {
         );
     };
 
+    # Make a new anonymous hash reference for attribute
+    $attributes->{$key} = { %{ $attributes->{$key} } };
+
+    # Modify default value of attribute
     if ($modifier eq '+') {
         my $old = $attributes->{$key}->{default};
         if (ref $old eq 'ARRAY' or ref $value eq 'Regexp') {
@@ -1886,6 +1888,14 @@ sub _modify_default {
     }
     else {
         $attributes->{$key}->{default} = $value;
+    };
+
+    # Redeclare constant
+    {
+        no warnings 'redefine';
+        *{_qualify_to_ref("${class}::ATTRS")} = sub () {
+            +{ %$attributes };
+        };
     };
 
     # Reset cache
@@ -2095,9 +2105,9 @@ sub _make_exception {
 
     # Create the new package
     ## no critic qw(ProhibitCommaSeparatedStatements)
-    ${ *{_qualify_to_ref($package . '::VERSION')} } = $version;
-    @{ *{_qualify_to_ref($package . '::ISA')} } = ($isa);
-    *{_qualify_to_ref($package . '::ATTRS')} = sub () {
+    *{_qualify_to_ref("${package}::VERSION")} = \$version;
+    *{_qualify_to_ref("${package}::ISA")} = [ $isa ];
+    *{_qualify_to_ref("${package}::ATTRS")} = sub () {
         +{ %{ $isa->ATTRS }, %overridden_attributes };
     };
     $package->_make_accessors;
@@ -2335,7 +2345,8 @@ You can find the benchmark script in this package distribution.
 
 =head1 BUGS
 
-If you find the bug, please report it.
+If you find the bug or want to implement new features, please report it at
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Exception-Base>
 
 =for readme continue
 
