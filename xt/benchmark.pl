@@ -48,6 +48,7 @@ print "  -----------------------------------------------------------------------
 print "  | Module                              | Success sub/s | Failure sub/s |\n";
 print "  -----------------------------------------------------------------------\n";
 foreach my $test (sort keys %tests) {
+    next unless exists $tests{$test}{ok} and exists $tests{$test}{fail};
     printf "  | %-35.35s | %13.13s | %13.13s |\n",
            $tests{$test}{desc}, $tests{$test}{ok}, $tests{$test}{fail};
     print "  -----------------------------------------------------------------------\n";
