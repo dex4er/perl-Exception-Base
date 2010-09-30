@@ -30,13 +30,13 @@ my $build = Module::Build->new(
     recursive_test_files => 1,
     add_to_cleanup => [
         '*.bak', '*.gz', '*.tgz', '*.ppd', '*.ppmx', '*.deb', '*.bat',
-        'Makefile', 'pm_to_blib', 'cover_db', 'xt/Debian_CPANTS.txt',
+        'Makefile', 'pm_to_blib', 'cover_db', 'Debian_CPANTS.txt',
         "$dist-*",
     ],
     meta_merge => {
         resources => {
             bugtracker => "http://rt.cpan.org/NoAuth/Bugs.html?Dist=$dist",
-            repository => "http://dexter-cpan.googlecode.com/svn/$dist",
+            repository => "http://github.com/dex4er/perl-$dist",
         },
     },
 );
