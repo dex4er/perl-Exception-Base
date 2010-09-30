@@ -1487,7 +1487,7 @@ sub test_import_defaults_ignore_package {
         );
     };
     $self->assert_equals('', "$@");
-    $self->assert_deep_equals([ '(?-xism:6)', 5 ], [sort @{ Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default} }]);
+    $self->assert_equals(5, Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default}->[0]);
     $self->assert_equals('Regexp', ref Exception::BaseTest::import_defaults::WithIgnorePackage->ATTRS->{ignore_package}->{default}->[1]);
 
     eval {
