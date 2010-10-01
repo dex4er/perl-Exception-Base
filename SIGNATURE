@@ -1,5 +1,5 @@
 This file contains message digests of all files listed in MANIFEST,
-signed via the Module::Signature module, version 0.55.
+signed via the Module::Signature module, version 0.66.
 
 To verify the content in this distribution, first make sure you have
 Module::Signature installed, then type:
@@ -14,15 +14,15 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 60a1930659f01a622cf451a4dd449388f95f4662 Build.PL
-SHA1 e5bd1ea403c49013e7a911867a07f0a969b834f6 Changes
+SHA1 ef4e332d70902d4b7a108708fc02aece49913f8a Build.PL
+SHA1 021ceda3648dffb62b39a9a2063329b792fbf974 Changes
 SHA1 9fc66bd603a4c3712c8a99ebc293a5b1fb93a558 Incompatibilities
-SHA1 74b1c398020b9c1e8849b7982751cb70ecc5de8d LICENSE
+SHA1 da7d205cfd1b79b38c7a6d18ca55373470086825 LICENSE
 SHA1 39fc0d2ae2255d3deffb361dc622e95b64c09c14 MANIFEST
-SHA1 a1dbf257177f9f76372ac111f127bc34f4f3fb24 MANIFEST.SKIP
-SHA1 d1afccb5582fc20b44745ce671902422cf679340 META.yml
-SHA1 b8a156ccf78aca84b44ef44d19306e786c2367c4 Makefile.PL
-SHA1 bafa83eb3f8db236c88cdf0c9e992437721d8d23 README
+SHA1 4e1b00d61265c6c39a6f571c0f61f74226005ffb MANIFEST.SKIP
+SHA1 8d9be252f842ca1ae52fef57824000abcd1d465c META.yml
+SHA1 d46346d89a4b6d673cd1019dec5f17bdc1847ccd Makefile.PL
+SHA1 2700576291e594c681fd5155b439bdfdfb310c1a README
 SHA1 d7d40bb798451e792f15d35a982d3c825edbffaf eg/die_propagate.pl
 SHA1 2c87f33181282c165edaf2d97f2d6860b36a7942 eg/eval_throw_given_when_default.pl
 SHA1 236bf6dbe47a773121388fa1063e3b3376c71f3b eg/eval_throw_if_elsif_else.pl
@@ -32,17 +32,17 @@ SHA1 2c87f33181282c165edaf2d97f2d6860b36a7942 eg/try_catch.pl
 SHA1 ba8bd18d332c6059739006a11c8d683745432ca0 eg/try_tiny_try_catch_given_when.pl
 SHA1 3b9ef490f26d0dcc1e7e185bac1e02fc4ab06ff3 eg/trycatch_try_catch_given_when.pl
 SHA1 597999789e1945c3781bcb71b90b5d91b99b0844 eg/trycatch_try_catch_where.pl
-SHA1 00506f0b2e347df63c7233ec65766606a9af4521 lib/Exception/Base.pm
+SHA1 8df7584bd1c24ff2b5d3b020636355e2a4744f2f lib/Exception/Base.pm
 SHA1 c21578f4a722dbe8e302a27deaaa2ce5f68c5f9b t/all_tests.t
 SHA1 7fd6e2397259525641d03b6c8199b4e4c0e2dda7 t/test.pl
-SHA1 1950eea6e039e6f6b01d08ef5efdc3a349233d98 t/tlib/Exception/BaseTest.pm
+SHA1 362e5b9a5f001a530b75f67c9509f1d60bd7de0c t/tlib/Exception/BaseTest.pm
 SHA1 bb82949c3477e9bb9076f2c94a3f5b3ab1cf2c13 t/tlib/Exception/BaseTest/LoadedException.pm
 SHA1 e1f0ce1a6f86fd8217e5bdb2a800dccf2258d60c t/tlib/Exception/BaseTest/MissingVersion.pm
 SHA1 b8f9777c0a7937d604a7c09651ccb535b47df1b4 t/tlib/Exception/BaseTest/PurePackage.pm
 SHA1 f3dacb75c97eb51afc8f56bf3c159bbcdd37ecdf t/tlib/Exception/BaseTest/SyntaxError.pm
-SHA1 6998daee81ea8813213d76c7158d160e4a23e244 xt/benchmark.pl
+SHA1 607c42070c6148049dbfc37353be60a7aedaf0fc xt/benchmark.pl
 SHA1 f871a7efeb59ed4790d35e9f84ec95c5a0951487 xt/benchmark_fail.pl
-SHA1 f871a7efeb59ed4790d35e9f84ec95c5a0951487 xt/benchmark_ok.pl
+SHA1 f4caa505b58b645e503948c69f99a16b870f3d9d xt/benchmark_ok.pl
 SHA1 90353a99ac0f719b6f3e58029804d8556cedc2ab xt/check_changes.t
 SHA1 a56d0c02b6c992e04a77d13a6ee89504bd718572 xt/consistent_version_numbers.t
 SHA1 67bb4c141ea95809f3db2d526ce91d9e6d894756 xt/copyright.t
@@ -59,9 +59,9 @@ SHA1 2c579b58def8daec94f41b628ac81c256faaa2b1 xt/pod_syntax.t
 SHA1 24306b8361154c849931d2d83e9d2a1b7bdfdf7b xt/profile_eval.pl
 SHA1 a38994922fda6d64e2ee75198fadc464a221fea9 xt/signature.t
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEARECAAYFAkslUl8ACgkQhMHHe8CxCltgLgCg4lSAW/oH0Be8gsclpEtlaLQ1
-dSAAoL3D4/QacW9ZfBVfG9aX76a8kceV
-=Owaw
+iEYEARECAAYFAkyl4AgACgkQhMHHe8CxClugXwCgtw6pWcjPGcd4fMVj0sm2fcYW
+nj0AoJfk66xswLZ/aIJwO4abarUm2plM
+=wD9M
 -----END PGP SIGNATURE-----

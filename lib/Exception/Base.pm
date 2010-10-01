@@ -154,7 +154,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.24';
+our $VERSION = '0.2401';
 
 use utf8;
 
@@ -2178,6 +2178,8 @@ BEGIN {
 
 =head1 SEE ALSO
 
+Repository: L<http://github.com/dex4er/perl-Exception-Base>
+
 There are more implementation of exception objects available on CPAN.  Please
 note that Perl has built-in implementation of pseudo-exceptions:
 
@@ -2356,9 +2358,9 @@ Piotr Roszatycki <dexter@cpan.org>
 
 =head1 LICENSE
 
-Copyright (c) 2007, 2008, 2009 by Piotr Roszatycki <dexter@cpan.org>.
+Copyright (c) 2007, 2008, 2009, 2010 Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 
-See L<http://www.perl.com/perl/misc/Artistic.html>
+See L<http://dev.perl.org/licenses/artistic.html>

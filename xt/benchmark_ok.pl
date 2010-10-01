@@ -2,9 +2,12 @@
 
 use lib 'lib', '../lib';
 
-BEGIN {
+{
     package My::Common;
-    *throw_something = $0 =~ /_ok/ ? sub () { 0 } : sub () { 1 };
+    sub throw_something {
+        return '' if $0 =~ /_ok/;
+        return 1;
+    };
 };
 
 {
@@ -12,6 +15,13 @@ BEGIN {
     sub throw {
         my %args = @_;
         die bless {%args}, shift;
+    };
+};
+
+{
+    package My::Try;
+    sub try ($) {
+        eval { $_[0]->() };
     };
 };
 
@@ -211,6 +221,6 @@ eval q{
 
 use Benchmark ':all';
 
-print "Benchmark for ", (My::Common::throw_something ? "FAIL" : "OK"), "\n";
+print "Benchmark for ", (My::Common::throw_something() ? "FAIL" : "OK"), "\n";
 my $result = timethese($ARGV[0] || -1, { %tests });
 cmpthese($result);
