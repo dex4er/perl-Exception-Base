@@ -18,6 +18,7 @@ cd *-[0-9]*.[0-9]*
 
 $PERL Build.PL
 $PERL Build
+$PERL Build test
 $PERL -MApp::Prove -e '$app=App::Prove->new; $app->process_args(qw(-Iblib/lib xt)); $app->run;'
 
 $PERL Build dist
