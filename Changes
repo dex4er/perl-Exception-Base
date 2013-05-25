@@ -1,6 +1,8 @@
 ------------------------------------------------------------------------
 0.25 | Piotr Roszatycki <dexter@cpan.org>
 
+* Builds on Perl 5.18.0 with smartmatch operator as an experimental feature.
+
 ------------------------------------------------------------------------
 0.2401 | Piotr Roszatycki <dexter@cpan.org> | 2010-09-30
 

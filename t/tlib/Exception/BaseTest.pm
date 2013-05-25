@@ -572,6 +572,7 @@ sub test_overload {
 
     # smart matching for Perl 5.10
     if ($] >= 5.010) {
+        no if $] >= 5.018, warnings => 'experimental::smartmatch';
         eval q{
             $self->assert_num_equals(1, 'String' ~~ $obj);
         };
