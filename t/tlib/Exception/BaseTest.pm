@@ -3,8 +3,6 @@ package Exception::BaseTest;
 use strict;
 use warnings;
 
-use utf8;
-
 use Test::Unit::Lite;
 use base 'Test::Unit::TestCase';
 

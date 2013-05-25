@@ -76,7 +76,7 @@ DESCRIPTION
     Exception::Class or Class::Throwable. It provides a simple interface
     allowing programmers to declare exception classes. These classes can be
     thrown and caught. Each uncaught exception prints full stack trace if
-    the default verbosity is uppered for debugging purposes.
+    the default verbosity is increased for debugging purposes.
 
     The features of `Exception::Base':
 
@@ -99,7 +99,7 @@ DESCRIPTION
     * creating automatically the derived exception classes (perlfunc
       interface)
 
-    * easly expendable, see Exception::System class for example
+    * easily expendable, see Exception::System class for example
 
     * prints just an error message or dumps full stack trace
 

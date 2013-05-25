@@ -79,7 +79,7 @@ This class implements a fully OO exception mechanism similar to
 [Exception::Class](http://search.cpan.org/perldoc?Exception::Class) or [Class::Throwable](http://search.cpan.org/perldoc?Class::Throwable).  It provides a simple interface
 allowing programmers to declare exception classes.  These classes can be
 thrown and caught.  Each uncaught exception prints full stack trace if the
-default verbosity is uppered for debugging purposes.
+default verbosity is increased for debugging purposes.
 
 The features of `Exception::Base`:
 
@@ -93,7 +93,7 @@ the thrown exception
 - matching with string, regex or closure function
 - creating automatically the derived exception classes (["use" in perlfunc](http://search.cpan.org/perldoc?perlfunc#use)
 interface)
-- easly expendable, see [Exception::System](http://search.cpan.org/perldoc?Exception::System) class for example
+- easily expendable, see [Exception::System](http://search.cpan.org/perldoc?Exception::System) class for example
 - prints just an error message or dumps full stack trace
 - can propagate (rethrow) an exception
 - can ignore some packages for stack trace output
@@ -121,7 +121,7 @@ interface)
 - String context
 
     Content of attribute which is combined from `string_attributes` attributes
-    with additional informations, depended on `verbosity` setting.  See
+    with additional information, depended on `verbosity` setting.  See
     `to_string` method.
 
         eval { Exception::Base->throw( message=>"Message", value=>123 ) };
@@ -220,11 +220,14 @@ are also available as accessors methods.
     string representing the exception object.  There are following levels of
     verbosity:
 
-    - Empty string
-    - 1
+    - `0`
+
+        Empty string
+
+    - `1`
 
             Message
-    - 2
+    - `2`
 
             Message at %s line %d.
 
@@ -232,7 +235,7 @@ are also available as accessors methods.
         "at %s line %d." string if message ends with `"\n"` character.  This is
         the default option.
 
-    - 3
+    - `3`
 
             Class: Message at %s line %d
                     %c_ = %s::%s() called in package %s at %s line %d
@@ -342,7 +345,7 @@ are also available as accessors methods.
 
 - caller\_stack (ro)
 
-    Contains the error stack as array of array with informations about caller
+    Contains the error stack as array of array with information about caller
     functions.  The first 8 elements of the array's row are the same as first 8
     elements of the output of `caller` function.  Further elements are optional
     and are the arguments of called function.  Collected if the verbosity on
@@ -518,7 +521,7 @@ are also available as accessors methods.
 
     - has
 
-        The class will contain new rw attibute (if parameter is a string) or new rw
+        The class will contain new rw attribute (if parameter is a string) or new rw
         attributes (if parameter is a reference to array of strings) or new rw or ro
         attributes (if parameter is a reference to hash of array of strings with rw
         and ro as hash key).
@@ -880,7 +883,7 @@ The more complex implementation of exception mechanism provides more features.
 
 - [Exception::Class](http://search.cpan.org/perldoc?Exception::Class)
 
-    More perl-ish way to do OO exceptions.  It is similar to `Exception::Base`
+    More Perlish way to do OO exceptions.  It is similar to `Exception::Base`
     module and provides similar features but it is 10x slower for failure
     scenario.
 
@@ -897,7 +900,7 @@ The more complex implementation of exception mechanism provides more features.
 
 - [Exceptions](http://search.cpan.org/perldoc?Exceptions)
 
-    Not recommended.  Abadoned.  Modifies `%SIG` handlers.
+    Not recommended.  Abandoned.  Modifies `%SIG` handlers.
 
 - [TryCatch](http://search.cpan.org/perldoc?TryCatch)
 
@@ -937,7 +940,7 @@ The `Exception::Base` is also a base class for enhanced classes:
 
 ## New exception classes
 
-The `Exception::Base` module allows to create new exception classes easly.
+The `Exception::Base` module allows to create new exception classes easily.
 You can use ["import" in perlfunc](http://search.cpan.org/perldoc?perlfunc#import) interface or [base](http://search.cpan.org/perldoc?base) module to do it.
 
 The ["import" in perlfunc](http://search.cpan.org/perldoc?perlfunc#import) interface allows to create new class with new
@@ -970,7 +973,7 @@ For more complex exceptions you can redefine `ATTRS` constant.
 
 There are two scenarios for ["eval" in perlfunc](http://search.cpan.org/perldoc?perlfunc#eval) block: success or failure.
 Success scenario should have no penalty on speed.  Failure scenario is usually
-more complex to handle and can be significally slower.
+more complex to handle and can be significantly slower.
 
 Any other code than simple `if ($@)` is really slow and shouldn't be used if
 speed is important.  It means that any module which provides try/catch syntax

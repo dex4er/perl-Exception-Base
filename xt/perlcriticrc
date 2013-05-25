@@ -29,7 +29,7 @@ short_subroutine_statements = 2
 allow = vars subs refs
 
 [TestingAndDebugging::ProhibitNoWarnings]
-allow = all
+allow = all numeric once redefine uninitialized utf8
 
 [TestingAndDebugging::ProhibitProlongedStrictureOverride]
 statements = 12
