@@ -1018,7 +1018,10 @@ You can find the benchmark script in this package distribution.
 # BUGS
 
 If you find the bug or want to implement new features, please report it at
-[http://rt.cpan.org/NoAuth/Bugs.html?Dist=Exception-Base](http://rt.cpan.org/NoAuth/Bugs.html?Dist=Exception-Base)
+[https://github.com/dex4er/perl-Exception-Base/issues](https://github.com/dex4er/perl-Exception-Base/issues)
+
+The code repository is available at
+[http://github.com/dex4er/perl-Exception-Base](http://github.com/dex4er/perl-Exception-Base)
 
 # AUTHOR
 
