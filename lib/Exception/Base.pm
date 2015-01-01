@@ -1362,7 +1362,7 @@ sub matches {   ## no critic qw(ProhibitExcessComplexity)
                     local $_ = ref $self->{$key} eq 'ARRAY'
                                ? sprintf(
                                      @{$self->{$key}}[0],
-                                     @{$self->{$key}}[1..@{$self->{$key}}]
+                                     @{$self->{$key}}[1..@{$self->{$key}}-1]
                                  )
                                : $self->{$key};
                     if (ref $arrval eq 'CODE') {
@@ -1393,7 +1393,7 @@ sub matches {   ## no critic qw(ProhibitExcessComplexity)
             local $_ = ref $self->{$key} eq 'ARRAY'
                        ? sprintf(
                              @{$self->{$key}}[0],
-                             @{$self->{$key}}[1..@{$self->{$key}}]
+                             @{$self->{$key}}[1..@{$self->{$key}}-1]
                          )
                        : $self->{$key};
 
@@ -1613,7 +1613,7 @@ sub _string_attributes {
     my ($self) = @_;
 
     return map { ref $_ eq 'ARRAY'
-                 ? sprintf(@$_[0], @$_[1..@$_])
+                 ? sprintf(@$_[0], @$_[1..@$_-1])
                  : $_ }
            grep { defined $_ and (ref $_ or $_ ne '') }
            map { $self->{$_} }
