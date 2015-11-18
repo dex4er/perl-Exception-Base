@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/dex4er/perl-Exception-Base.png?branch=master)](https://travis-ci.org/dex4er/perl-Exception-Base)
+
 # NAME
 
 Exception::Base - Lightweight exceptions
@@ -986,11 +988,11 @@ The code repository is available at
 
 # AUTHOR
 
-Piotr Roszatycki <dexter@cpan.org>
+Piotr Roszatycki &lt;dexter@cpan.org>
 
 # LICENSE
 
-Copyright (c) 2007-2015 Piotr Roszatycki <dexter@cpan.org>.
+Copyright (c) 2007-2015 Piotr Roszatycki &lt;dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
