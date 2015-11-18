@@ -76,7 +76,7 @@ Exception::Base - Lightweight exceptions
 # DESCRIPTION
 
 This class implements a fully OO exception mechanism similar to
-[Exception::Class](http://search.cpan.org/perldoc?Exception::Class) or [Class::Throwable](http://search.cpan.org/perldoc?Class::Throwable).  It provides a simple interface
+[Exception::Class](https://metacpan.org/pod/Exception::Class) or [Class::Throwable](https://metacpan.org/pod/Class::Throwable).  It provides a simple interface
 allowing programmers to declare exception classes.  These classes can be
 thrown and caught.  Each uncaught exception prints full stack trace if the
 default verbosity is increased for debugging purposes.
@@ -91,9 +91,9 @@ The features of `Exception::Base`:
 the thrown exception
 - matching the exception by class, message or other attributes
 - matching with string, regex or closure function
-- creating automatically the derived exception classes (["use" in perlfunc](http://search.cpan.org/perldoc?perlfunc#use)
+- creating automatically the derived exception classes (["use" in perlfunc](https://metacpan.org/pod/perlfunc#use)
 interface)
-- easily expendable, see [Exception::System](http://search.cpan.org/perldoc?Exception::System) class for example
+- easily expendable, see [Exception::System](https://metacpan.org/pod/Exception::System) class for example
 - prints just an error message or dumps full stack trace
 - can propagate (rethrow) an exception
 - can ignore some packages for stack trace output
@@ -201,7 +201,7 @@ are also available as accessors methods.
         eval { Exception::Base->throw( message=>"Message" ); };
         print $@->message if $@;
 
-    It can also be an array reference of strings and then the ["perlfunc" in sprintf](http://search.cpan.org/perldoc?sprintf#perlfunc)
+    It can also be an array reference of strings and then the ["perlfunc" in sprintf](https://metacpan.org/pod/sprintf#perlfunc)
     is used to get a message.
 
         Exception::Base->throw( message => ["%s failed", __PACKAGE__] );
@@ -227,6 +227,7 @@ are also available as accessors methods.
     - `1`
 
             Message
+
     - `2`
 
             Message at %s line %d.
@@ -353,7 +354,7 @@ are also available as accessors methods.
     caller stack if the verbosity was lower than 3.
 
     If the arguments of called function are references and
-    `[Scalar::Util](http://search.cpan.org/perldoc?Scalar::Util)::weaken` function is available then reference is weakened.
+    `[Scalar::Util](https://metacpan.org/pod/Scalar::Util)::weaken` function is available then reference is weakened.
 
         eval { Exception::Base->throw( message=>"Message" ); };
         ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
@@ -478,10 +479,12 @@ are also available as accessors methods.
             use Exception::Base
                 "+ignore_packages" => [ __PACKAGE__, qr/^Moose::/ ],
                 "-ignore_class" => "My::Good::Class";
+
     - If the original _value_ was a number, it will be incremented or
     decremented by the new _value_.
 
             use Exception::Base "+ignore_level" => 1;
+
     - If the original _value_ was a string, the new _value_ will be
     included.
 
@@ -570,7 +573,7 @@ are also available as accessors methods.
     function and stores it in the internal cache for performance reason.  The
     defaults values for the class are also stored in internal cache.
 
-- `CLASS`\->throw(\[%_args_\]\])
+- `CLASS`->throw(\[%_args_\]\])
 
     Creates the exception object and immediately throws it with `die` system
     function.
@@ -587,7 +590,7 @@ The `throw` can be also used as a method.
 
 # METHODS
 
-- `$obj`\->throw(\[%_args_\])
+- `$obj`->throw(\[%_args_\])
 
     Immediately throws exception object.  It can be used for rethrowing existing
     exception object.  Additional arguments will override the attributes in
@@ -600,7 +603,7 @@ The `throw` can be also used as a method.
         eval { Exception::Base->throw( message=>"Problem", value=>1 ) };
         $@->throw if $@->value;
 
-- `$obj`\->throw(_message_, \[%_args_\])
+- `$obj`->throw(_message_, \[%_args_\])
 
     If the number of _args_ list for arguments is odd, the first argument is a
     message.  This message can be overridden by message from _args_ list.
@@ -609,7 +612,7 @@ The `throw` can be also used as a method.
         eval { die "Bum!" };
         Exception::Base->throw( $@, message=>"New message" );
 
-- _CLASS_\->throw($_exception_, \[%_args_\])
+- _CLASS_->throw($_exception_, \[%_args_\])
 
     Immediately rethrows an existing exception object as an other exception class.
 
@@ -617,7 +620,7 @@ The `throw` can be also used as a method.
         # convert Exception::System into Exception::Base
         Exception::Base->throw($@);
 
-- _CLASS_\->catch(\[$_variable_\])
+- _CLASS_->catch(\[$_variable_\])
 
     The exception is recovered from _variable_ argument or `$@` variable if
     _variable_ argument was empty.  Then also `$@` is replaced with empty string
@@ -686,7 +689,7 @@ The `throw` can be also used as a method.
         print $@->matches( 123 );                                # matches
         print $@->matches( 456 );                                # doesn't
 
-    If an attribute contains array reference, the array will be `sprintf`\-ed
+    If an attribute contains array reference, the array will be `sprintf`-ed
     before matching.
 
         eval { Exception::Base->throw( message=>["%s", "Message"] ) };
@@ -696,7 +699,7 @@ The `throw` can be also used as a method.
 
     The `match` method matches for special keywords:
 
-    - \-isa
+    - -isa
 
         Matches if the object is a given class.
 
@@ -704,14 +707,14 @@ The `throw` can be also used as a method.
             print $@->matches( { -isa=>"Exception::Base" } );            # matches
             print $@->matches( { -isa=>["X::Y", "Exception::Base"] } );  # matches
 
-    - \-has
+    - -has
 
         Matches if the object has a given attribute.
 
             eval { Exception::Base->new( message=>"Message" ) };
             print $@->matches( { -has=>"Message" } );                    # matches
 
-    - \-default
+    - -default
 
         Matches against the default attribute, usually the `message` attribute.
 
@@ -812,51 +815,6 @@ The `throw` can be also used as a method.
 
     Returns the subroutine name which thrown an exception.
 
-= Class Diagram =
-
-\[                           <<exception>>
-                           Exception::Base
- -----------------------------------------------------------------------------
- +ignore\_class : ArrayRef                                                {new}
- +ignore\_level : Int = 0                                                 {new}
- +ignore\_package : ArrayRef                                              {new}
- +max\_arg\_len : Int = 64                                                 {new}
- +max\_arg\_nums : Int = 8                                                 {new}
- +max\_eval\_len : Int = 0                                                 {new}
- +message : Str|ArrayRef\[Str\] = "Unknown exception"                      {new}
- +value : Int = 0                                                        {new}
- +verbosity : Int = 2                                                    {new}
- +caller\_stack : ArrayRef
- +egid : Int
- +euid : Int
- +gid : Int
- +pid : Int
- +propagated\_stack : ArrayRef
- +tid : Int
- +time : Int
- +uid : Int
- \#defaults : HashRef
- \#default\_attribute : Str = "message"
- \#numeric\_attribute : Str = "value"
- \#eval\_attribute : Str = "message"
- \#string\_attributes : ArrayRef\[Str\] = \["message"\]
- -----------------------------------------------------------------------------
- <<create>> +new( args : Hash )
- <<create>> +throw( args : Hash = undef )
- <<create>> +throw( message : Str, args : Hash = undef )
- +catch() : Exception::Base
- +catch( variable : Any ) : Exception::Base
- +matches( that : Any ) : Bool                                 {overload="~~"}
- +to\_string() : Str                                            {overload='""'}
- +to\_number() : Num                                            {overload="0+"}
- +to\_bool() : Bool                                           {overload="bool"}
- +get\_caller\_stacktrace() : Array\[Str\]|Str
- +PROPAGATE()
- \#\_collect\_system\_data()
- \#\_make\_accessors()                                                     {init}
- \#\_make\_caller\_info\_accessors()                                         {init}
- <<constant>> +ATTRS() : HashRef                                              \]
-
 # SEE ALSO
 
 Repository: [http://github.com/dex4er/perl-Exception-Base](http://github.com/dex4er/perl-Exception-Base)
@@ -873,7 +831,7 @@ note that Perl has built-in implementation of pseudo-exceptions:
 
 The more complex implementation of exception mechanism provides more features.
 
-- [Error](http://search.cpan.org/perldoc?Error)
+- [Error](https://metacpan.org/pod/Error)
 
     Complete implementation of try/catch/finally/otherwise mechanism.  Uses nested
     closures with a lot of syntactic sugar.  It is slightly faster than
@@ -881,69 +839,69 @@ The more complex implementation of exception mechanism provides more features.
     scenario.  It doesn't provide a simple way to create user defined exceptions.
     It doesn't collect system data and stack trace on error.
 
-- [Exception::Class](http://search.cpan.org/perldoc?Exception::Class)
+- [Exception::Class](https://metacpan.org/pod/Exception::Class)
 
     More Perlish way to do OO exceptions.  It is similar to `Exception::Base`
     module and provides similar features but it is 10x slower for failure
     scenario.
 
-- [Exception::Class::TryCatch](http://search.cpan.org/perldoc?Exception::Class::TryCatch)
+- [Exception::Class::TryCatch](https://metacpan.org/pod/Exception::Class::TryCatch)
 
-    Additional try/catch mechanism for [Exception::Class](http://search.cpan.org/perldoc?Exception::Class).  It is 15x slower for
+    Additional try/catch mechanism for [Exception::Class](https://metacpan.org/pod/Exception::Class).  It is 15x slower for
     success scenario.
 
-- [Class::Throwable](http://search.cpan.org/perldoc?Class::Throwable)
+- [Class::Throwable](https://metacpan.org/pod/Class::Throwable)
 
-    Elegant OO exceptions similar to [Exception::Class](http://search.cpan.org/perldoc?Exception::Class) and `Exception::Base`.
+    Elegant OO exceptions similar to [Exception::Class](https://metacpan.org/pod/Exception::Class) and `Exception::Base`.
     It might be missing some features found in `Exception::Base` and
-    [Exception::Class](http://search.cpan.org/perldoc?Exception::Class).
+    [Exception::Class](https://metacpan.org/pod/Exception::Class).
 
-- [Exceptions](http://search.cpan.org/perldoc?Exceptions)
+- [Exceptions](https://metacpan.org/pod/Exceptions)
 
     Not recommended.  Abandoned.  Modifies `%SIG` handlers.
 
-- [TryCatch](http://search.cpan.org/perldoc?TryCatch)
+- [TryCatch](https://metacpan.org/pod/TryCatch)
 
     A module which gives new try/catch keywords without source filter.
 
-- [Try::Tiny](http://search.cpan.org/perldoc?Try::Tiny)
+- [Try::Tiny](https://metacpan.org/pod/Try::Tiny)
 
-    Smaller, simpler and slower version of [TryCatch](http://search.cpan.org/perldoc?TryCatch) module.
+    Smaller, simpler and slower version of [TryCatch](https://metacpan.org/pod/TryCatch) module.
 
 The `Exception::Base` does not depend on other modules like
-[Exception::Class](http://search.cpan.org/perldoc?Exception::Class) and it is more powerful than [Class::Throwable](http://search.cpan.org/perldoc?Class::Throwable).  Also it
-does not use closures as [Error](http://search.cpan.org/perldoc?Error) and does not pollute namespace as
-[Exception::Class::TryCatch](http://search.cpan.org/perldoc?Exception::Class::TryCatch).  It is also much faster than
-[Exception::Class::TryCatch](http://search.cpan.org/perldoc?Exception::Class::TryCatch) and [Error](http://search.cpan.org/perldoc?Error) for success scenario.
+[Exception::Class](https://metacpan.org/pod/Exception::Class) and it is more powerful than [Class::Throwable](https://metacpan.org/pod/Class::Throwable).  Also it
+does not use closures as [Error](https://metacpan.org/pod/Error) and does not pollute namespace as
+[Exception::Class::TryCatch](https://metacpan.org/pod/Exception::Class::TryCatch).  It is also much faster than
+[Exception::Class::TryCatch](https://metacpan.org/pod/Exception::Class::TryCatch) and [Error](https://metacpan.org/pod/Error) for success scenario.
 
 The `Exception::Base` is compatible with syntax sugar modules like
-[TryCatch](http://search.cpan.org/perldoc?TryCatch) and [Try::Tiny](http://search.cpan.org/perldoc?Try::Tiny).
+[TryCatch](https://metacpan.org/pod/TryCatch) and [Try::Tiny](https://metacpan.org/pod/Try::Tiny).
 
 The `Exception::Base` is also a base class for enhanced classes:
 
-- [Exception::System](http://search.cpan.org/perldoc?Exception::System)
+- [Exception::System](https://metacpan.org/pod/Exception::System)
 
     The exception class for system or library calls which modifies `$!` variable.
 
-- [Exception::Died](http://search.cpan.org/perldoc?Exception::Died)
+- [Exception::Died](https://metacpan.org/pod/Exception::Died)
 
-    The exception class for eval blocks with simple ["die" in perlfunc](http://search.cpan.org/perldoc?perlfunc#die).  It can also
-    handle [$SIG{\_\_DIE\_\_}](http://search.cpan.org/perldoc?perlvar#%SIG) hook and convert simple ["die" in perlfunc](http://search.cpan.org/perldoc?perlfunc#die)
+    The exception class for eval blocks with simple ["die" in perlfunc](https://metacpan.org/pod/perlfunc#die).  It can also
+    handle [$SIG{\_\_DIE\_\_}](https://metacpan.org/pod/perlvar#SIG) hook and convert simple ["die" in perlfunc](https://metacpan.org/pod/perlfunc#die)
     into an exception object.
 
-- [Exception::Warning](http://search.cpan.org/perldoc?Exception::Warning)
+- [Exception::Warning](https://metacpan.org/pod/Exception::Warning)
 
-    The exception class which handle [$SIG{\_\_WARN\_\_}](http://search.cpan.org/perldoc?pervar#%SIG) hook and
-    convert simple ["warn" in perlfunc](http://search.cpan.org/perldoc?perlfunc#warn) into an exception object.
+    The exception class which handle [$SIG{\_\_WARN\_\_}](https://metacpan.org/pod/pervar#SIG) hook and
+    convert simple ["warn" in perlfunc](https://metacpan.org/pod/perlfunc#warn) into an exception object.
 
 # EXAMPLES
 
 ## New exception classes
 
 The `Exception::Base` module allows to create new exception classes easily.
-You can use ["import" in perlfunc](http://search.cpan.org/perldoc?perlfunc#import) interface or [base](http://search.cpan.org/perldoc?base) module to do it.
+You can use ["import" in perlfunc](https://metacpan.org/pod/perlfunc#import) interface or [base](https://metacpan.org/pod/base) module to do it.
 
-The ["import" in perlfunc](http://search.cpan.org/perldoc?perlfunc#import) interface allows to create new class with new
+The ["import" in perlfunc](https://metacpan.org/pod/perlfunc#import) interface allows to create new class with new
 read-write attributes.
 
     package Exception::Simple;
@@ -971,15 +929,15 @@ For more complex exceptions you can redefine `ATTRS` constant.
 
 # PERFORMANCE
 
-There are two scenarios for ["eval" in perlfunc](http://search.cpan.org/perldoc?perlfunc#eval) block: success or failure.
+There are two scenarios for ["eval" in perlfunc](https://metacpan.org/pod/perlfunc#eval) block: success or failure.
 Success scenario should have no penalty on speed.  Failure scenario is usually
 more complex to handle and can be significantly slower.
 
 Any other code than simple `if ($@)` is really slow and shouldn't be used if
 speed is important.  It means that any module which provides try/catch syntax
-sugar should be avoided: [Error](http://search.cpan.org/perldoc?Error), [Exception::Class::TryCatch](http://search.cpan.org/perldoc?Exception::Class::TryCatch), [TryCatch](http://search.cpan.org/perldoc?TryCatch),
-[Try::Tiny](http://search.cpan.org/perldoc?Try::Tiny).  Be careful because simple `if ($@)` has many gotchas which are
-described in [Try::Tiny](http://search.cpan.org/perldoc?Try::Tiny)'s documentation.
+sugar should be avoided: [Error](https://metacpan.org/pod/Error), [Exception::Class::TryCatch](https://metacpan.org/pod/Exception::Class::TryCatch), [TryCatch](https://metacpan.org/pod/TryCatch),
+[Try::Tiny](https://metacpan.org/pod/Try::Tiny).  Be careful because simple `if ($@)` has many gotchas which are
+described in [Try::Tiny](https://metacpan.org/pod/Try::Tiny)'s documentation.
 
 The `Exception::Base` module was benchmarked with other implementations for
 simple try/catch scenario.  The results
@@ -1032,7 +990,7 @@ Piotr Roszatycki <dexter@cpan.org>
 
 # LICENSE
 
-Copyright (c) 2007-2010, 2012-2013 Piotr Roszatycki <dexter@cpan.org>.
+Copyright (c) 2007-2015 Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

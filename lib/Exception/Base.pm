@@ -154,7 +154,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.25';
+our $VERSION = '0.2501';
 
 ## no critic qw(ProhibitConstantPragma RequireArgUnpacking RequireCarping RequireCheckingReturnValueOfEval RequireInitializationForLocalVars)
 
@@ -2358,7 +2358,7 @@ Piotr Roszatycki <dexter@cpan.org>
 
 =head1 LICENSE
 
-Copyright (c) 2007-2010, 2012-2013 Piotr Roszatycki <dexter@cpan.org>.
+Copyright (c) 2007-2015 Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

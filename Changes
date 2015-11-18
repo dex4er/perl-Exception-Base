@@ -1,16 +1,17 @@
-------------------------------------------------------------------------
+0.2501  2015-11-18      Piotr Roszatycki <dexter@cpan.org>
+
+* Fixes "Redundant argument in sprintf" warning on Perl 5.21.2.
+
 0.25    2013-05-25      Piotr Roszatycki <dexter@cpan.org>
 
 * Builds on Perl 5.18.0 with smartmatch operator as an experimental feature.
 
-------------------------------------------------------------------------
 0.2401  2010-09-30      Piotr Roszatycki <dexter@cpan.org>
 
 Fixes:
 
 * Builds on Perl 5.13.4 with (?^...) regex construct.
 
-------------------------------------------------------------------------
 0.24    2009-12-13      Piotr Roszatycki <dexter@cpan.org>
 
 New:
@@ -20,7 +21,6 @@ New:
   Exception::Died class and it won't change the default verbosity for
   Exception::Base. 
 
-------------------------------------------------------------------------
 0.23    2009-10-20      Piotr Roszatycki <dexter@cpan.org>
 
 New:
@@ -28,7 +28,6 @@ New:
 * Method "catch" has optional argument.  It recovers an exception from this
   argument or from "$@" variable by default.
 
-------------------------------------------------------------------------
 0.2202  2009-08-13      Piotr Roszatycki <dexter@cpan.org>
 
 Fixes:
@@ -36,7 +35,6 @@ Fixes:
 * The smart matching operator "~~" requires second argument to be a scalar for
   Perl >= 5.10.1.
 
-------------------------------------------------------------------------
 0.2201  2009-04-02      Piotr Roszatycki <dexter@debian.org>
 
 Fixes:
@@ -47,7 +45,6 @@ Changes:
 
 * POD is mixed with rest of code.
 
-------------------------------------------------------------------------
 0.22    2009-03-24      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -60,7 +57,6 @@ Changes:
 
 * Build requires Test::Unit::Lite 0.21.
 
-------------------------------------------------------------------------
 0.21    2008-12-08      Piotr Roszatycki <dexter@debian.org>
 
 Fixes:
@@ -74,7 +70,6 @@ Changes:
 
 * Method "import" was refactored.
 
-------------------------------------------------------------------------
 0.20    2008-12-05      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -104,7 +99,6 @@ Changes:
 
 * catch method takes no arguments.
 
-------------------------------------------------------------------------
 0.1901  2008-10-13      Piotr Roszatycki <dexter@debian.org>
 
 Fixes:
@@ -119,7 +113,6 @@ Changes:
 
 * Updated bundled Test::Unit::Lite to 0.1002.
 
-------------------------------------------------------------------------
 0.19    2008-10-08      Piotr Roszatycki <dexter@debian.org>
 
 Fixes:
@@ -132,7 +125,6 @@ Changes:
 
 * Updated bundled Test::Unit::Lite to 0.1001.
 
-------------------------------------------------------------------------
 0.18    2008-10-08      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -192,19 +184,16 @@ Changes:
 
 * Updated bundled Test::Unit::Lite to 0.10.
 
-------------------------------------------------------------------------
 0.1702  2008-05-28      Piotr Roszatycki <dexter@debian.org>
 
 Fixed:
 
 * Fix some "undefined value" warning.
 
-------------------------------------------------------------------------
 0.1701  2008-05-12      Piotr Roszatycki <dexter@debian.org>
 
 * Corrected documentation.
 
-------------------------------------------------------------------------
 0.17    2008-05-11      Piotr Roszatycki <dexter@debian.org>
 
 Incompatibilities:
@@ -223,7 +212,6 @@ Changes:
 * Show full propagated stack for verbosity = 4.
 * The "with" method matches the default_attribute if one argument is given.
 
-------------------------------------------------------------------------
 0.16    2008-05-07      Piotr Roszatycki <dexter@debian.org>
 
 Incompatibilites:
@@ -259,7 +247,6 @@ Fixes:
 
 * Support for threads module.
 
-------------------------------------------------------------------------
 0.15    2008-04-19      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -271,7 +258,6 @@ Changes:
 
 * Drop indirect notation is POD and code.
 
-------------------------------------------------------------------------
 0.14    2008-04-13      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -287,7 +273,6 @@ Changes:
 
 * Updated bundled Test::Unit::Lite to 0.0903.
 
-------------------------------------------------------------------------
 0.13    2007-11-19      Piotr Roszatycki <dexter@debian.org>
 
 Changes:
@@ -295,7 +280,6 @@ Changes:
 * If the error stack is empty, the catch method returns undefined value.
 * Updated bundled Test::Unit::Lite to 0.0701.
 
-------------------------------------------------------------------------
 0.12    2007-10-29      Piotr Roszatycki <dexter@debian.org>
 
 Fixes:
@@ -312,7 +296,6 @@ Changes:
 * Minor refactoring.
 * Updated bundled Test::Unit::Lite to 0.07.
 
-------------------------------------------------------------------------
 0.11    2007-10-13      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -325,7 +308,6 @@ Changes:
 * Updated bundled Test::Unit::Lite to 0.0601.
 * Compatibility with Kurila 1.4.
 
-------------------------------------------------------------------------
 0.10    2007-10-09      Piotr Roszatycki <dexter@debian.org>
 
 Changes:
@@ -337,7 +319,6 @@ Changes:
   the derived class overwrites throw() method.
 * Do not test POD errors unless $ENV{PERL_TEST_POD} is true.
 
-------------------------------------------------------------------------
 0.09    2007-10-08      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -355,7 +336,6 @@ Changes:
   exception with changed own class.
 * Use default message if argument or field is an empty string.
 
-------------------------------------------------------------------------
 0.08    2007-10-06      Piotr Roszatycki <dexter@debian.org>
 
 New:
@@ -373,7 +353,6 @@ Minor changes:
 * Does not use Scalar::Util::blessed() and Carp::croak().
 * Updated benchmark results in documentation.
 
-------------------------------------------------------------------------
 0.07    2007-05-18      Piotr Roszatycki <dexter@debian.org>
 
 Fixed error:
@@ -381,18 +360,15 @@ Fixed error:
 * Load base class of newly created exception before checking its default
   properties.
 
-------------------------------------------------------------------------
 0.06    2007-05-18      Piotr Roszatycki <dexter@debian.org>
 
 * Can define default value for rw properties with "use".
 * Does not undefine other typeglobs than CODE with "unimport".
 
-------------------------------------------------------------------------
 0.05    2007-05-11      Piotr Roszatycki <dexter@debian.org>
 
 * Added bundled Test/Unit/Lite.pm to MANIFEST.
 
-------------------------------------------------------------------------
 0.04    2007-05-11      Piotr Roszatycki <dexter@debian.org>
 
 * use 5.006
@@ -401,7 +377,6 @@ Fixed error:
 * Fixed unit tests so they work with Test::Unit and with Test::Unit::Lite.
 * META.yml is generated with Makefile.PL.
 
-------------------------------------------------------------------------
 0.03    2007-04-23      Piotr Roszatycki <dexter@debian.org>
 
 * Added ignore_package (rw) field, contains package names which are ignored
@@ -411,15 +386,12 @@ Fixed error:
 * The default version for created exception classes is now 0.01
 * META.yml created by hand.
 
-------------------------------------------------------------------------
 0.02    2007-04-22      Piotr Roszatycki <dexter@debian.org>
 
 * First CPAN release.
 * Module renamed to Exception::Base.
 
-------------------------------------------------------------------------
 0.01    2007-04-20      Piotr Roszatycki <dexter@debian.org>
 
 * Development release.
 
-------------------------------------------------------------------------

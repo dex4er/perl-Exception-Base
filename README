@@ -1,7 +1,9 @@
 NAME
+
     Exception::Base - Lightweight exceptions
 
 SYNOPSIS
+
       # Use module and create needed exceptions
       use Exception::Base
          'Exception::Runtime',              # create new module
@@ -14,7 +16,7 @@ SYNOPSIS
              has => [ 'filename' ],         # define new rw attribute
              string_attributes => [ 'message', 'filename' ],
          };                                 # output message and filename
-
+    
       # eval is used as "try" block
       eval {
         open my $file, '/etc/passwd'
@@ -44,7 +46,7 @@ SYNOPSIS
         elsif ($e->matches(qr/^Error/)) { warn "some error based on regex"; }
         else { $e->throw; } # rethrow the exception
       }
-
+    
       # $@ has to be recovered ASAP!
       eval { die "this die will be caught" };
       my $e = Exception::Base->catch;
@@ -52,69 +54,72 @@ SYNOPSIS
       if ($e) {
          (...)
       }
-
+    
       # the exception can be thrown later
       my $e = Exception::Base->new;
       # (...)
       $e->throw;
-
+    
       # ignore our package in stack trace
       package My::Package;
       use Exception::Base '+ignore_package' => __PACKAGE__;
-
+    
       # define new exception in separate module
       package Exception::My;
       use Exception::Base (__PACKAGE__) => {
           has => ['myattr'],
       };
-
+    
       # run Perl with changed verbosity for debugging purposes
       $ perl -MException::Base=verbosity,4 script.pl
 
 DESCRIPTION
+
     This class implements a fully OO exception mechanism similar to
     Exception::Class or Class::Throwable. It provides a simple interface
     allowing programmers to declare exception classes. These classes can be
     thrown and caught. Each uncaught exception prints full stack trace if
     the default verbosity is increased for debugging purposes.
 
-    The features of `Exception::Base':
+    The features of Exception::Base:
 
-    * fast implementation of the exception class
+      * fast implementation of the exception class
 
-    * fully OO without closures and source code filtering
+      * fully OO without closures and source code filtering
 
-    * does not mess with `$SIG{__DIE__}' and `$SIG{__WARN__}'
+      * does not mess with $SIG{__DIE__} and $SIG{__WARN__}
 
-    * no external run-time modules dependencies, requires core Perl modules
-      only
+      * no external run-time modules dependencies, requires core Perl
+      modules only
 
-    * the default behavior of exception class can be changed globally or
+      * the default behavior of exception class can be changed globally or
       just for the thrown exception
 
-    * matching the exception by class, message or other attributes
+      * matching the exception by class, message or other attributes
 
-    * matching with string, regex or closure function
+      * matching with string, regex or closure function
 
-    * creating automatically the derived exception classes (perlfunc
-      interface)
+      * creating automatically the derived exception classes ("use" in
+      perlfunc interface)
 
-    * easily expendable, see Exception::System class for example
+      * easily expendable, see Exception::System class for example
 
-    * prints just an error message or dumps full stack trace
+      * prints just an error message or dumps full stack trace
 
-    * can propagate (rethrow) an exception
+      * can propagate (rethrow) an exception
 
-    * can ignore some packages for stack trace output
+      * can ignore some packages for stack trace output
 
-    * some defaults (i.e. verbosity) can be different for different
+      * some defaults (i.e. verbosity) can be different for different
       exceptions
 
 AUTHOR
+
     Piotr Roszatycki <dexter@cpan.org>
 
 LICENSE
-    Copyright (c) 2007-2010, 2012-2013 Piotr Roszatycki <dexter@cpan.org>.
+
+    Copyright (c) 2007-2015 Piotr Roszatycki <dexter@cpan.org>.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
