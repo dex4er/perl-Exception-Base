@@ -1,4 +1,4 @@
-0.2501  2015-11-18      Piotr Roszatycki <dexter@cpan.org>
+0.2501  2015-11-19      Piotr Roszatycki <dexter@cpan.org>
 
 * Fixes "Redundant argument in sprintf" warning on Perl 5.21.2.
 
