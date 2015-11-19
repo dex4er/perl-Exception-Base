@@ -2116,54 +2116,56 @@ BEGIN {
 1;
 
 
-=begin umlwiki
+=begin plantuml
 
-= Class Diagram =
+class Exception::Base <<exception>> {
+  +ignore_class : ArrayRef = []
+  +ignore_level : Int = 0
+  +ignore_package : ArrayRef = []
+  +max_arg_len : Int = 64
+  +max_arg_nums : Int = 8
+  +max_eval_len : Int = 0
+  +message : Str|ArrayRef[Str] = "Unknown exception"
+  +value : Int = 0
+  +verbosity : Int = 2
+  ..
+  +caller_stack : ArrayRef
+  +egid : Int
+  +euid : Int
+  +gid : Int
+  +pid : Int
+  +propagated_stack : ArrayRef
+  +tid : Int
+  +time : Int
+  +uid : Int
+  ..
+  #defaults : HashRef
+  #default_attribute : Str = "message"
+  #numeric_attribute : Str = "value"
+  #eval_attribute : Str = "message"
+  #string_attributes : ArrayRef[Str] = ["message"]
+  ==
+  +new( args : Hash ) <<create>>
+  +throw( args : Hash = undef ) <<create>>
+  +throw( message : Str, args : Hash = undef ) <<create>>
+  ..
+  +catch() : Exception::Base
+  +catch( variable : Any ) : Exception::Base
+  +matches( that : Any ) : Bool {overload="~~"}
+  +to_string() : Str {overload='""'}
+  +to_number() : Num {overload="0+"}
+  +to_bool() : Bool {overload="bool"}
+  +get_caller_stacktrace() : Array[Str]|Str
+  +PROPAGATE()
+  ..
+  +ATTRS() : HashRef <<constant>>
+  ..
+  #_collect_system_data()
+  #_make_accessors() <<static>>
+  #_make_caller_info_accessors() <<static>>
+}
 
-[                           <<exception>>
-                           Exception::Base
- -----------------------------------------------------------------------------
- +ignore_class : ArrayRef                                                {new}
- +ignore_level : Int = 0                                                 {new}
- +ignore_package : ArrayRef                                              {new}
- +max_arg_len : Int = 64                                                 {new}
- +max_arg_nums : Int = 8                                                 {new}
- +max_eval_len : Int = 0                                                 {new}
- +message : Str|ArrayRef[Str] = "Unknown exception"                      {new}
- +value : Int = 0                                                        {new}
- +verbosity : Int = 2                                                    {new}
- +caller_stack : ArrayRef
- +egid : Int
- +euid : Int
- +gid : Int
- +pid : Int
- +propagated_stack : ArrayRef
- +tid : Int
- +time : Int
- +uid : Int
- #defaults : HashRef
- #default_attribute : Str = "message"
- #numeric_attribute : Str = "value"
- #eval_attribute : Str = "message"
- #string_attributes : ArrayRef[Str] = ["message"]
- -----------------------------------------------------------------------------
- <<create>> +new( args : Hash )
- <<create>> +throw( args : Hash = undef )
- <<create>> +throw( message : Str, args : Hash = undef )
- +catch() : Exception::Base
- +catch( variable : Any ) : Exception::Base
- +matches( that : Any ) : Bool                                 {overload="~~"}
- +to_string() : Str                                            {overload='""'}
- +to_number() : Num                                            {overload="0+"}
- +to_bool() : Bool                                           {overload="bool"}
- +get_caller_stacktrace() : Array[Str]|Str
- +PROPAGATE()
- #_collect_system_data()
- #_make_accessors()                                                     {init}
- #_make_caller_info_accessors()                                         {init}
- <<constant>> +ATTRS() : HashRef                                              ]
-
-=end umlwiki
+=end plantuml
 
 =head1 SEE ALSO
 
