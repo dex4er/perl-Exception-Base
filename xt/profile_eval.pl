@@ -1,4 +1,4 @@
-#!/usr/bin/perl -d:DProf
+#!/usr/bin/perl -d:NYTProf
 
 use lib 'lib', '../lib';
 use Exception::Base;
@@ -11,4 +11,4 @@ foreach (1..10000) {
     }
 }
 
-print "tmon.out data collected. Call dprofpp\n";
+print "nytprof.out data collected. Call nytprofhtml --open\n";

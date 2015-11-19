@@ -21,4 +21,6 @@ Makefile.PL
 _build
 blib
 cover_db
+nytprof
+nytprof.out
 tmon.out

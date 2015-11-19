@@ -33,7 +33,7 @@ my %tests = (
     '10_TryTiny'          => { desc => 'Try::Tiny' },
 );
 
-foreach my $scenario qw{ ok fail } {
+foreach my $scenario (qw{ ok fail }) {
     open my $fh, '-|', "$^X xt/benchmark_$scenario.pl " . ($ARGV[0] || -1) or die;
     while ($_ = <$fh>) {
         print;

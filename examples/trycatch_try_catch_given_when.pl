@@ -7,6 +7,8 @@ use lib 'lib', '../lib';
 use strict;
 use warnings;
 
+use experimental 'switch';
+
 use Exception::Base
     'Exception::My';
 
