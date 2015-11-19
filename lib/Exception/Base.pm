@@ -156,7 +156,6 @@ use warnings;
 
 our $VERSION = '0.2501';
 
-## no critic qw(ProhibitConstantPragma RequireArgUnpacking RequireCarping RequireCheckingReturnValueOfEval RequireInitializationForLocalVars)
 
 # Safe operations on symbol stash
 BEGIN {
@@ -1117,7 +1116,6 @@ sub catch {
     }
     else {
         # Recover exception from $@ and clear it
-        ## no critic qw(RequireLocalizedPunctuationVars)
         $e = $@;
         $@ = '';
     };
@@ -1227,7 +1225,7 @@ Matches against the default attribute, usually the C<message> attribute.
 =cut
 
 # Smart matching.
-sub matches {   ## no critic qw(ProhibitExcessComplexity)
+sub matches {
     my ($self, $that) = @_;
 
     my @args;
@@ -1320,7 +1318,6 @@ sub matches {   ## no critic qw(ProhibitExcessComplexity)
             $key = $default_attribute;
         };
 
-        ## no critic qw(ProhibitCascadingIfElse)
         if ($key eq '-isa') {
             if (ref $val eq 'ARRAY') {
                 my $arrret = 0;
@@ -1664,7 +1661,6 @@ sub _collect_system_data {
         my @caller_stack;
         my $level = 1;
 
-        ## no critic qw(ProhibitMultiplePackages ProhibitPackageVars)
         while (my @c = do { package DB; caller($level++) }) {
             # Skip own package
             next if ! defined $Isa_Package{$c[0]} ? $Isa_Package{$c[0]} = do { local $@; local $SIG{__DIE__}; eval { $c[0]->isa(__PACKAGE__) } } : $Isa_Package{$c[0]};
@@ -1799,7 +1795,6 @@ sub _format_arg {
 
     $arg = "\"$arg\"" unless $arg =~ /^-?[\d.]+\z/;
 
-    ## no critic qw(ProhibitNoWarnings)
     no warnings 'once', 'utf8';   # can't disable critic for utf8...
     if (not defined *utf8::is_utf{CODE} or utf8::is_utf8($arg)) {
         $arg = join('', map { $_ > 255
@@ -1822,7 +1817,6 @@ sub _str_len_trim {
     my (undef, $str, $max) = @_;
     $max = 0 unless defined $max;
     if ($max > 2 and $max < length($str)) {
-        ## no critic qw(ProhibitLvalueSubstr)
         substr($str, $max - 3) = '...';
     };
 
@@ -2101,7 +2095,6 @@ sub _make_exception {
     };
 
     # Create the new package
-    ## no critic qw(ProhibitCommaSeparatedStatements)
     *{_qualify_to_ref("${package}::VERSION")} = \$version;
     *{_qualify_to_ref("${package}::ISA")} = [ $isa ];
     *{_qualify_to_ref("${package}::ATTRS")} = sub () {
@@ -2114,7 +2107,6 @@ sub _make_exception {
 
 
 # Module initialization
-## no critic qw(ProtectPrivateSubs)
 BEGIN {
     __PACKAGE__->_make_accessors;
     __PACKAGE__->_make_caller_info_accessors;
