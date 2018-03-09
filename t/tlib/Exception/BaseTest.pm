@@ -197,6 +197,15 @@ sub test_throw {
     $self->assert_equals('Throw', $obj10->{myattr});
     $self->assert_null($obj10->{message});
     $self->assert_equals('Exception::BaseTest', $obj1->{caller_stack}->[0]->[0]);
+
+    # Exception of other class
+    my $other_class = 'My::Other::Exception';
+    eval {
+        Exception::Base->throw(bless {}, $other_class);
+    };
+    my $e = Exception::Base->catch;
+    $self->assert($e->isa('Exception::Base'));
+    $self->assert($e->message->isa($other_class));
 }
 
 sub test_to_string {

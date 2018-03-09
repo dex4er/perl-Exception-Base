@@ -1030,7 +1030,7 @@ sub throw {
 
     if (not ref $self) {
         # CLASS->throw
-        if (not ref $_[0]) {
+        if (not ref $_[0] or not ref($_[0])->isa('Exception::Base')) {
             # Throw new exception
             if (scalar @_ % 2 == 0) {
                 # Throw normal error
