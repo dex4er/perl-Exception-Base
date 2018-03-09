@@ -1030,7 +1030,7 @@ sub throw {
 
     if (not ref $self) {
         # CLASS->throw
-        if (not ref $_[0]) {
+        if (not ref $_[0] or not ref($_[0])->isa('Exception::Base')) {
             # Throw new exception
             if (scalar @_ % 2 == 0) {
                 # Throw normal error
@@ -2352,7 +2352,7 @@ Piotr Roszatycki <dexter@cpan.org>
 
 =head1 LICENSE
 
-Copyright (c) 2007-2015 Piotr Roszatycki <dexter@cpan.org>.
+Copyright (c) 2007-2018 Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
