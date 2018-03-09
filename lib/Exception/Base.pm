@@ -2352,7 +2352,7 @@ Piotr Roszatycki <dexter@cpan.org>
 
 =head1 LICENSE
 
-Copyright (c) 2007-2015 Piotr Roszatycki <dexter@cpan.org>.
+Copyright (c) 2007-2018 Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
